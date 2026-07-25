@@ -168,9 +168,51 @@ como está escrito.
 
 ---
 
+## Estado de aplicación — 2026-07-25
+
+Las 6 correcciones bloqueantes fueron aplicadas a `spec.md`, junto con las no bloqueantes que no
+requerían una decisión de producto.
+
+### Bloqueantes: cerrados
+
+| Ítem | Cómo se resolvió |
+|------|------------------|
+| CHK034/035/036 | NFR-003 reescrito con **L1** (proxy automatizable desde el inicio de captura) y **L2** (métrica constitucional desde el último frame anotado a ciegas sobre grabación de un **dispositivo externo**, para no relajar NFR-017(c)). SC-002 actualizado. |
+| CHK032/033 | NFR-001 desdoblado en **NFR-001a** (clasificador: LSA64 cut, sujeto 10 held-out, seed y dependencias registradas) y **NFR-001b** (sistema desplegado extremo a extremo). Prohibido reportar uno sin el otro. SC-001 actualizado. |
+| CHK040/041 | NFR-004 define **E1/E2/E3** por lux, distancia, resolución, fps y tipo de fondo; E3 exige exterior **y** movimiento. Sesiones fuera de rango se descartan y repiten. SC-003 actualizado. |
+| CHK044–047 | NFR-014 desdoblado en **Nivel 1** (transformación, bloqueante de CI, fixture versionado sobre las 64 clases, tolerancia 1e-6, dos productores nombrados) y **Nivel 2** (extremo a extremo, informativo, cota medida empíricamente). Nuevo SC-017. |
+| CHK031 | Nuevo **NFR-019**: compensación obligatoria del umbral por número de evaluaciones, con margen de 2 puntos porcentuales. Nuevo SC-016. Salió de *Assumptions*. |
+| CHK004 | FR-031 reescrito con verificación propia en el nuevo **SC-014**, y distinción explícita entre arrancar sin red (fuera de alcance) y sobrevivir a su caída (en alcance). |
+
+### No bloqueantes: aplicados
+
+CHK002 (nueva **US8** + **FR-032**, señal audible para el interlocutor, que opera sin ver la
+pantalla) · CHK006 (el sistema deja de figurar como actor) · CHK010, CHK011, CHK012, CHK013,
+CHK014, CHK015, CHK017, CHK018, CHK019, CHK021, CHK022, CHK023, CHK024 (términos no medibles
+cuantificados o eliminados) · CHK025, CHK026 (coherencia entre regla de parada y umbral) · CHK027
+(FR-002 / NFR-006 / NFR-007 separados) · CHK028 · CHK038 · CHK049, CHK050, CHK059, CHK060, CHK061,
+CHK062, CHK065 (casos borde) · CHK051, CHK052, CHK053 (protocolo de accesibilidad en NFR-009) ·
+CHK056 (verificación de NFR-007) · CHK058 (contenido del consentimiento) · CHK068 (riesgos con
+dueño y momento).
+
+### Pendientes: requieren una decisión tuya, no una reescritura
+
+| Ítem | Decisión pendiente |
+|------|--------------------|
+| CHK008 | ¿Quién configura las preferencias, la persona señante o el interlocutor que sostiene el dispositivo? |
+| CHK009 | ¿Hace falta un modo restringido para entregar el teléfono desbloqueado a un desconocido? |
+| CHK029 | ¿Se conserva "en tiempo real" en el título, siendo que la interacción es por turnos? |
+| CHK037 | Valores numéricos de estricto / normal / permisivo — diferido a plan por NFR-019, ya con requisito que lo obliga. |
+
 ## Veredicto
 
-**La spec NO está lista para `/speckit-plan`.**
+> **Actualización 2026-07-25**: el veredicto que sigue corresponde a la revisión original. Tras
+> aplicar las correcciones (ver sección anterior), **la spec está lista para `/speckit-plan`**, con
+> 4 decisiones de producto pendientes que no bloquean la planificación.
+
+### Veredicto original (antes de las correcciones)
+
+**La spec NO estaba lista para `/speckit-plan`.**
 
 No por falta de cobertura —es amplia y las tres sesiones previas resolvieron bien las decisiones de
 producto— sino porque **cuatro de las puertas de calidad que la propia spec define no se pueden
