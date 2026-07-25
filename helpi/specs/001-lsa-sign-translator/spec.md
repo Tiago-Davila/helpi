@@ -34,6 +34,49 @@
   10 señas, sorteada con semilla registrada y congelada antes de medir, reutilizada en los tres
   entornos y en toda medición futura.
 
+## Decisiones de diseño registradas
+
+### DD-001 — Quién inicia la captura: se agrega un modo autónomo y pasa a ser el predeterminado
+
+**Revisa**: las decisiones Q1 y Q2 de la sesión de clarify del 2026-07-25.
+
+**Problema detectado**: tal como quedaron Q1 y Q2, el sistema exigía que el interlocutor oyente
+sostuviera el dispositivo y accionara el control de inicio. Eso significa que **la persona sorda no
+podía iniciar una comunicación sin la cooperación previa de un desconocido**: tenía que lograr que
+aceptara tomar su teléfono, entendiera qué hacer y apretara un botón — todo antes de poder decir la
+primera palabra. Para una herramienta de accesibilidad eso invierte la relación que se busca
+reparar: la persona que necesita comunicarse queda dependiendo de la buena voluntad y la
+comprensión de la otra parte justo en el momento en que aún no puede explicarse.
+
+**Alternativas evaluadas**:
+
+| Alternativa | Evaluación |
+|-------------|------------|
+| La persona señante inicia la captura ella misma | Viable. Requiere resolver que el movimiento de acercarse al dispositivo y volver a posición no contamine la secuencia clasificada. Se resuelve con cuenta regresiva (FR-033). |
+| Dispositivo apoyado (mesa, baranda, soporte, mochila) en lugar de sostenido | Viable y es la disposición natural del modo autónomo. Pierde la estabilidad de encuadre que da una persona apuntando, pero gana independencia total. |
+| Inicio por gesto detectado | Descartado: es detección automática de inicio de seña, explícitamente fuera de alcance (deuda del Principio XII). |
+| Temporizador de repetición automática | Descartado para el MVP: multiplica capturas vacías y agrava el riesgo de parada opcional de NFR-019. |
+| Mantener solo el modo asistido | **Descartado.** Deja al usuario primario sin forma de iniciar la comunicación por sí mismo. |
+
+**Decisión**: se definen **dos modos de captura**. El **modo autónomo** —dispositivo apoyado, inicio
+por la persona señante, cuenta regresiva— es el **predeterminado**. El **modo asistido** —dispositivo
+sostenido por el interlocutor, que inicia la captura— queda disponible como alternativa para cuando
+la otra parte ya está cooperando, situación en la que es más rápido y da mejor encuadre.
+
+**Justificación**: ninguna funcionalidad de accesibilidad puede depender de que un tercero acepte
+colaborar antes de que la persona pueda comunicarse. El modo asistido no se elimina porque, una vez
+establecida la cooperación, es genuinamente mejor: el encuadre lo controla alguien que ve el
+resultado, y desaparece la cuenta regresiva.
+
+**Costo asumido**: dos modos que mantener, probar y explicar en la interfaz. En modo autónomo el
+encuadre es peor —nadie corrige el ángulo— y la cuenta regresiva agrega tiempo antes de cada seña.
+Además, con el dispositivo apoyado mirando a la persona señante, **la voz (US2) pasa a ser el único
+canal que alcanza al interlocutor sin manipular el aparato**: US1 sola entrega bastante menos valor
+en este modo que en el asistido.
+
+**Si el interlocutor se niega a sostener el dispositivo**: el sistema funciona igual, en modo
+autónomo. Esa era exactamente la situación que dejaba al usuario primario sin salida.
+
 ## User Scenarios & Testing *(mandatory)*
 
 **Actores** (personas con interés en el sistema; el sistema mismo no es un actor sino el sujeto bajo
@@ -47,26 +90,36 @@ prueba):
 **Sistema bajo prueba**: captura video, extrae keypoints, clasifica la seña y decide si la confianza
 alcanza —todo dentro del dispositivo— y presenta el resultado por texto y voz.
 
-**Contexto de uso**: un único dispositivo compartido, sostenido por el interlocutor oyente. Casa,
-calle, transporte público. Cargar la aplicación requiere conexión; reconocer, no.
+**Contexto de uso**: un único dispositivo compartido. Casa, calle, transporte público. Cargar la
+aplicación requiere conexión; reconocer, no.
 
-**Disposición física**: el interlocutor sostiene el dispositivo y apunta la cámara frontal hacia la
-persona señante. Durante la captura, la pantalla mira hacia la persona señante: se ve a sí misma y
-recibe ahí el feedback de encuadre y de estado de captura, a distancia de conversación. Terminada la
-seña, el interlocutor gira el dispositivo hacia sí para leer la traducción, o la escucha por voz sin
-girarlo. Las manos de la persona señante quedan libres en todo momento.
+**Disposición física — dos modos** (ver DD-001). En ambos, la cámara frontal apunta a la persona
+señante, que se ve a sí misma en la pantalla y recibe ahí el feedback de encuadre y de estado de
+captura. En ambos, sus manos quedan libres.
 
-**Modelo de interacción**: el inicio de la captura es una acción explícita del interlocutor. El fin
-lo determina el sistema: sigue grabando hasta que un intento de reconocimiento supera el umbral o
-se alcanza la duración máxima, con un máximo de 3 intentos por captura antes de darse por vencido.
+- **Modo autónomo (predeterminado)**: el dispositivo queda apoyado en una superficie o soporte
+  (mesa, baranda, mochila). La persona señante inicia la captura ella misma y una cuenta regresiva
+  le da tiempo de volver a posición. No requiere cooperación de nadie. El resultado llega al
+  interlocutor por voz, o girando el dispositivo después.
+- **Modo asistido**: el interlocutor sostiene el dispositivo, encuadra e inicia la captura.
+  Terminada la seña, lo gira hacia sí para leer, o escucha la voz sin girarlo. Más rápido y con
+  mejor encuadre, pero exige que la otra parte ya esté cooperando.
+
+**Modelo de interacción**: el inicio de la captura es una acción humana explícita —de la persona
+señante en modo autónomo, del interlocutor en modo asistido. El fin lo determina el sistema: sigue
+grabando hasta que un intento de reconocimiento supera el umbral o se alcanza la duración máxima,
+con un máximo de 3 intentos por captura antes de darse por vencido.
 
 ### User Story 1 - Traducir una seña a texto con confianza explícita (Priority: P1)
 
-El interlocutor apunta la cámara a la persona señante y aprieta "capturar". Ella realiza una seña
-del vocabulario LSA64. El sistema graba hasta reconocerla y muestra en pantalla la palabra
-correspondiente junto con qué tan seguro está. Si tras sus 3 intentos no está lo bastante
-seguro, dice que no entendió en lugar de mostrar una adivinanza. El interlocutor lee la palabra o la
-escucha, y la conversación continúa.
+La persona señante apoya el dispositivo, aprieta "capturar" y una cuenta regresiva le da tiempo de
+volver a posición. Realiza una seña del vocabulario LSA64. El sistema graba hasta reconocerla y
+muestra en pantalla la palabra correspondiente junto con qué tan seguro está. Si tras sus 3 intentos
+no está lo bastante seguro, dice que no entendió en lugar de mostrar una adivinanza. El interlocutor
+escucha la palabra, o la lee cuando le acercan el dispositivo, y la conversación continúa.
+
+En modo asistido (US8) el ciclo es el mismo salvo que quien apoya, encuadra e inicia es el
+interlocutor, y no hay cuenta regresiva.
 
 **Why this priority**: es el núcleo del producto. Sin esto no hay traductor. La confianza explícita
 va incluida en esta historia y no en una posterior porque presentar una traducción errada como
@@ -81,10 +134,14 @@ sueltas.
 
 **Acceptance Scenarios**:
 
-1. **Given** la cámara apuntando a la persona correctamente encuadrada, **When** el interlocutor
-   inicia la captura y ella realiza una seña del vocabulario que el sistema reconoce por encima del
-   umbral, **Then** el sistema muestra la palabra en texto grande junto con un indicador de
-   confianza comprensible, en menos de 2 segundos desde que ella terminó de señar.
+1. **Given** la cámara apuntando a la persona correctamente encuadrada, **When** se inicia la
+   captura en cualquiera de los dos modos y ella realiza una seña del vocabulario que el sistema
+   reconoce por encima del umbral, **Then** el sistema muestra la palabra en texto grande junto con
+   su categoría de confianza, en menos de 2 segundos desde que ella terminó de señar.
+6. **Given** el modo autónomo con el dispositivo apoyado, **When** la persona señante inicia la
+   captura, **Then** una cuenta regresiva visible de al menos 3 segundos le permite volver a
+   posición, y ni su movimiento de acercamiento ni el de regreso forman parte de lo que se
+   clasifica.
 2. **Given** una captura en curso, **When** el sistema agota sus 3 intentos de reconocimiento sin
    superar el umbral, **Then** detiene la captura, comunica que no entendió, y no muestra ni
    pronuncia ninguna etiqueta candidata.
@@ -256,16 +313,15 @@ preferencias sobreviven a recargar la aplicación.
 
 ---
 
-### User Story 8 - Operar la captura para otra persona (Priority: P2)
+### User Story 8 - Operar la captura para otra persona (modo asistido) (Priority: P3)
 
-El interlocutor oyente, que no conoce LSA y probablemente nunca usó la aplicación, tiene que
-sostener el dispositivo, encuadrar a la persona señante, iniciar cada captura y saber cuándo
-terminó — todo mirando una pantalla que apunta hacia la otra persona, no hacia él.
+El interlocutor oyente, que no conoce LSA y probablemente nunca usó la aplicación, acepta sostener
+el dispositivo: encuadra a la persona señante, inicia cada captura y necesita saber cuándo terminó
+— todo mirando una pantalla que apunta hacia la otra persona, no hacia él.
 
-**Why this priority**: la disposición física convierte al interlocutor en el operador del sistema, y
-opera a ciegas: durante la captura la pantalla no lo mira. Si no puede encuadrar ni saber en qué
-estado está el sistema, la persona señante se queda sin traducción por un motivo que no depende de
-ella. Es P2 porque US1 define primero qué hace el sistema.
+**Why this priority**: bajó de P2 a P3 tras DD-001. El modo asistido dejó de ser la única vía de uso
+y pasó a ser una mejora para cuando la otra parte ya coopera. Sigue valiendo la pena porque en esa
+situación da mejor encuadre y elimina la cuenta regresiva, pero el sistema ya es utilizable sin él.
 
 **Independent Test**: 5 personas que no conocen LSA ni la aplicación reciben el dispositivo y la
 consigna "grabá a esta persona para que el sistema la entienda", sin más instrucción; se mide
@@ -299,6 +355,15 @@ cuántas logran un encuadre válido y una captura completa en menos de 1 minuto.
   el sistema en un estado ambiguo sobre qué se está capturando.
 - **Seña realizada sin haber iniciado la captura**: no se produce ningún reconocimiento; el estado
   visible de "no estoy capturando" debe hacer evidente por qué.
+- **El interlocutor se niega a sostener el dispositivo, o no entiende qué se le pide**: el sistema
+  funciona igual en modo autónomo, que es el predeterminado. En ningún caso la imposibilidad de
+  comunicarse depende de la cooperación del interlocutor (DD-001).
+- **No hay superficie donde apoyar el dispositivo y el interlocutor no coopera**: es la situación de
+  peor caso. El sistema no la resuelve; la interfaz MUST sugerir el modo asistido en lugar de dejar
+  a la persona intentando capturas con el dispositivo en la mano, que le ocuparía una mano y
+  violaría FR-007.
+- **La cuenta regresiva termina antes de que la persona esté en posición**: cae en el caso de manos
+  no detectadas y la captura se descarta con aviso; puede reiniciarse con una sola acción.
 - **La persona sigue señando después de que el sistema ya reconoció**: el sistema debe dejar claro
   que la captura terminó, para que ella no continúe creyendo que aún la está viendo.
 
@@ -375,9 +440,16 @@ cuántas logran un encuadre válido y una captura completa en menos de 1 minuto.
   del cuadro) y cuando deja de detectarla.
 - **FR-006**: El sistema MUST avisar cuando el encuadre impide el reconocimiento, distinguiendo al
   menos: manos fuera de cuadro, persona demasiado cerca, persona demasiado lejos, torso no visible.
-- **FR-007**: La captura de cada seña MUST iniciarse con una acción explícita del interlocutor. Esa
-  acción MUST dejar ambas manos de la persona señante libres: ningún control puede exigirle ocupar
-  una mano mientras seña. El sistema MUST NOT inferir por su cuenta cuándo empieza una seña.
+- **FR-007**: La captura de cada seña MUST iniciarse con una acción humana explícita, en cualquiera
+  de los dos modos de DD-001: la persona señante en **modo autónomo**, el interlocutor en **modo
+  asistido**. El sistema MUST ofrecer el modo autónomo por defecto y MUST permitir cambiar de modo
+  sin reiniciar la sesión. En ambos modos la acción MUST dejar ambas manos de la persona señante
+  libres durante la seña: ningún control puede exigirle ocupar una mano mientras seña. El sistema
+  MUST NOT inferir por su cuenta cuándo empieza una seña.
+- **FR-033**: En modo autónomo, entre la acción de inicio y el comienzo de la captura el sistema
+  MUST mostrar una cuenta regresiva visible de al menos 3 segundos, para que la persona señante
+  vuelva a su posición. El movimiento de acercarse al dispositivo y de regresar MUST NOT formar
+  parte de la secuencia que se clasifica.
 - **FR-008**: El fin de la seña MUST determinarlo el sistema. Una captura MUST terminar cuando un
   intento de reconocimiento supera el umbral de confianza, o cuando se alcanza la duración máxima de
   FR-010, lo que ocurra primero. El sistema MUST realizar como máximo 3 intentos de reconocimiento
@@ -419,7 +491,12 @@ cuántas logran un encuadre válido y una captura completa en menos de 1 minuto.
 
 **Confianza e incertidumbre**
 
-- **FR-016**: El sistema MUST aplicar un umbral de confianza configurable por la persona usuaria.
+- **FR-016**: El sistema MUST aplicar un umbral de confianza configurable, con estos valores
+  iniciales sobre la confianza normalizada del clasificador (0–1): **estricto = 0,85**,
+  **normal = 0,70** (predeterminado), **permisivo = 0,55**. Son **valores provisionales de
+  arranque**, fijados por analogía con el baseline y sin curva de confianza medida. MUST
+  recalibrarse con la medición obligatoria de NFR-019 antes del cierre del proyecto, y los valores
+  finales MUST documentarse junto con la medición que los sustenta.
 - **FR-017**: Cuando ningún intento de reconocimiento de la captura supera el umbral, el sistema
   MUST comunicar que no entendió y MUST NOT revelar, mostrar ni pronunciar ninguna etiqueta
   candidata de ninguno de los intentos.
@@ -451,10 +528,7 @@ cuántas logran un encuadre válido y una captura completa en menos de 1 minuto.
   las voces en español disponibles en el dispositivo.
 - **FR-025**: El sistema MUST permitir ajustar el umbral de confianza mediante un control con tres
   opciones nombradas (estricto / normal / permisivo), cada una acompañada de una explicación de una
-  frase sobre qué implica elegirla. Los valores numéricos de cada nivel MUST fijarse en la fase de
-  plan a partir de la curva de confianza medida y de la compensación de NFR-019; hasta entonces
-  FR-016 y FR-025 no son verificables numéricamente, y esa es una decisión diferida explícita, no
-  una omisión.
+  frase sobre qué implica elegirla. Los valores numéricos son los de FR-016.
 - **FR-026**: El sistema MUST permitir activar y desactivar el modo espejo de la vista de cámara,
   sin que esta opción afecte el resultado del reconocimiento. El modo espejo MUST venir activado por
   defecto, porque la persona señante se ve a sí misma en la pantalla y la imagen reflejada es la
@@ -516,6 +590,15 @@ cuántas logran un encuadre válido y una captura completa en menos de 1 minuto.
     dispositivo de referencia.
   - El presupuesto es íntegramente de cómputo local y los hasta 3 intentos de FR-008 se consumen
     dentro de él.
+  - **Dispositivo de referencia — VALOR PROVISIONAL**: hasta que se fije, se toma como referencia un
+    teléfono de gama media de los últimos 4 años y una notebook equivalente. El modelo concreto MUST
+    declararse al iniciar la fase de plan, junto con su resolución y fps efectivos, y MUST formar
+    parte de la lista de NFR-020. **Criterio de revisión**: si el dispositivo declarado no alcanza
+    los 2 s, MUST reportarse el percentil real alcanzado y decidirse explícitamente entre optimizar,
+    subir el presupuesto con justificación en `research.md` (Principio IX), o declarar un
+    dispositivo de referencia distinto — nunca dejar el número sin cumplir y sin decisión.
+  - Sin dispositivo de referencia declarado, NFR-003 no es verificable: un mismo sistema cumple o
+    incumple según el hardware en que se lo mida.
 
 **Robustez medible**
 
@@ -523,20 +606,39 @@ cuántas logran un encuadre válido y una captura completa en menos de 1 minuto.
   parámetros observables, cuyos valores efectivos MUST registrarse en cada sesión: iluminancia sobre
   el rostro (lux), distancia persona–cámara (m), resolución y tasa de cuadros efectivas, y tipo de
   fondo (estático liso / estático con textura / dinámico con personas).
-  - **E1 — interior bien iluminado**: 300–750 lux, 1,5–2,5 m, fondo estático.
-  - **E2 — interior con luz pobre**: 50–150 lux, 1,5–2,5 m, fondo estático.
-  - **E3 — exterior en movimiento**: >= 1000 lux o contraluz, 1,5–2,5 m, fondo dinámico, cámara
-    sostenida a pulso por una segunda persona en desplazamiento. E3 exige **ambas** condiciones,
-    exterior *y* movimiento; satisfacer solo una no cumple el entorno.
+  - **Mínimos comunes a los tres entornos**: resolución de captura >= 640 × 480 px y tasa de cuadros
+    efectiva >= 15 fps. Por debajo de cualquiera de los dos la sesión es inválida y no computa.
+  - **E1 — interior bien iluminado**: 300–750 lux, 1,5–2,5 m, fondo estático liso o con textura.
+  - **E2 — interior con luz pobre**: 50–150 lux, 1,5–2,5 m, fondo estático liso o con textura.
+  - **E3 — exterior en movimiento**: >= 1000 lux o contraluz, 1,5–2,5 m, fondo dinámico con personas
+    en movimiento, cámara sostenida a pulso por una segunda persona en desplazamiento. E3 exige
+    **ambas** condiciones, exterior *y* movimiento; satisfacer solo una no cumple el entorno.
   - Toda sesión cuyos valores efectivos caigan fuera del rango declarado MUST descartarse y
     repetirse. Las mediciones se recolectan con el build de evaluación de NFR-017.
+  - **Cobertura de modos**: E1 y E2 MUST medirse en **modo autónomo** (dispositivo apoyado), que es
+    el predeterminado. E3 MUST medirse en **modo asistido**, porque su definición exige cámara
+    sostenida a pulso en desplazamiento. Reportar solo uno de los dos modos deja sin evaluar la
+    forma de uso principal.
+  - Los rangos de lux y distancia son **provisionales**: se fijan sin medición de campo previa. MUST
+    revisarse junto con NFR-005 tras la primera corrida completa del protocolo.
 - **NFR-020**: MUST declararse una lista de al menos 3 dispositivos de prueba con su resolución y
   tasa de cuadros efectivas registradas. FR-021 se da por cumplido cuando el criterio de NFR-005 se
   alcanza en todos ellos.
 - **NFR-005**: El desempeño MUST reportarse por separado para cada entorno del protocolo, y MUST
-  alcanzar al menos 0.70 de accuracy en cada uno de los tres para dar la robustez por cumplida.
-  Este umbral es provisional: se fija sin evidencia previa de campo y MUST revisarse tras la primera
-  medición completa, documentando el cambio.
+  alcanzar al menos **0.70 de accuracy — VALOR PROVISIONAL** en cada uno de los tres para dar la
+  robustez por cumplida.
+  - **Por qué es provisional**: se fijó por analogía con el baseline de 0.85 en condiciones de
+    laboratorio, sin ninguna medición de campo previa. Nadie sabe todavía cuánto cae el
+    reconocimiento en E2 o E3.
+  - **Criterio de revisión**: tras la **primera corrida completa** del protocolo en los tres
+    entornos. Si el resultado de E3 queda por debajo de 0.70 pero por encima de 0.55, el umbral MUST
+    reajustarse por entorno en lugar de declarar el proyecto fallido, documentando el nuevo valor y
+    la evidencia. Si queda por debajo de 0.55, se trata como fallo de robustez y se revisa el
+    enfoque, no el umbral.
+  - **Momento**: la primera corrida MUST ejecutarse en cuanto US1 y US3 estén completas, no al final
+    del proyecto, precisamente para que quede tiempo de reaccionar al número real.
+  - Un umbral provisional declarado con criterio y momento de revisión es verificable; un umbral
+    arbitrario presentado como definitivo, no.
 - **NFR-018**: El subconjunto de señas de la evaluación de campo MUST ser una muestra aleatoria de
   10 señas del vocabulario, sorteada con semilla registrada y congelada ANTES de la primera
   medición. MUST reutilizarse idéntico en los tres entornos y en toda medición posterior. Cambiar el
@@ -567,13 +669,40 @@ cuántas logran un encuadre válido y una captura completa en menos de 1 minuto.
 
 **Accesibilidad y usabilidad**
 
-- **NFR-009**: La interfaz MUST ser utilizable sin instrucciones externas por **personas sordas o
-  hipoacúsicas usuarias de LSA**, con feedback visual para todo estado relevante. El protocolo de
-  validación MUST cumplir: (a) participantes reclutados por su condición de usuarias de LSA, con su
-  nivel de fluidez registrado; (b) mínimo 5 participantes; (c) conjunto de tareas declarado, que
-  incluye como mínimo iniciar una sesión, lograr un reconocimiento, descartar uno incorrecto,
-  encontrar el vocabulario soportado y cambiar el umbral; (d) la observación la conduce alguien que
-  no participó del diseño, con guion fijo y sin asistir al participante durante la tarea.
+- **NFR-009**: La interfaz MUST ser utilizable sin instrucciones externas por personas sordas o
+  hipoacúsicas usuarias de LSA, con feedback visual para todo estado relevante. Su validación se
+  rige por NFR-021; ninguna afirmación de accesibilidad de esta spec puede darse por cumplida sobre
+  la base del juicio del equipo de desarrollo.
+- **NFR-021 — Protocolo de validación con personas sordas (DEPENDENCIA EXTERNA)**: la accesibilidad
+  MUST validarse con usuarias reales de LSA, no por inspección interna. Un requisito de
+  accesibilidad evaluado únicamente por personas oyentes que además diseñaron la interfaz no está
+  validado.
+  - **Participantes**: mínimo **3 personas sordas o hipoacúsicas usuarias de LSA**. Se admite
+    sustituir como máximo **1** de las 3 por un intérprete de LSA titulado si el reclutamiento de la
+    tercera persona sorda no se concreta, dejándolo asentado en el informe. Se registra el nivel de
+    fluidez declarado por cada participante y si es usuaria nativa o tardía de LSA. Nunca se
+    sustituyen las 3.
+  - **Tareas**, a completar sin ayuda ni explicación previa: (T1) iniciar una sesión y lograr que el
+    sistema reconozca una seña; (T2) descartar un reconocimiento incorrecto; (T3) encontrar la lista
+    de señas soportadas; (T4) cambiar el nivel de umbral; (T5) identificar, ante un fallo provocado,
+    cuál fue el motivo por el que el sistema no entendió.
+  - **Criterio de aprobado**: cada tarea MUST ser completada sin ayuda por al menos 2 de cada 3
+    participantes. T1 MUST completarse en menos de 2 minutos. Si una tarea no alcanza el criterio,
+    MUST rediseñarse y volver a evaluarse antes de cerrar el proyecto.
+  - **Conducción**: la observación la conduce una persona que no participó del diseño de la
+    interfaz, con guion fijo, sin asistir durante la tarea y sin sugerir. Se registra si la
+    comunicación con el participante se hizo por escrito o con intérprete.
+  - **Momento**: **dos rondas**. Una **formativa**, sobre prototipo navegable, al alcanzarse US1 y
+    US3 (sirve para corregir, no para aprobar). Una **sumativa**, sobre el sistema completo, antes
+    del cierre del proyecto. El resultado de la sumativa es el que cuenta para el criterio de
+    aprobado.
+  - **Dependencia externa**: el reclutamiento requiere coordinación con terceros —asociaciones de
+    personas sordas, cátedras de LSA, o el grupo LIDI (UNLP), ya vinculado al proyecto por el
+    dataset. MUST iniciarse la gestión con al menos **6 semanas** de anticipación a cada ronda. Es
+    la dependencia con mayor riesgo de calendario de todo el proyecto: si no se consigue
+    participantes, el requisito **no** se declara cumplido por sustitución interna; se declara **no
+    validado** y se documenta como limitación.
+  - **Consentimiento**: rige NFR-017(a). No se registra video de los participantes.
 - **NFR-010**: Ningún estado, alerta o error del sistema MUST depender únicamente de sonido.
 - **NFR-011**: La altura de caracter MUST dimensionarse por ángulo visual, no por píxeles fijos:
   >= 0,4° de ángulo visual a la distancia de lectura prevista, con ratio de contraste >= 4,5:1.
@@ -691,10 +820,9 @@ cuántas logran un encuadre válido y una captura completa en menos de 1 minuto.
   muestra o pronuncia una etiqueta candidata. Las 100 capturas se generan de forma reproducible
   ejecutando el subconjunto congelado de NFR-018 con el umbral en modo estricto, más gestos
   deliberadamente fuera de vocabulario, en la proporción declarada en el protocolo.
-- **SC-006**: Al menos el 80% de las personas sordas o hipoacúsicas usuarias de LSA que usan el
-  sistema por primera vez completan el conjunto de tareas de NFR-009 sin instrucciones externas, y
-  logran su primer reconocimiento correcto en menos de 2 minutos (mínimo 5 participantes, observación
-  conducida por alguien ajeno al diseño).
+- **SC-006**: En la ronda sumativa del protocolo de NFR-021, cada una de las cinco tareas (T1–T5) es
+  completada sin ayuda por al menos 2 de cada 3 participantes sordos o hipoacúsicos usuarios de LSA,
+  y T1 se completa en menos de 2 minutos.
 - **SC-007**: El 100% de los interlocutores evaluados lee correctamente la traducción sosteniendo el
   dispositivo (~40 cm), y el 100% de las personas señantes evaluadas lee correctamente su propio
   feedback de encuadre y estado a 2 metros, bajo la iluminación del entorno E1.
@@ -744,14 +872,54 @@ cuántas logran un encuadre válido y una captura completa en menos de 1 minuto.
 - Aplicación móvil nativa: el MVP es web. Una iteración con Flutter queda condicionada a que el MVP
   valide.
 
+## Limitaciones conocidas del MVP
+
+Esta sección existe para que ninguna de estas limitaciones quede implícita. Se declaran aquí, no en
+una nota al pie, porque afectan a lo que el proyecto puede afirmar que resuelve.
+
+### El MVP NO cubre el caso de uso que motiva el proyecto
+
+El escenario norte del proyecto es **una persona sorda que necesita comunicarse en el subte**. Ese
+escenario **queda fuera del MVP**, y la spec no debe leerse como si lo cubriera.
+
+La razón es directa: el funcionamiento sin conexión salió de alcance, y en el subte no hay
+conectividad. El reconocimiento ocurre en el dispositivo, pero **cargar la aplicación requiere red**,
+de modo que una persona que baja al subte con la aplicación cerrada no puede usarla. Si la dejó
+abierta antes de bajar, funciona; esa es toda la cobertura disponible y depende de una precaución
+que no se le puede exigir a nadie en una situación real.
+
+Lo mismo aplica, en menor grado, a zonas sin señal, con datos agotados o con red saturada — es
+decir, a buena parte del escenario "calle y transporte" que justifica el producto.
+
+**El funcionamiento sin conexión es requisito de una iteración posterior, no una mejora opcional.**
+Es la primera candidata a recuperar si el MVP valida. Hasta entonces, toda comunicación pública del
+proyecto MUST describir el alcance como "requiere conexión para abrirse", sin sugerir cobertura del
+escenario de transporte.
+
+### Otras limitaciones declaradas
+
+- **Vocabulario de 64 señas**: no es una lengua, es un subconjunto cerrado. Una conversación real
+  excede este vocabulario casi de inmediato (FR-029 lo declara en la interfaz).
+- **Señas aisladas, no frases**: una seña por captura. La traducción continua queda para LSA-T.
+- **Lateralidad no verificada**: LSA64 no declara la lateralidad de sus sujetos, de modo que el
+  proyecto **no puede afirmar** que el reconocimiento sea independiente de la mano dominante. Se
+  reporta desagregado y, si hay diferencia, se declara en la interfaz.
+- **Dirección única**: el sistema traduce de LSA a español. La respuesta del interlocutor oyente
+  hacia la persona sorda no está cubierta por ningún requisito; ocurre por los medios que las
+  personas ya usaran antes (escribir, gestos, lectura labial).
+
 ## Assumptions
 
-- **Un solo dispositivo, sostenido por el interlocutor**: el interlocutor oyente sostiene el
-  dispositivo y apunta la cámara frontal a la persona señante, que se ve a sí misma. Tras la seña,
-  el interlocutor gira el dispositivo para leer, o escucha la voz sin girarlo. No se contempla
+- **Un solo dispositivo, dos disposiciones** (DD-001): apoyado e iniciado por la persona señante
+  (modo autónomo, predeterminado) o sostenido e iniciado por el interlocutor (modo asistido). En
+  ambos la cámara frontal apunta a la persona señante y ella se ve a sí misma. No se contempla
   emparejar dos dispositivos.
-- **La cámara se sostiene a pulso**: el dispositivo no está apoyado ni estabilizado durante la
-  captura. El movimiento de cámara es la condición normal de uso, no un caso degradado.
+- **La cámara puede estar apoyada o sostenida a pulso**: el modo asistido introduce movimiento de
+  cámara, que es condición normal de uso y no un caso degradado; el modo autónomo no lo tiene, pero
+  a cambio nadie corrige el encuadre.
+- **La voz importa más en modo autónomo**: con el dispositivo apoyado mirando a la persona señante,
+  la voz es el único canal que alcanza al interlocutor sin manipular el aparato. US1 sin US2 entrega
+  bastante menos valor en el modo predeterminado que en el asistido.
 - **MVP web**: la persona accede desde un navegador en computadora o teléfono; no hay instalación.
   Cargar la aplicación requiere conexión; una vez cargada, el reconocimiento no la necesita.
 - **La privacidad no depende del alcance offline**: nada se transmite porque la inferencia es local,
@@ -770,9 +938,8 @@ cuántas logran un encuadre válido y una captura completa en menos de 1 minuto.
   tramo sin movimiento que no existe en los datos de entrenamiento (LSA64 versión cut contiene señas
   ya recortadas). Cómo se excluye ese tramo es decisión de la fase de plan, pero incluirlo sin más
   desalinearía el contrato del Principio IV.
-- **Dispositivo de referencia**: gama media de uso común (teléfono o notebook de los últimos ~4
-  años). Los modelos concretos se fijan en el protocolo de prueba durante la fase de plan; NFR-003 y
-  SC-002 se miden contra ellos.
+- **Dispositivo de referencia**: ver NFR-003, donde quedó declarado como valor provisional con
+  criterio y momento de revisión.
 - **Tensión reconocimiento local vs. baseline**: ejecutar el modelo en el dispositivo puede exigir
   una versión más liviana que la validada en la fase exploratoria. NFR-001a mide esa configuración
   sobre el dataset; toda caída por debajo de 0.85 requiere justificación escrita según el Principio
@@ -786,6 +953,11 @@ cuántas logran un encuadre válido y una captura completa en menos de 1 minuto.
   hay ampliación de vocabulario por parte de la persona usuaria.
 - **Historial efímero**: el historial de sesión no sobrevive al cierre de la aplicación; solo las
   preferencias persisten.
+- **Valores provisionales declarados**: cuatro números de esta spec se fijaron sin evidencia y
+  tienen criterio y momento de revisión escritos en su propio requisito — umbrales de confianza
+  (FR-016), 0.70 de robustez (NFR-005), rangos de lux y distancia de los entornos (NFR-004),
+  dispositivo de referencia (NFR-003), y margen de 2 puntos de NFR-019. Ninguno se presenta como
+  definitivo.
 - **Umbrales por defecto**: "normal" es el valor por defecto; "estricto" y "permisivo" desplazan el
   umbral en direcciones opuestas. Los valores numéricos concretos se fijan en la fase de plan a
   partir de la curva de confianza medida, no en esta especificación.
