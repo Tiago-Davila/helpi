@@ -33,49 +33,199 @@
   que ese criterio decide de hecho si la puerta de 0.70 se aprueba? → A: Muestra aleatoria fija de
   10 señas, sorteada con semilla registrada y congelada antes de medir, reutilizada en los tres
   entornos y en toda medición futura.
+- Q: ¿El interlocutor aprieta grabar una vez por seña, o una vez para toda la conversación? → A:
+  **Una vez para toda la conversación.** Queda grabando y el modelo detecta el inicio y el fin de
+  cada seña dentro del stream continuo. Esto incorpora la segmentación temporal completa —la deuda
+  del Principio XII— al alcance del MVP (ver DD-002).
+- Q: ¿La distancia persona–cámara es un parámetro que se le impone a la persona? → A: No. La
+  distancia correcta es aquella en la que el modelo detecta bien los keypoints. Si no los detecta de
+  forma confiable, el sistema MUST avisarle a la persona señante. El rango numérico deja de ser
+  criterio de admisión y pasa a ser un dato que se registra.
+- Q: ¿Qué pasa si la segmentación continua no alcanza calidad usable, ahora que no queda un modo
+  manual al que degradar? → A: Se conserva un **modo de respaldo manual** ("capturar una seña"),
+  especificado desde el inicio y construido sobre el mismo pipeline, activable si la segmentación no
+  alcanza el criterio. Decidirlo ahora cuesta poco; agregarlo en el último mes, mucho.
+- Q: ¿Cuándo habla la voz en modo continuo, si cada seña reconocida la dispara? → A: **Agrupada por
+  pausa**. El texto de cada seña se muestra al instante; la voz espera a que la persona haga una
+  pausa y entrega el bloque. Además, un **LLM** convierte la secuencia de glosas en una frase
+  natural antes de pronunciarla (ver DD-003), lo que incorpora al alcance el pulido glosa→frase que
+  estaba diferido.
+- Q: ¿Quién controla lo que el LLM agrega, si puede decir en nombre de la persona palabras que ella
+  no señó? → A: **LLM restringido a palabras funcionales**. Puede agregar conectores, preposiciones,
+  artículos y conjugación, pero **ninguna palabra de contenido** que no esté en las glosas. Sin
+  confirmación previa, con la glosa cruda siempre visible y descarte posterior (ver DD-004).
+- Q: ¿Dónde corre el LLM, si un modelo de 7–8B no entra en el navegador de un teléfono? → A: En un
+  **servidor remoto**, alcanzado por datos móviles, **solo para el pulido glosa→frase**. El
+  reconocimiento sigue siendo local: no viajan ni video ni keypoints. Lo que viaja son las glosas ya
+  reconocidas, lo que obliga a redefinir la frontera de privacidad (ver DD-005).
+- Q: ¿Qué umbral tiene NFR-001b, el accuracy del sistema completo que la persona usuaria
+  experimenta? → A: **>= 0.70**, el mismo número de NFR-005 y de la puerta de repliegue de NFR-022.
+  Un solo umbral con un solo significado, en vez de un cuarto número: incumplir NFR-001b y disparar
+  el repliegue al modo manual pasan a ser el mismo evento.
+- Q: ¿Contra qué red se mide el presupuesto de 3 s de NFR-023? → A: **4G urbano**, con RTT de
+  referencia entre 50 y 150 ms declarado en el protocolo. Es la condición real del escenario de
+  calle; medir sobre Wi-Fi haría que el requisito se cumpla en laboratorio y falle en uso. Excedido
+  el presupuesto, se pronuncia la glosa cruda.
+- Q: ¿Qué requisitos operativos tiene el servicio de pulido, hoy un endpoint público que ejecuta un
+  LLM? → A: **Disponibilidad modesta más límite de uso**. Objetivo declarado solo para las ventanas
+  de evaluación, porque la degradación a glosa cruda ya cubre las caídas; y límite de peticiones por
+  origen, tamaño máximo y validación contra el vocabulario cerrado, porque el abuso no se degrada
+  solo. Sin cuentas ni autenticación de usuario.
+- Q: ¿Cómo se opera el servicio si NFR-024 prohíbe registrar las glosas? → A: **Métricas agregadas
+  sin contenido**: cantidad de peticiones, latencia, tasa de error, tasa de rechazos. Nunca la
+  glosa, nunca la respuesta, nunca IP asociada a contenido. Permite diagnosticar una caída durante
+  una sesión de evaluación sin guardar qué dijo nadie.
+- Q: ¿Cuál es el máximo de señas por bloque de voz (FR-038), del que además cuelga el tamaño máximo
+  de petición de NFR-026? → A: **5 señas**. Bloques cortos, frases simples, latencia predecible y
+  petición acotada; a cambio corta con más frecuencia los enunciados largos.
 
 ## Decisiones de diseño registradas
 
-### DD-001 — Quién inicia la captura: se agrega un modo autónomo y pasa a ser el predeterminado
+### DD-001 — Quién inicia la grabación *(SUPERSEDIDA por DD-002)*
 
-**Revisa**: las decisiones Q1 y Q2 de la sesión de clarify del 2026-07-25.
+Esta decisión introdujo dos modos de captura, uno de ellos con cuenta regresiva, para que la persona
+señante pudiera iniciar cada seña sin depender de la cooperación del interlocutor. **DD-002 la deja
+sin efecto**: al grabar de forma continua, iniciar deja de ser una acción por seña y pasa a ser una
+sola acción al comenzar la conversación, de modo que la asimetría que DD-001 intentaba corregir
+prácticamente desaparece. Se conserva el registro porque la preocupación de fondo sigue siendo
+válida y queda recogida en DD-002.
 
-**Problema detectado**: tal como quedaron Q1 y Q2, el sistema exigía que el interlocutor oyente
-sostuviera el dispositivo y accionara el control de inicio. Eso significa que **la persona sorda no
-podía iniciar una comunicación sin la cooperación previa de un desconocido**: tenía que lograr que
-aceptara tomar su teléfono, entendiera qué hacer y apretara un botón — todo antes de poder decir la
-primera palabra. Para una herramienta de accesibilidad eso invierte la relación que se busca
-reparar: la persona que necesita comunicarse queda dependiendo de la buena voluntad y la
-comprensión de la otra parte justo en el momento en que aún no puede explicarse.
+### DD-002 — Grabación continua con segmentación automática de señas
 
-**Alternativas evaluadas**:
+**Revisa**: la decisión Q2 de la sesión de clarify del 2026-07-25 (captura delimitada por seña) y
+deja sin efecto DD-001.
 
-| Alternativa | Evaluación |
-|-------------|------------|
-| La persona señante inicia la captura ella misma | Viable. Requiere resolver que el movimiento de acercarse al dispositivo y volver a posición no contamine la secuencia clasificada. Se resuelve con cuenta regresiva (FR-033). |
-| Dispositivo apoyado (mesa, baranda, soporte, mochila) en lugar de sostenido | Viable y es la disposición natural del modo autónomo. Pierde la estabilidad de encuadre que da una persona apuntando, pero gana independencia total. |
-| Inicio por gesto detectado | Descartado: es detección automática de inicio de seña, explícitamente fuera de alcance (deuda del Principio XII). |
-| Temporizador de repetición automática | Descartado para el MVP: multiplica capturas vacías y agrava el riesgo de parada opcional de NFR-019. |
-| Mantener solo el modo asistido | **Descartado.** Deja al usuario primario sin forma de iniciar la comunicación por sí mismo. |
+**Decisión**: la grabación se inicia **una vez por conversación**, normalmente por el interlocutor.
+Mientras está activa, **el modelo detecta por sí mismo el inicio y el fin de cada seña** dentro del
+stream continuo. No hay una acción humana por seña.
 
-**Decisión**: se definen **dos modos de captura**. El **modo autónomo** —dispositivo apoyado, inicio
-por la persona señante, cuenta regresiva— es el **predeterminado**. El **modo asistido** —dispositivo
-sostenido por el interlocutor, que inicia la captura— queda disponible como alternativa para cuando
-la otra parte ya está cooperando, situación en la que es más rápido y da mejor encuadre.
+**Qué detecta el modelo y qué no**: detecta que *hay* actividad de señado y dónde empieza y termina;
+no sabe *cuál* seña es hasta clasificarla. Son dos capacidades distintas y la spec las trata por
+separado (FR-007 y FR-008 vs. FR-003).
 
-**Justificación**: ninguna funcionalidad de accesibilidad puede depender de que un tercero acepte
-colaborar antes de que la persona pueda comunicarse. El modo asistido no se elimina porque, una vez
-establecida la cooperación, es genuinamente mejor: el encuadre lo controla alguien que ve el
-resultado, y desaparece la cuenta regresiva.
+**Consecuencia sobre el alcance**: esto incorpora al MVP la **segmentación temporal completa**, que
+la constitution declara deuda no resuelta (Principio XII) y que las sesiones anteriores habían
+dejado explícitamente fuera de alcance. Deja de ser deuda diferida y pasa a ser **trabajo central
+del proyecto**.
 
-**Costo asumido**: dos modos que mantener, probar y explicar en la interfaz. En modo autónomo el
-encuadre es peor —nadie corrige el ángulo— y la cuenta regresiva agrega tiempo antes de cada seña.
-Además, con el dispositivo apoyado mirando a la persona señante, **la voz (US2) pasa a ser el único
-canal que alcanza al interlocutor sin manipular el aparato**: US1 sola entrega bastante menos valor
-en este modo que en el asistido.
+**Justificación**: es la única forma de que la conversación fluya. Con captura por seña, cada palabra
+costaba una acción de alguien; en una conversación real eso es inviable. Además elimina la asimetría
+que DD-001 intentaba corregir: una sola acción al principio pesa mucho menos que una por seña.
 
-**Si el interlocutor se niega a sostener el dispositivo**: el sistema funciona igual, en modo
-autónomo. Esa era exactamente la situación que dejaba al usuario primario sin salida.
+**Riesgo asumido — es el mayor del proyecto**:
+
+- La fase exploratoria ya encontró que la ventana deslizante produce **confianza inestable**. Ese
+  problema pasa a estar en el camino crítico: si la segmentación no funciona, no funciona nada.
+  Con captura por seña, un fallo de segmentación degradaba a "apretá de nuevo"; ahora no hay a qué
+  degradar.
+- El modelo se entrenó con **LSA64 versión cut**: señas ya recortadas, sin transiciones. Un stream
+  continuo contiene los movimientos de transición entre señas y entre reposo y seña, que **no
+  existen en los datos de entrenamiento**. Es una desalineación de distribución respecto del
+  contrato del Principio IV, y es exactamente el tipo de fallo silencioso contra el que ese
+  principio advierte.
+- Aparece un problema nuevo que antes no existía: **distinguir señado de movimiento que no es seña**
+  (acomodarse el pelo, gesticular, saludar, moverse). Un falso positivo aquí produce una traducción
+  inventada a partir de un gesto cualquiera, que es el peor resultado posible según el Principio
+  VIII.
+
+**Mitigación exigida**: FR-034 (no clasificar movimiento no identificado como seña), FR-037 (modo de
+respaldo manual), NFR-019 (compensación del umbral), y NFR-022 (medición explícita del costo de la
+segmentación, con puerta de decisión).
+
+**Respaldo**: como la segmentación deja de tener un camino manual al que degradar, FR-037 conserva
+uno explícito. La puerta que decide si se activa está en NFR-022: si con segmentación continua la
+accuracy no alcanza 0.70 en E1 —el entorno más favorable— el modo manual pasa a ser el
+predeterminado y la segmentación continua queda como funcionalidad opcional. Esa decisión se toma en
+la primera medición, no al final.
+
+### DD-003 — Voz agrupada por pausa y pulido glosa→frase con LLM
+
+**Decisión**: el texto de cada seña se muestra apenas se reconoce. La **voz** no se dispara por seña:
+el sistema acumula las glosas reconocidas y, al detectar una pausa de la persona señante, pasa el
+bloque por un **LLM** que lo convierte en una frase natural en español, y esa frase es la que
+se pronuncia. "agua · beber · gracias" se escucha como una oración, no como tres palabras sueltas.
+
+**Encaje constitucional**: el Principio II permite exactamente este uso y solo este. El LLM
+**nunca** recibe video, frames ni keypoints, **nunca** reconoce ni clasifica señas, y opera
+únicamente sobre la secuencia de glosas ya producida por el clasificador. Es la última etapa del
+pipeline, no una vía paralela.
+
+**Dónde corre**: en un **servidor remoto propio del proyecto**, alcanzado por red, porque un modelo
+de 7–8B no entra en el navegador de un teléfono de gama media. El reconocimiento **no** se mueve: la
+extracción de keypoints y la clasificación siguen siendo locales. Las implicancias de privacidad de
+esta decisión se tratan en DD-005, que redefine la frontera.
+
+**Riesgo principal — el sistema empieza a poner palabras que nadie señó**: convertir "agua beber
+gracias" en "necesito agua para beber, gracias" agrega *necesito* y *para*. Si el agregado
+distorsiona la intención, el sistema habla en nombre de una persona sorda diciendo algo que ella no
+dijo, con la fluidez de una oración bien formada que no deja ver dónde termina lo señado y dónde
+empieza lo inventado. Bajo el Principio VIII eso es más dañino que no traducir: **una frase fluida
+lava la incertidumbre**. FR-038 y FR-039 acotan el problema; la agencia de la persona sobre lo que
+se dice en su nombre se trata en DD-004.
+
+**Riesgo secundario — latencia y tamaño**: un modelo de 7–8B no corre en un navegador de teléfono de
+gama media dentro de ningún presupuesto razonable. La decisión es compatible con NFR-003 solo porque
+el pulido ocurre **en la pausa**, no por seña: el texto sigue apareciendo en menos de 2 s y la frase
+hablada tiene su propio presupuesto (NFR-023). Aun así, dónde corre ese modelo es un problema
+abierto para la fase de plan y tensiona el supuesto de MVP web en dispositivo de gama media.
+
+### DD-004 — El LLM solo puede agregar palabras funcionales
+
+**Decisión**: el pulido glosa→frase MUST restringirse a **palabras de clase cerrada** —preposiciones,
+artículos, conjunciones, pronombres, auxiliares— y a la flexión de las glosas reconocidas. **Ninguna
+palabra de contenido** (sustantivo, verbo principal, adjetivo, adverbio) puede aparecer en la frase
+si no corresponde a una glosa reconocida por encima del umbral. No hay confirmación previa: la frase
+se pronuncia directamente, con la glosa cruda visible al lado y la posibilidad de descartar después
+(US4).
+
+**Justificación**: el riesgo real no es que la frase suene mal, es que **diga algo distinto de lo que
+la persona señó**. Restringir el vocabulario del modelo ataca esa causa directamente, en lugar de
+agregar un paso de aprobación que la disposición física vuelve incómodo —con el dispositivo apoyado
+o en manos del interlocutor, cancelar exige alcanzarlo, justo cuando la conversación debería fluir.
+
+**Alternativas descartadas**: confirmación explícita por bloque (rompe el ritmo en cada pausa);
+ventana de veto de ~2 s (mismo problema de alcance físico, con menos margen); sin restricción
+(convierte al sistema en un generador de frases plausibles atribuidas a alguien que no las dijo).
+
+**Costo asumido**: la frase será a veces más torpe que lo que un modelo libre produciría. Es un
+intercambio deliberado: se prefiere una frase imperfecta pero atribuible a una fluida pero
+potencialmente inventada, en línea con el Principio VIII.
+
+**Verificable**: FR-040 y SC-021. Toda palabra de contenido de la salida debe trazar a una glosa de
+la entrada, comparando por lema.
+
+### DD-005 — La frontera de privacidad se redefine: salen glosas, no keypoints ni video
+
+**Revisa**: NFR-006, que hasta ahora prohibía que saliera cualquier dato de la sesión.
+
+**Contexto**: el "nada sale del dispositivo" de las sesiones anteriores era una restricción **más
+estricta que la constitution**, no un mandato de ella. El Principio VII exige que el video crudo
+nunca salga y permite explícitamente que **los keypoints viajen al servidor**. Al mover el LLM a un
+servidor remoto (DD-003), esa restricción autoimpuesta deja de sostenerse y hay que declarar la
+frontera real en lugar de dejarla implícita.
+
+**Decisión — qué cruza y qué no**:
+
+| Dato | ¿Sale del dispositivo? |
+|------|------------------------|
+| Video, frames, miniaturas | **Nunca.** Principio VII, sin excepción. |
+| Keypoints | **No.** El clasificador es local; aunque la constitution lo permitiría, no hay motivo para transmitirlos. |
+| Secuencia de glosas reconocidas | **Sí**, únicamente hacia el servicio de pulido, y solo cuando el pulido está activado. |
+| Identificadores de persona o sesión | **Nunca.** Las peticiones no se correlacionan entre sí. |
+| Historial, descartes, preferencias | **Nunca.** Locales y borrables (NFR-009). |
+
+**Lo que esto significa en concreto**: sale **el contenido de lo que la persona sorda está
+diciendo**, expresado como palabras de un vocabulario cerrado y públicamente conocido de 64 glosas.
+Es menos revelador que texto libre —el espacio de mensajes está acotado— pero es el mensaje, no una
+representación anónima. Llamarlo de otro modo sería engañarse.
+
+**Salvaguardas exigidas**: NFR-024 (el servicio no retiene ni registra), NFR-025 (la persona debe
+poder desactivar el pulido y seguir usando el sistema), y FR-041 (declararlo en la interfaz antes de
+que ocurra, no en una política que nadie lee).
+
+**Costo asumido**: el pulido depende de la conexión. Sin red, el sistema sigue reconociendo y
+hablando, pero pronuncia la glosa cruda. Es una degradación aceptable porque lo esencial
+—reconocer— permanece local.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -93,73 +243,72 @@ alcanza —todo dentro del dispositivo— y presenta el resultado por texto y vo
 **Contexto de uso**: un único dispositivo compartido. Casa, calle, transporte público. Cargar la
 aplicación requiere conexión; reconocer, no.
 
-**Disposición física — dos modos** (ver DD-001). En ambos, la cámara frontal apunta a la persona
-señante, que se ve a sí misma en la pantalla y recibe ahí el feedback de encuadre y de estado de
-captura. En ambos, sus manos quedan libres.
+**Disposición física**: la cámara frontal apunta a la persona señante, que se ve a sí misma en la
+pantalla y recibe ahí el feedback de detección y de estado. Sus manos quedan libres. El dispositivo
+puede estar **sostenido por el interlocutor** —lo habitual, y da mejor encuadre porque alguien
+corrige el ángulo— o **apoyado** en una superficie o soporte, lo que permite a la persona señante
+iniciar la grabación ella misma sin depender de que la otra parte colabore. Ambas disposiciones son
+válidas y no requieren funcionalidad distinta: el control de grabación es el mismo.
 
-- **Modo autónomo (predeterminado)**: el dispositivo queda apoyado en una superficie o soporte
-  (mesa, baranda, mochila). La persona señante inicia la captura ella misma y una cuenta regresiva
-  le da tiempo de volver a posición. No requiere cooperación de nadie. El resultado llega al
-  interlocutor por voz, o girando el dispositivo después.
-- **Modo asistido**: el interlocutor sostiene el dispositivo, encuadra e inicia la captura.
-  Terminada la seña, lo gira hacia sí para leer, o escucha la voz sin girarlo. Más rápido y con
-  mejor encuadre, pero exige que la otra parte ya esté cooperando.
+La distancia correcta a la cámara **no se prescribe**: es aquella en la que el modelo detecta los
+keypoints de forma confiable. Cuando no lo hace, el sistema avisa a la persona señante (FR-035).
 
-**Modelo de interacción**: el inicio de la captura es una acción humana explícita —de la persona
-señante en modo autónomo, del interlocutor en modo asistido. El fin lo determina el sistema: sigue
-grabando hasta que un intento de reconocimiento supera el umbral o se alcanza la duración máxima,
-con un máximo de 3 intentos por captura antes de darse por vencido.
+**Modelo de interacción**: la grabación se inicia **una vez por conversación**, con una acción
+humana explícita, normalmente del interlocutor. Mientras está activa, el sistema detecta por sí
+mismo el inicio y el fin de cada seña dentro del stream, la clasifica, y presenta la traducción por
+texto y voz. No hay una acción humana por seña (DD-002).
 
 ### User Story 1 - Traducir una seña a texto con confianza explícita (Priority: P1)
 
-La persona señante apoya el dispositivo, aprieta "capturar" y una cuenta regresiva le da tiempo de
-volver a posición. Realiza una seña del vocabulario LSA64. El sistema graba hasta reconocerla y
-muestra en pantalla la palabra correspondiente junto con qué tan seguro está. Si tras sus 3 intentos
-no está lo bastante seguro, dice que no entendió en lugar de mostrar una adivinanza. El interlocutor
-escucha la palabra, o la lee cuando le acercan el dispositivo, y la conversación continúa.
-
-En modo asistido (US8) el ciclo es el mismo salvo que quien apoya, encuadra e inicia es el
-interlocutor, y no hay cuenta regresiva.
+El interlocutor apunta la cámara a la persona señante y aprieta "grabar" una sola vez. A partir de
+ahí ella seña con normalidad: cada vez que realiza una seña del vocabulario LSA64, el sistema la
+detecta, la reconoce, y muestra la palabra en pantalla junto con qué tan seguro está, mientras la
+pronuncia por voz. Cuando no está lo bastante seguro dice que no entendió, en lugar de mostrar una
+adivinanza. La conversación fluye sin que nadie toque el dispositivo entre seña y seña.
 
 **Why this priority**: es el núcleo del producto. Sin esto no hay traductor. La confianza explícita
 va incluida en esta historia y no en una posterior porque presentar una traducción errada como
 certeza puede dañar la comunicación más que no traducir (constitution, Principio VIII); un MVP que
 adivine no es un MVP entregable.
 
-**Independent Test**: una persona realiza 20 señas conocidas frente a la cámara, iniciando cada
-captura; se verifica que cada reconocimiento por encima del umbral se muestra como texto con su
-nivel de confianza, y que cada captura agotada sin confianza suficiente produce un mensaje de "no
-entendí" sin revelar la etiqueta candidata. Entrega valor por sí sola: permite comunicar palabras
-sueltas.
+**Independent Test**: con una sola acción de inicio, una persona realiza 20 señas conocidas
+separadas por pausas naturales; se verifica que el sistema produce exactamente 20 eventos de
+reconocimiento —ni fusiona dos señas ni duplica una—, que cada reconocimiento sobre umbral se
+muestra con su categoría de confianza, y que los que no llegan al umbral producen "no entendí" sin
+revelar la etiqueta candidata.
 
 **Acceptance Scenarios**:
 
-1. **Given** la cámara apuntando a la persona correctamente encuadrada, **When** se inicia la
-   captura en cualquiera de los dos modos y ella realiza una seña del vocabulario que el sistema
-   reconoce por encima del umbral, **Then** el sistema muestra la palabra en texto grande junto con
-   su categoría de confianza, en menos de 2 segundos desde que ella terminó de señar.
-6. **Given** el modo autónomo con el dispositivo apoyado, **When** la persona señante inicia la
-   captura, **Then** una cuenta regresiva visible de al menos 3 segundos le permite volver a
-   posición, y ni su movimiento de acercamiento ni el de regreso forman parte de lo que se
-   clasifica.
-2. **Given** una captura en curso, **When** el sistema agota sus 3 intentos de reconocimiento sin
-   superar el umbral, **Then** detiene la captura, comunica que no entendió, y no muestra ni
-   pronuncia ninguna etiqueta candidata.
-3. **Given** una captura en curso, **When** la persona realiza un gesto que no pertenece al
+1. **Given** la grabación activa y la persona detectada, **When** realiza una seña del vocabulario
+   que el sistema reconoce por encima del umbral, **Then** el sistema muestra la palabra en texto
+   grande junto con su categoría de confianza, en menos de 2 segundos desde que ella terminó de
+   señar, sin que nadie haya tocado el dispositivo.
+2. **Given** la grabación activa, **When** el sistema detecta una seña pero ningún intento de
+   reconocimiento supera el umbral, **Then** comunica que no entendió y no muestra ni pronuncia
+   ninguna etiqueta candidata.
+3. **Given** la grabación activa, **When** la persona realiza un gesto que no pertenece al
    vocabulario LSA64, **Then** el sistema responde "no entendí" en lugar de forzar la seña más
    parecida.
-4. **Given** una traducción mostrada, **When** el interlocutor inicia la captura de la siguiente
-   seña, **Then** el resultado anterior se desplaza al historial sin ambigüedad sobre cuál es el
-   reconocimiento actual.
-5. **Given** una captura en curso, **When** la persona señante mira la pantalla, **Then** ve de
-   forma inequívoca si el sistema está capturando, intentando reconocer, o ya terminó.
+4. **Given** la grabación activa, **When** la persona realiza dos señas consecutivas separadas por
+   una pausa natural, **Then** el sistema produce dos reconocimientos distintos, sin fusionarlas ni
+   duplicar ninguna.
+5. **Given** la grabación activa, **When** la persona se acomoda el pelo, saluda o hace cualquier
+   movimiento que no es una seña del vocabulario, **Then** el sistema no produce ninguna traducción.
+6. **Given** una traducción mostrada, **When** el sistema reconoce la seña siguiente, **Then** el
+   resultado anterior se desplaza al historial sin ambigüedad sobre cuál es el reconocimiento
+   actual.
+7. **Given** la grabación activa, **When** la persona señante mira la pantalla, **Then** ve de forma
+   inequívoca si el sistema la está detectando, si está procesando una seña, o si está en reposo
+   esperando.
 
 ---
 
 ### User Story 2 - Escuchar la traducción (interlocutor oyente) (Priority: P2)
 
 El interlocutor oyente no mira la pantalla todo el tiempo (está manejando, cargando bolsas, o
-simplemente conversando). El sistema reproduce por voz la palabra reconocida en español.
+simplemente conversando). El sistema espera a que la persona señante haga una pausa, arma con las
+señas reconocidas una frase en español y la pronuncia. En lugar de "agua… beber… gracias" escucha
+una oración.
 
 **Why this priority**: dada la disposición física adoptada, la voz es lo que evita que el
 interlocutor tenga que girar el dispositivo después de cada seña. Sin voz el sistema funciona, pero
@@ -173,12 +322,18 @@ verifica además que ningún reconocimiento bajo umbral se pronuncia.
 
 **Acceptance Scenarios**:
 
-1. **Given** la reproducción por voz activada, **When** se reconoce una seña por encima del umbral,
-   **Then** el sistema la pronuncia en español, en voz rioplatense si el dispositivo la ofrece y en
-   español neutro en caso contrario.
-2. **Given** la reproducción por voz activada, **When** un reconocimiento queda bajo el umbral,
-   **Then** el sistema no pronuncia ninguna palabra candidata.
-3. **Given** el dispositivo sin ninguna voz en español disponible, **When** se activa la voz,
+1. **Given** la voz activada, **When** la persona señante realiza varias señas y hace una pausa,
+   **Then** el sistema pronuncia el bloque como una frase en español, en voz rioplatense si el
+   dispositivo la ofrece y en español neutro en caso contrario, mientras el texto de cada seña ya se
+   mostró al reconocerse.
+2. **Given** la voz activada, **When** un reconocimiento queda bajo el umbral, **Then** esa seña no
+   se incorpora a la frase ni se pronuncia como candidata.
+3. **Given** la frase pulida mostrada, **When** el interlocutor o la persona señante la miran,
+   **Then** ven junto a ella la glosa cruda, de modo que puedan distinguir qué señó la persona y qué
+   agregó el sistema.
+4. **Given** el pulido desactivado o sin conexión, **When** la persona hace una pausa, **Then** el
+   sistema pronuncia la glosa cruda y avisa que la frase no pudo componerse, en lugar de callarse.
+5. **Given** el dispositivo sin ninguna voz en español disponible, **When** se activa la voz,
    **Then** el sistema lo informa explícitamente y continúa funcionando solo con texto.
 
 ---
@@ -199,16 +354,16 @@ produce un aviso visual distinto y accionable en menos de 1 segundo.
 
 **Acceptance Scenarios**:
 
-1. **Given** la captura activa, **When** las manos y el torso están en cuadro y detectados,
+1. **Given** la grabación activa, **When** las manos y el torso están en cuadro y detectados,
    **Then** el sistema muestra un indicador visual persistente de "te estoy viendo".
-2. **Given** la captura activa, **When** las manos salen del cuadro, **Then** el sistema avisa
+2. **Given** la grabación activa, **When** las manos salen del cuadro, **Then** el sistema avisa
    visualmente cuál es el problema y cómo corregirlo, sin depender de sonido.
-3. **Given** la captura activa, **When** la luz es insuficiente para detectar keypoints de forma
+3. **Given** la grabación activa, **When** la luz es insuficiente para detectar keypoints de forma
    estable, **Then** el sistema lo comunica explícitamente en lugar de quedarse en silencio.
 4. **Given** la persona demasiado cerca o demasiado lejos, **When** el torso o las manos no entran
    en el encuadre útil, **Then** el sistema indica en qué dirección corregir la distancia.
 5. **Given** una captura en curso, **When** las manos salen del cuadro antes de que el sistema
-   reconozca la seña, **Then** el sistema descarta la captura con aviso y no la clasifica.
+   reconozca la seña, **Then** el sistema descarta el evento con aviso y no lo clasifica.
 
 ---
 
@@ -313,15 +468,15 @@ preferencias sobreviven a recargar la aplicación.
 
 ---
 
-### User Story 8 - Operar la captura para otra persona (modo asistido) (Priority: P3)
+### User Story 8 - Sostener el dispositivo para otra persona (Priority: P3)
 
-El interlocutor oyente, que no conoce LSA y probablemente nunca usó la aplicación, acepta sostener
-el dispositivo: encuadra a la persona señante, inicia cada captura y necesita saber cuándo terminó
-— todo mirando una pantalla que apunta hacia la otra persona, no hacia él.
+El interlocutor oyente, que no conoce LSA y nunca usó la aplicación, sostiene el dispositivo y
+apunta la cámara a la persona señante: tiene que encuadrarla bien y saber que el sistema la está
+detectando, mirando una pantalla que apunta hacia ella y no hacia él.
 
-**Why this priority**: bajó de P2 a P3 tras DD-001. El modo asistido dejó de ser la única vía de uso
-y pasó a ser una mejora para cuando la otra parte ya coopera. Sigue valiendo la pena porque en esa
-situación da mejor encuadre y elimina la cuenta regresiva, pero el sistema ya es utilizable sin él.
+**Why this priority**: bajó de P2 a P3 tras DD-002. Al grabar de forma continua, su participación se
+redujo a apretar una vez y sostener el aparato; ya no acciona un control por seña. Sigue importando
+porque el encuadre depende de él, pero el sistema es utilizable con el dispositivo apoyado.
 
 **Independent Test**: 5 personas que no conocen LSA ni la aplicación reciben el dispositivo y la
 consigna "grabá a esta persona para que el sistema la entienda", sin más instrucción; se mide
@@ -343,29 +498,28 @@ cuántas logran un encuadre válido y una captura completa en menos de 1 minuto.
 
 ### Edge Cases
 
-**Captura y detección de fin**
+**Segmentación: detección de inicio y fin de seña**
 
-- **Duración máxima alcanzada**: la persona nunca produce una seña reconocible. El sistema agota sus
-  3 intentos o la duración máxima, descarta con aviso y no clasifica la captura acumulada.
-- **La persona no empieza a señar**: entre el inicio de la captura y el comienzo de la seña hay
-  tiempo muerto. Ese tramo inicial sin movimiento no debe formar parte de lo que se clasifica.
-- **Manos fuera de cuadro a mitad de la seña**: el intento se descarta con aviso; no se clasifica
-  una seña truncada.
-- **Captura iniciada dos veces**: la segunda acción reinicia la captura o se ignora, pero nunca deja
-  el sistema en un estado ambiguo sobre qué se está capturando.
-- **Seña realizada sin haber iniciado la captura**: no se produce ningún reconocimiento; el estado
-  visible de "no estoy capturando" debe hacer evidente por qué.
-- **El interlocutor se niega a sostener el dispositivo, o no entiende qué se le pide**: el sistema
-  funciona igual en modo autónomo, que es el predeterminado. En ningún caso la imposibilidad de
-  comunicarse depende de la cooperación del interlocutor (DD-001).
-- **No hay superficie donde apoyar el dispositivo y el interlocutor no coopera**: es la situación de
-  peor caso. El sistema no la resuelve; la interfaz MUST sugerir el modo asistido en lugar de dejar
-  a la persona intentando capturas con el dispositivo en la mano, que le ocuparía una mano y
-  violaría FR-007.
-- **La cuenta regresiva termina antes de que la persona esté en posición**: cae en el caso de manos
-  no detectadas y la captura se descarta con aviso; puede reiniciarse con una sola acción.
-- **La persona sigue señando después de que el sistema ya reconoció**: el sistema debe dejar claro
-  que la captura terminó, para que ella no continúe creyendo que aún la está viendo.
+- **Movimiento que no es seña** (acomodarse el pelo, saludar, gesticular, ajustarse la ropa): no
+  produce reconocimiento (FR-034). Es el falso positivo más dañino del sistema, porque inventa una
+  traducción a partir de un gesto cualquiera.
+- **Dos señas encadenadas sin pausa**: el sistema debe producir dos reconocimientos o ninguno, nunca
+  uno solo que fusione ambas. Si no puede separarlas, calla.
+- **Seña sostenida o repetida**: no debe producir reconocimientos duplicados en cadena (FR-036).
+- **Transición entre señas**: el movimiento de llevar las manos de una configuración a la siguiente
+  no es seña y no debe clasificarse. No existe en LSA64 versión cut, que contiene señas ya
+  recortadas: es la desalineación de distribución central de DD-002.
+- **La persona no seña durante un rato largo**: el sistema permanece en reposo, sin producir
+  reconocimientos ni consumir intentos, y lo muestra en su estado visible.
+- **Manos fuera de cuadro a mitad de la seña**: el evento se descarta con aviso; no se clasifica una
+  seña truncada.
+- **Grabación iniciada dos veces**: la segunda acción detiene o se ignora, pero nunca deja el sistema
+  en un estado ambiguo sobre si está grabando.
+- **Seña realizada con la grabación detenida**: no se produce reconocimiento; el estado visible de
+  "grabación detenida" debe hacer evidente por qué.
+- **El interlocutor se niega a sostener el dispositivo, o no entiende qué se le pide**: la persona
+  señante puede apoyar el dispositivo e iniciar la grabación ella misma. Al ser una sola acción por
+  conversación, no queda dependiendo de la cooperación ajena para cada palabra.
 
 **Reconocimiento**
 
@@ -386,13 +540,13 @@ cuántas logran un encuadre válido y una captura completa en menos de 1 minuto.
   conocida: MUST reportarse la accuracy desagregada por lateralidad en la evaluación de campo, y si
   hay diferencia significativa MUST declararse en la interfaz y en la documentación.
 - **Seña bimanual con una mano ocluida o fuera de cuadro**: distinto de señar con una sola mano. La
-  seña es válida pero la observación es parcial. El sistema descarta la captura con aviso de encuadre
+  seña es válida pero la observación es parcial. El sistema descarta el evento con aviso de encuadre
   en lugar de clasificar con información faltante.
 - **Persona que seña con una sola mano**: la ausencia de una mano es un estado válido de entrada, no
   un error, cuando la seña efectivamente es de una mano.
 - **Más de una persona en cuadro**: el sistema sigue a la persona de mayor área de torso detectada al
-  iniciarse la captura y la mantiene hasta que la captura termina, sin alternar. Si dos personas
-  tienen áreas equivalentes, descarta la captura y lo comunica.
+  iniciarse la grabación y la mantiene durante toda la sesión, sin alternar. Si dos personas tienen
+  áreas equivalentes, no inicia la grabación y lo comunica.
 
 **Entorno y dispositivo**
 
@@ -405,8 +559,9 @@ cuántas logran un encuadre válido y una captura completa en menos de 1 minuto.
   persona.
 - **Voz TTS no disponible en el dispositivo**: se informa y se continúa solo con texto.
 - **Rotación del dispositivo a mitad de sesión**: el encuadre y el historial se conservan.
-- **El interlocutor gira el dispositivo antes de tiempo**: si lo gira hacia sí mientras la captura
-  sigue en curso, el intento se descarta con aviso en lugar de clasificar una seña perdida de vista.
+- **El interlocutor gira el dispositivo mientras la persona seña**: el sistema pierde la detección y
+  descarta el evento en curso con aviso, en lugar de clasificar una seña perdida de vista. Al
+  volver a encuadrar, la grabación sigue activa sin necesidad de reiniciarla.
 - **Movimiento de cámara durante la seña**: el reconocimiento debe tolerar el pulso normal de una
   mano; un movimiento brusco que saca a la persona de cuadro cae en el caso de manos fuera de cuadro.
 - **Dispositivo que no sostiene la tasa de cuadros o el tiempo de cómputo necesarios**: el sistema
@@ -419,7 +574,14 @@ cuántas logran un encuadre válido y una captura completa en menos de 1 minuto.
 - **Acceso sin conexión**: la aplicación no puede cargarse; se explica el motivo en lugar de fallar
   en blanco.
 - **Conexión perdida a mitad de sesión**: el reconocimiento continúa sin interrupción, porque es
-  local. El sistema no debe mostrar errores de red que sugieran lo contrario.
+  local. El pulido deja de estar disponible: la voz pasa a pronunciar la glosa cruda y el sistema lo
+  avisa, en lugar de callarse o esperar.
+- **El servicio de pulido responde tarde o no responde**: se pronuncia la glosa cruda dentro del
+  presupuesto de NFR-023. Nunca se retiene la voz esperando al servidor.
+- **El servicio rechaza la petición por límite de uso**: se pronuncia la glosa cruda. El cliente no
+  reintenta en bucle ni informa el detalle técnico a la persona usuaria.
+- **El servicio de pulido devuelve una frase con palabras de contenido inventadas**: se descarta la
+  frase y se pronuncia la glosa cruda (FR-040).
 
 ## Requirements *(mandatory)*
 
@@ -427,54 +589,90 @@ cuántas logran un encuadre válido y una captura completa en menos de 1 minuto.
 
 **Captura y reconocimiento**
 
-- **FR-001**: El sistema MUST permitir iniciar y detener la captura de cámara desde la interfaz, con
-  el control accesible en todo momento durante la sesión.
+- **FR-001**: El control de grabación MUST estar accesible en todo momento durante la sesión, tanto
+  para iniciar como para detener. Detener la grabación MUST apagar la cámara, no solo suspender el
+  reconocimiento.
 - **FR-002**: El sistema MUST ejecutar la extracción de keypoints y la clasificación de la seña
   íntegramente en el dispositivo de la persona usuaria. (Qué no puede cruzar la frontera del
   dispositivo se especifica en NFR-006; qué no puede persistirse, en NFR-007.)
 - **FR-003**: El sistema MUST reconocer señas aisladas pertenecientes al vocabulario LSA64 (64
   señas), produciendo por cada captura una única seña candidata acompañada de un valor de confianza.
-- **FR-004**: El sistema MUST indicar visualmente, de forma continua, si la captura está activa o
+- **FR-004**: El sistema MUST indicar visualmente, de forma continua, si la grabación está activa o
   detenida.
 - **FR-005**: El sistema MUST indicar visualmente cuando detecta a la persona (manos y torso dentro
   del cuadro) y cuando deja de detectarla.
 - **FR-006**: El sistema MUST avisar cuando el encuadre impide el reconocimiento, distinguiendo al
   menos: manos fuera de cuadro, persona demasiado cerca, persona demasiado lejos, torso no visible.
-- **FR-007**: La captura de cada seña MUST iniciarse con una acción humana explícita, en cualquiera
-  de los dos modos de DD-001: la persona señante en **modo autónomo**, el interlocutor en **modo
-  asistido**. El sistema MUST ofrecer el modo autónomo por defecto y MUST permitir cambiar de modo
-  sin reiniciar la sesión. En ambos modos la acción MUST dejar ambas manos de la persona señante
-  libres durante la seña: ningún control puede exigirle ocupar una mano mientras seña. El sistema
-  MUST NOT inferir por su cuenta cuándo empieza una seña.
-- **FR-033**: En modo autónomo, entre la acción de inicio y el comienzo de la captura el sistema
-  MUST mostrar una cuenta regresiva visible de al menos 3 segundos, para que la persona señante
-  vuelva a su posición. El movimiento de acercarse al dispositivo y de regresar MUST NOT formar
-  parte de la secuencia que se clasifica.
-- **FR-008**: El fin de la seña MUST determinarlo el sistema. Una captura MUST terminar cuando un
-  intento de reconocimiento supera el umbral de confianza, o cuando se alcanza la duración máxima de
-  FR-010, lo que ocurra primero. El sistema MUST realizar como máximo 3 intentos de reconocimiento
-  por captura. Agotados los 3 sin superar el umbral, MUST detener la captura y comunicar que no
-  entendió, sin presentar ninguna etiqueta candidata. *"Seña completa" no es un estado observable
-  independiente del clasificador y MUST NOT usarse como criterio de corte.*
-- **FR-009**: El sistema MUST comunicar a la persona señante, de forma continua, en cuál de estos
-  cuatro estados mutuamente excluyentes se encuentra: no capturando, capturando, intentando
-  reconocer, terminado. Cada estado MUST tener un indicador visual distinto en color y en forma. En
-  prueba con ≥5 personas señantes, ≥80% MUST identificar el estado correcto sin explicación previa.
-- **FR-010**: Toda captura MUST tener una duración máxima declarada. El sistema MUST descartar sin
-  clasificar toda captura que alcance esa duración sin reconocimiento, que pierda la detección de
-  manos durante la captura, o que contenga menos frames con manos detectadas que el mínimo requerido
-  por el preprocesamiento para muestrear una secuencia. MUST comunicar cuál de los tres motivos
-  causó el descarte.
+- **FR-007**: La grabación MUST iniciarse y detenerse con una acción humana explícita, **una sola
+  vez por conversación**. Esa acción MUST dejar ambas manos de la persona señante libres durante
+  todo el uso: ningún control puede exigirle ocupar una mano mientras seña. El control MUST poder
+  accionarse tanto por el interlocutor con el dispositivo en la mano como por la persona señante con
+  el dispositivo apoyado, sin funcionalidad distinta entre ambos casos.
+- **FR-008**: Con la grabación activa, el sistema MUST detectar por sí mismo el **inicio** y el
+  **fin** de cada seña dentro del stream continuo, sin acción humana por seña. Detectar que hay
+  actividad de señado es una capacidad distinta de clasificar qué seña es (FR-003) y MUST tratarse
+  por separado: el sistema puede saber que empezó *alguna* seña sin saber cuál.
+- **FR-009**: Por cada seña detectada, el sistema MUST realizar como máximo **3 intentos de
+  reconocimiento**, correspondientes a hasta 3 segmentaciones candidatas del mismo evento. Si
+  ninguno supera el umbral, MUST comunicar que no entendió sin presentar etiqueta candidata alguna.
+- **FR-010**: El sistema MUST comunicar a la persona señante, de forma continua, en cuál de estos
+  cuatro estados mutuamente excluyentes se encuentra: grabación detenida; grabando y detectándola;
+  grabando pero sin detectarla; procesando una seña. Cada estado MUST tener un indicador visual
+  distinto en color y en forma. En prueba con ≥5 personas señantes, ≥80% MUST identificar el estado
+  correcto sin explicación previa.
+- **FR-034**: El sistema MUST NOT producir traducción a partir de movimiento que no haya
+  identificado como seña del vocabulario. Movimientos habituales que no son señas —acomodarse el
+  pelo, saludar, gesticular al hablar, desplazarse, ajustarse la ropa— MUST NOT generar
+  reconocimientos. Ante duda entre seña y no-seña, el sistema MUST callar: un falso positivo aquí
+  produce una traducción inventada a partir de un gesto cualquiera, que es el peor resultado posible
+  bajo el Principio VIII.
+- **FR-035**: Cuando la detección de keypoints no es confiable, el sistema MUST avisar a la persona
+  señante e indicarle qué corregir, distinguiendo al menos: no se la detecta, manos fuera de cuadro,
+  detección intermitente. La distancia adecuada a la cámara MUST NOT prescribirse como número al
+  usuario: la distancia correcta es aquella en la que la detección es confiable, y el sistema guía
+  hacia ella con este aviso.
+- **FR-036**: Dos señas consecutivas MUST producir dos reconocimientos distintos, y una seña
+  sostenida o repetida MUST NOT producir reconocimientos duplicados en cadena.
+- **FR-037 — Modo de respaldo manual**: el sistema MUST ofrecer un modo alternativo en el que una
+  acción humana delimita el inicio de **una** captura individual, y el sistema detecta su fin como
+  en FR-008. Usa el mismo pipeline de extracción, clasificación y decisión de confianza que el modo
+  continuo; solo cambia el disparador. MUST poder activarse desde preferencias sin reinstalar ni
+  recargar. Su razón de ser es de gestión de riesgo, no de producto: es el camino que queda si la
+  segmentación continua no alcanza el criterio de NFR-022. En modo de respaldo, la acción de inicio
+  MUST seguir dejando ambas manos de la persona señante libres durante la seña (FR-007).
 - **FR-032**: El sistema MUST emitir una señal audible dirigida al interlocutor que le permita
-  conocer, sin ver la pantalla, si el sistema detecta a la persona señante y cuándo la captura
-  terminó. Esta señal complementa el feedback visual de FR-009, que sigue siendo la vía de la
-  persona señante; ningún estado queda cubierto solo por sonido (NFR-010) ni solo por imagen.
+  conocer, sin ver la pantalla, si el sistema está detectando a la persona señante. Esta señal
+  complementa el feedback visual de FR-010, que es la vía de la persona señante; ningún estado queda
+  cubierto solo por sonido (NFR-010) ni solo por imagen.
 
 **Presentación de la traducción**
 
 - **FR-011**: El sistema MUST mostrar la seña reconocida como texto en pantalla, dimensionado según
   NFR-011 para ser legible por la persona señante a 1–2 m antes de que el dispositivo se gire, y por
   el interlocutor a ~40 cm después. Ella necesita poder verificar qué se comunicó en su nombre.
+- **FR-038**: La voz MUST agruparse por pausa, no dispararse por seña: el sistema acumula las glosas
+  reconocidas y las pronuncia como bloque al detectar una pausa de la persona señante. Se considera
+  pausa la ausencia de actividad de señado durante **1,5 segundos** — **valor provisional**, a
+  calibrar con las personas participantes de NFR-021, porque el ritmo natural entre señas varía
+  entre personas y una pausa mal medida corta frases al medio o las hace esperar de más. El
+  **texto** de cada seña MUST mostrarse apenas se reconoce, sin esperar la pausa. El bloque MUST
+  tener un máximo de **5 señas**, tras el cual se pronuncia aunque no haya habido pausa. Ese máximo
+  acota además el tamaño de petición del servicio (NFR-026). Es un **valor provisional**: se calibra
+  junto con la pausa de 1,5 s en las rondas de NFR-021, observando con qué frecuencia corta
+  enunciados al medio.
+- **FR-039**: Cuando se use un LLM para convertir glosas en frase natural (DD-003), el sistema MUST:
+  (a) enviarle **únicamente la secuencia de glosas**, sin ningún otro dato de la sesión (DD-005);
+  (b) alimentarlo
+  **solo** con la secuencia de glosas reconocidas, nunca con video, frames ni keypoints; (c)
+  mantener **visible la glosa cruda** junto a la frase pulida, para que se pueda distinguir qué señó
+  la persona y qué agregó el modelo; (d) no incluir en la frase ninguna seña que no haya superado el
+  umbral de confianza. El LLM MUST NOT reconocer, clasificar ni inferir señas (Principio II).
+- **FR-040**: La frase generada MUST restringirse a **palabras de clase cerrada** añadidas
+  —preposiciones, artículos, conjunciones, pronombres, auxiliares— y a la flexión de las glosas
+  reconocidas. **Toda palabra de contenido** de la salida (sustantivo, verbo principal, adjetivo,
+  adverbio) MUST trazar por lema a una glosa de la entrada. Si la salida contiene una palabra de
+  contenido no trazable, el sistema MUST descartar la frase generada y pronunciar la glosa cruda en
+  su lugar (DD-004).
 - **FR-012**: El sistema MUST poder reproducir la traducción por voz en español. La selección de voz
   MUST seguir este orden de preferencia, tomando la etiqueta de locale que declara el dispositivo:
   (1) `es-AR`; (2) cualquier otra variante rioplatense declarada (`es-UY`); (3) cualquier `es-*`;
@@ -497,11 +695,11 @@ cuántas logran un encuadre válido y una captura completa en menos de 1 minuto.
   arranque**, fijados por analogía con el baseline y sin curva de confianza medida. MUST
   recalibrarse con la medición obligatoria de NFR-019 antes del cierre del proyecto, y los valores
   finales MUST documentarse junto con la medición que los sustenta.
-- **FR-017**: Cuando ningún intento de reconocimiento de la captura supera el umbral, el sistema
-  MUST comunicar que no entendió y MUST NOT revelar, mostrar ni pronunciar ninguna etiqueta
+- **FR-017**: Cuando ningún intento de reconocimiento de una seña detectada supera el umbral, el
+  sistema MUST comunicar que no entendió y MUST NOT revelar, mostrar ni pronunciar ninguna etiqueta
   candidata de ninguno de los intentos.
-- **FR-018**: El sistema MUST permitir iniciar una nueva captura para repetir la seña con una sola
-  acción, sin reiniciar la cámara.
+- **FR-018**: Repetir una seña MUST NO requerir ninguna acción sobre el dispositivo: con la
+  grabación activa, basta con volver a señar.
 - **FR-019**: El sistema MUST permitir descartar un reconocimiento incorrecto, retirándolo de la
   presentación y del historial y deteniendo su reproducción por voz si está en curso.
 - **FR-020**: El sistema MUST registrar localmente cada descarte (seña presentada, confianza,
@@ -548,11 +746,16 @@ cuántas logran un encuadre válido y una captura completa en menos de 1 minuto.
 
 **Conectividad**
 
-- **FR-031**: El sistema MUST requerir conexión únicamente para cargarse. Una vez cargado, la
-  pérdida de conectividad MUST NOT interrumpir ni degradar el reconocimiento, que es local, ni
-  producir avisos de red. Verificable por SC-014. Nótese la distinción con el alcance: *arrancar*
-  la aplicación sin conexión está fuera de alcance; *sobrevivir* a la caída de la red durante una
-  sesión ya cargada, no.
+- **FR-031**: La pérdida de conectividad MUST NOT interrumpir ni degradar el **reconocimiento**, que
+  es local. Sí degrada el **pulido**: sin red, el sistema MUST pronunciar la glosa cruda y avisar
+  que la frase no pudo componerse, en lugar de quedarse callado o esperar. Verificable por SC-014.
+  Distinción de alcance: *arrancar* la aplicación sin conexión está fuera de alcance; *seguir
+  reconociendo* tras la caída de la red, no.
+- **FR-041**: Antes de que cualquier glosa salga del dispositivo por primera vez, el sistema MUST
+  informar a la persona usuaria, en la interfaz y en lenguaje directo, que activar el pulido envía
+  las palabras reconocidas a un servidor, y MUST permitirle decidir en ese momento. No basta con
+  declararlo en una política de privacidad. La opción de desactivarlo MUST seguir accesible después
+  (NFR-025).
 
 ### Non-Functional Requirements
 
@@ -564,13 +767,31 @@ cuántas logran un encuadre válido y una captura completa en menos de 1 minuto.
     **sujeto 10 held-out**, sobre secuencias ya recortadas. MUST registrarse la seed, la versión del
     dataset y las versiones exactas de dependencias. Es el baseline heredado de la fase exploratoria
     y el único número comparable con ella.
-  - **NFR-001b — sistema desplegado**: accuracy extremo a extremo del procedimiento completo
-    —captura iniciada por el interlocutor, tiempo muerto inicial, hasta 3 intentos, regla de parada
-    y umbral— sobre personas no vistas en entrenamiento. Es el número que la persona usuaria
-    experimenta.
-  - Reportar NFR-001a sin NFR-001b está prohibido. Sobre clips ya recortados no existe la decisión
-    de parada que el sistema real sí toma, de modo que NFR-001a **no caracteriza el sistema
-    desplegado**. Toda diferencia entre ambos MUST atribuirse explícitamente a la regla de parada.
+  - **NFR-001b — sistema desplegado**: accuracy **>= 0.70** extremo a extremo del procedimiento
+    completo —grabación continua, detección de inicio y fin de cada seña, hasta 3 intentos, regla de
+    parada y umbral de confianza— sobre personas no vistas en entrenamiento. Es el número que la
+    persona usuaria experimenta, y por eso es el que tiene puerta. El 0.70 es deliberadamente el
+    mismo de NFR-005 y de la puerta de NFR-022: incumplirlo y disparar el repliegue al modo manual
+    de FR-037 son el mismo evento, no dos criterios que puedan contradecirse. Comparte con NFR-005
+    el carácter **provisional** y su mismo criterio de revisión.
+  - Reportar NFR-001a sin NFR-001b está prohibido. Sobre clips ya recortados no existe ni la
+    segmentación ni la decisión de parada que el sistema real sí toma, de modo que NFR-001a **no
+    caracteriza el sistema desplegado**. Toda diferencia entre ambos MUST atribuirse explícitamente
+    a la segmentación y a la regla de parada.
+- **NFR-022 — Costo de la segmentación (medición obligatoria)**: MUST medirse y reportarse por
+  separado cuánto del error total introduce la segmentación automática, distinguiendo al menos:
+  (a) señas realizadas que el sistema **no detectó**; (b) segmentos detectados que **no eran señas**
+  (falsos positivos de FR-034); (c) señas detectadas pero **mal delimitadas**, que llegan al
+  clasificador recortadas o fusionadas; (d) señas bien delimitadas y mal clasificadas. Sin este
+  desglose es imposible saber si un fallo viene del modelo o de la segmentación, y la diferencia
+  entre NFR-001a y NFR-001b queda sin explicar. La medición MUST hacerse contra una anotación humana
+  de referencia sobre grabación externa, la misma que sustenta L2 en NFR-003.
+  - **Puerta de decisión**: la primera medición completa de NFR-022 MUST ejecutarse en cuanto US1
+    esté operativa, no al final del proyecto. Si con segmentación continua la accuracy no alcanza
+    **0.70 en E1** —el entorno más favorable—, el modo de respaldo manual de FR-037 pasa a ser el
+    predeterminado y la segmentación continua queda como funcionalidad opcional, documentando la
+    decisión y la evidencia. Postergar esta medición al cierre elimina la posibilidad de reaccionar
+    y convierte el respaldo en letra muerta.
 - **NFR-002**: Toda métrica reportada MUST provenir de un split por sujeto. El split aleatorio está
   prohibido para reportes.
 
@@ -580,8 +801,13 @@ cuántas logran un encuadre válido y una captura completa en menos de 1 minuto.
   de señar" no lo es: determinar ese instante es el problema de segmentación que FR-008 delega en el
   propio sistema, de modo que usar su detector de fin haría que un detector más lento *mejorara* la
   latencia medida. Se definen dos métricas:
-  - **L1 — proxy automatizable**: tiempo entre la acción de inicio de captura del interlocutor y la
-    presentación de la traducción. No requiere juicio humano; es la métrica de regresión en CI.
+  - **L1 — proxy automatizable**: tiempo entre el fin de seña **detectado por el propio sistema** y
+    la presentación del texto. Mide solo el costo de cómputo posterior a la segmentación, no la
+    latencia percibida, y por eso **no sustituye a L2**; sirve como métrica de regresión en CI.
+    MUST ser menor a **1 segundo** en el dispositivo de referencia — **valor provisional**, derivado
+    de dejar margen dentro de los 2 s de L2 para el retardo de detección, y a revisar con la primera
+    medición de L2. Sin umbral propio, L1 no puede hacer fallar a CI y no sirve como guarda de
+    regresión.
   - **L2 — métrica constitucional (Principio IX)**: tiempo entre el último frame de la seña y la
     presentación. El último frame lo marca, offline y a ciegas respecto del resultado del sistema,
     una persona competente en LSA, sobre grabación tomada con **un dispositivo externo a la
@@ -599,6 +825,23 @@ cuántas logran un encuadre válido y una captura completa en menos de 1 minuto.
     dispositivo de referencia distinto — nunca dejar el número sin cumplir y sin decisión.
   - Sin dispositivo de referencia declarado, NFR-003 no es verificable: un mismo sistema cumple o
     incumple según el hardware en que se lo mida.
+  - **Alcance**: NFR-003 aplica a la presentación del **texto** de cada seña. La frase hablada,
+    que espera la pausa y pasa por el LLM, tiene su propio presupuesto en NFR-023.
+- **NFR-023**: El tiempo entre la pausa detectada y el comienzo de la frase hablada MUST ser menor a
+  **3 segundos**, incluidos el viaje de ida y vuelta al servicio de pulido y la generación del LLM.
+  - **Red de referencia**: **4G urbano**, con RTT entre 50 y 150 ms, medido y registrado en cada
+    corrida del protocolo. No se mide sobre Wi-Fi: hacerlo produciría un requisito que se cumple en
+    el escritorio y falla en la calle, que es donde el producto se usa.
+  - **Degradación obligatoria**: excedido el presupuesto, el sistema MUST pronunciar la glosa cruda
+    en lugar de seguir esperando (FR-031). El presupuesto es un límite de espera, no una aspiración.
+  - Los 3 segundos y el rango de RTT son **valores provisionales**: se fijan sin medición previa de
+    un modelo de este tamaño respondiendo sobre red móvil. **Criterio de revisión**: primera
+    medición con el servicio desplegado; si no se alcanza, MUST decidirse explícitamente entre un
+    modelo más chico, pronunciar siempre la glosa cruda, o subir el presupuesto con justificación en
+    `research.md`.
+  **Criterio de revisión**: si en la primera medición no se alcanza, MUST decidirse explícitamente
+  entre un modelo más chico, pronunciar la glosa cruda sin pulir, o subir el presupuesto con
+  justificación en `research.md` — nunca dejar al interlocutor esperando sin decisión tomada.
 
 **Robustez medible**
 
@@ -608,19 +851,21 @@ cuántas logran un encuadre válido y una captura completa en menos de 1 minuto.
   fondo (estático liso / estático con textura / dinámico con personas).
   - **Mínimos comunes a los tres entornos**: resolución de captura >= 640 × 480 px y tasa de cuadros
     efectiva >= 15 fps. Por debajo de cualquiera de los dos la sesión es inválida y no computa.
-  - **E1 — interior bien iluminado**: 300–750 lux, 1,5–2,5 m, fondo estático liso o con textura.
-  - **E2 — interior con luz pobre**: 50–150 lux, 1,5–2,5 m, fondo estático liso o con textura.
-  - **E3 — exterior en movimiento**: >= 1000 lux o contraluz, 1,5–2,5 m, fondo dinámico con personas
-    en movimiento, cámara sostenida a pulso por una segunda persona en desplazamiento. E3 exige
+  - **E1 — interior bien iluminado**: 300–750 lux, fondo estático liso o con textura, dispositivo
+    apoyado.
+  - **E2 — interior con luz pobre**: 50–150 lux, fondo estático liso o con textura, dispositivo
+    apoyado.
+  - **E3 — exterior en movimiento**: >= 1000 lux o contraluz, fondo dinámico con personas en
+    movimiento, cámara sostenida a pulso por una segunda persona en desplazamiento. E3 exige
     **ambas** condiciones, exterior *y* movimiento; satisfacer solo una no cumple el entorno.
-  - Toda sesión cuyos valores efectivos caigan fuera del rango declarado MUST descartarse y
-    repetirse. Las mediciones se recolectan con el build de evaluación de NFR-017.
-  - **Cobertura de modos**: E1 y E2 MUST medirse en **modo autónomo** (dispositivo apoyado), que es
-    el predeterminado. E3 MUST medirse en **modo asistido**, porque su definición exige cámara
-    sostenida a pulso en desplazamiento. Reportar solo uno de los dos modos deja sin evaluar la
-    forma de uso principal.
-  - Los rangos de lux y distancia son **provisionales**: se fijan sin medición de campo previa. MUST
-    revisarse junto con NFR-005 tras la primera corrida completa del protocolo.
+  - **La distancia persona–cámara se registra, no se impone**: se anota la distancia efectiva de cada
+    sesión como dato de reproducibilidad, pero no es criterio de admisión. La distancia válida es
+    aquella en la que la detección de keypoints es confiable, y el sistema guía hacia ella con
+    FR-035. Una sesión no se descarta por distancia sino por detección fallida.
+  - Toda sesión cuyos valores de iluminancia, resolución o fps caigan fuera del rango declarado MUST
+    descartarse y repetirse. Las mediciones se recolectan con el build de evaluación de NFR-017.
+  - Los rangos de lux son **provisionales**: se fijan sin medición de campo previa. MUST revisarse
+    junto con NFR-005 tras la primera corrida completa del protocolo.
 - **NFR-020**: MUST declararse una lista de al menos 3 dispositivos de prueba con su resolución y
   tasa de cuadros efectivas registradas. FR-021 se da por cumplido cuando el criterio de NFR-005 se
   alcanza en todos ellos.
@@ -647,11 +892,46 @@ cuántas logran un encuadre válido y una captura completa en menos de 1 minuto.
 
 **Privacidad**
 
-- **NFR-006**: En el build de producción, ningún dato de la sesión —video, frames, keypoints,
-  transcripciones, métricas— MUST abandonar el dispositivo. El reconocimiento local hace innecesaria
-  toda transmisión. Esta política es más estricta que el mínimo constitucional (Principio VII permite
-  transmitir keypoints) y por lo tanto compatible con él. La única excepción es el build de
-  evaluación de NFR-017, que nunca se distribuye como producto.
+- **NFR-006**: La frontera de datos del build de producción es la de DD-005. **Video, frames,
+  keypoints, identificadores, historial, descartes y preferencias MUST NOT abandonar el
+  dispositivo**, sin excepción. La **secuencia de glosas** MUST poder enviarse únicamente al
+  servicio de pulido de DD-003, solo cuando el pulido está activado, y sin ningún dato adicional que
+  permita identificar o correlacionar sesiones. La otra excepción es el build de evaluación de
+  NFR-017, que nunca se distribuye como producto.
+- **NFR-024**: El servicio de pulido MUST NOT retener, registrar ni persistir las glosas recibidas
+  ni sus respuestas, más allá del tiempo de procesamiento de la petición. MUST NOT registrar
+  direcciones IP asociadas al contenido. El transporte MUST estar cifrado. Estas propiedades MUST
+  ser verificables por inspección del código del servicio, que forma parte del proyecto y de su
+  licencia.
+- **NFR-025**: La persona usuaria MUST poder desactivar el pulido y seguir usando el sistema
+  completo. Con el pulido desactivado, ninguna glosa sale del dispositivo y la voz pronuncia la
+  glosa cruda. Esta opción MUST estar disponible sin penalización funcional distinta de la calidad
+  de la frase hablada.
+- **NFR-026 — Operación del servicio de pulido**: el servicio MUST declarar:
+  - **Disponibilidad**: >= 95% durante las ventanas de evaluación declaradas (rondas de NFR-021 y
+    corridas del protocolo de NFR-004). Fuera de ellas, mejor esfuerzo. El objetivo puede ser
+    modesto porque la caída del servicio **no rompe el producto**: degrada a glosa cruda (FR-031).
+  - **Límite de uso por origen**: máximo declarado de peticiones por minuto — valor inicial **30**,
+    provisional, holgado frente a lo que produce una conversación real. Superado el límite, el
+    cliente MUST degradar a glosa cruda, nunca quedar esperando ni reintentar en bucle.
+  - **Tamaño máximo de petición**: **5 glosas**, el máximo de señas por bloque de FR-038. Toda
+    petición mayor MUST rechazarse sin procesar.
+  - **Validación contra vocabulario cerrado**: el servicio MUST rechazar toda petición cuyo
+    contenido no sea una secuencia de glosas del vocabulario LSA64. Como el vocabulario tiene 64
+    entradas conocidas, esta validación vuelve al endpoint **inútil como LLM de propósito general**,
+    que es la defensa más barata y efectiva contra el abuso: no hay cuentas que administrar y no hay
+    clave que extraer del cliente.
+  - Estas propiedades MUST ser verificables por inspección del código del servicio, que forma parte
+    del proyecto.
+- **NFR-027 — Observabilidad del servicio sin contenido**: el servicio MUST exponer métricas
+  **agregadas** suficientes para operarlo: cantidad de peticiones, distribución de latencia, tasa de
+  error, tasa de rechazo por límite de uso y por validación de vocabulario, y disponibilidad. MUST
+  NOT registrar la glosa recibida, la frase generada, ni ninguna dirección IP asociada a contenido,
+  ni ningún identificador que permita correlacionar peticiones con una persona o sesión (NFR-024).
+  Las métricas MUST ser agregadas, sin registros por petición que puedan reconstruir contenido
+  cruzándolos. Contar peticiones y medir latencia no revela qué dijo nadie; guardar la glosa, sí, y
+  esa es exactamente la línea. Sin estas métricas el servicio queda ciego: un fallo durante una
+  sesión de evaluación con participantes sordos sería indiagnosticable, y la ronda se perdería.
 - **NFR-007**: No se almacena video ni frames en ningún momento ni en ningún medio. Verificable:
   tras una sesión de al menos 10 capturas, la inspección del almacenamiento local del navegador y
   del sistema de archivos no revela ningún artefacto de video, frame ni miniatura.
@@ -739,7 +1019,8 @@ cuántas logran un encuadre válido y una captura completa en menos de 1 minuto.
 - **NFR-015**: Las reglas del pipeline (captura, extracción, clasificación, decisión de confianza,
   post-procesamiento) MUST estar separadas de la interfaz, sin que ningún cliente conozca detalles
   internos del modelo.
-- **NFR-019**: Los umbrales de confianza MUST compensar el número de evaluaciones por captura. Antes
+- **NFR-019**: Los umbrales de confianza MUST compensar el número de evaluaciones por evento de seña
+  detectada. Antes
   de fijar los valores de estricto / normal / permisivo MUST medirse la tasa de falsos positivos con
   1, 2 y 3 intentos sobre el conjunto de test por sujeto. Los umbrales MUST elegirse de modo que la
   tasa de falsos positivos con 3 intentos no supere en más de 2 puntos porcentuales a la de 1
@@ -750,10 +1031,12 @@ cuántas logran un encuadre válido y una captura completa en menos de 1 minuto.
 
 ### Constitutional Requirements *(mandatory — see `.specify/memory/constitution.md`)*
 
-- **Privacy (Principle VII)**: nada sale del dispositivo en el build de producción. El
-  reconocimiento es local, por lo que no se transmiten ni video ni keypoints. El build de evaluación
-  (NFR-017) exporta solo métricas, con consentimiento, y nunca video. Cubierto por FR-002, NFR-006,
-  NFR-007, NFR-017.
+- **Privacy (Principle VII)**: el video crudo nunca sale del dispositivo, sin excepción. Los
+  keypoints tampoco, porque el reconocimiento es local — más estricto que el mínimo constitucional,
+  que sí los permitiría viajar. Lo que sale, y solo con el pulido activado, es la **secuencia de
+  glosas** hacia el servicio de DD-003. Esa frontera está declarada en DD-005 y acotada por NFR-006,
+  NFR-024, NFR-025 y FR-041. El build de evaluación (NFR-017) exporta solo métricas, con
+  consentimiento, y nunca video.
 - **Explicit confidence (Principle VIII)**: por debajo del umbral el sistema dice "no entendí" y no
   revela la etiqueta candidata (FR-017). La confianza se muestra siempre (FR-013). La UI declara de
   forma persistente que Helpi asiste y no reemplaza a un intérprete (FR-029).
@@ -761,9 +1044,11 @@ cuántas logran un encuadre válido y una captura completa en menos de 1 minuto.
   anotado a ciegas sobre grabación externa, hasta la presentación (NFR-003)—, íntegramente de
   cómputo en el dispositivo e incluidos los hasta 3 intentos. L1 sirve de proxy automatizable en CI.
   Medir desde el detector de fin del propio sistema queda prohibido por circular.
-- **Temporal segmentation debt (Principle XII)**: esta feature resuelve parcialmente la deuda —
-  detecta el fin de la seña con el inicio conocido y un tope de 3 intentos (FR-008)— en lugar de
-  agravarla. La segmentación continua sin delimitación humana sigue pendiente y fuera de alcance.
+- **Temporal segmentation debt (Principle XII)**: DD-002 **asume la deuda completa** como trabajo
+  central: el sistema detecta inicio y fin de cada seña sobre stream continuo (FR-008), sin
+  delimitación humana por seña. Deja de ser deuda diferida y pasa al camino crítico. El Principio
+  XII exige que esta deuda se salde y se trace como tarea; esta feature la salda, con el riesgo que
+  DD-002 documenta y las mediciones que NFR-022 obliga.
 - **Evaluation (Principle V)**: métrica reportable = accuracy con split por sujeto sobre LSA64 cut,
   sujeto 10 held-out, contra el baseline 0.85 (NFR-001a), reportada siempre junto a la métrica
   extremo a extremo del sistema desplegado (NFR-001b). La evaluación de campo por entorno (NFR-004,
@@ -775,12 +1060,14 @@ cuántas logran un encuadre válido y una captura completa en menos de 1 minuto.
 
 ### Key Entities
 
-- **Captura**: grabación iniciada por el interlocutor y terminada por el sistema. Contiene hasta 3
-  intentos de reconocimiento. Puede resultar en una seña reconocida, en un "no entendí" tras agotar
-  los intentos, o en un descarte por invalidez (duración máxima, material insuficiente, manos
-  perdidas).
-- **Intento de reconocimiento**: cada una de las hasta 3 evaluaciones que el sistema realiza sobre
-  la captura en curso para decidir si la seña ya terminó y qué seña es. Atributos: número de intento,
+- **Sesión de grabación**: intervalo entre la acción humana de iniciar y la de detener. Contiene cero
+  o más eventos de seña detectada. Es la única unidad que requiere acción humana.
+- **Evento de seña detectada**: tramo del stream que el sistema identificó como actividad de señado,
+  con su instante de inicio y de fin. Puede resultar en una seña reconocida, en un "no entendí" tras
+  agotar los 3 intentos, o en un descarte por pérdida de detección. Existe independientemente de que
+  se logre clasificarlo: el sistema puede saber que hubo una seña sin saber cuál.
+- **Intento de reconocimiento**: cada una de las hasta 3 segmentaciones candidatas que el sistema
+  evalúa sobre un mismo evento de seña detectada. Atributos: número de intento, límites del segmento,
   etiqueta candidata, confianza.
 - **Seña reconocida**: resultado de un intento válido. Atributos: etiqueta del vocabulario (solo si
   supera el umbral), valor de confianza, momento, estado (presentada / descartada / bajo umbral).
@@ -802,9 +1089,10 @@ cuántas logran un encuadre válido y una captura completa en menos de 1 minuto.
 ### Measurable Outcomes
 
 - **SC-001**: El clasificador alcanza al menos 0.85 de accuracy sobre las 64 señas de LSA64 versión
-  cut, con sujeto 10 held-out y seed y dependencias registradas (NFR-001a); y se reporta junto a él
-  la accuracy extremo a extremo del sistema desplegado sobre personas no vistas (NFR-001b), con la
-  diferencia entre ambos atribuida explícitamente a la regla de parada.
+  cut, con sujeto 10 held-out y seed y dependencias registradas (NFR-001a); **y** el sistema
+  desplegado alcanza al menos 0.70 extremo a extremo sobre personas no vistas (NFR-001b). Ambos se
+  reportan juntos, con la diferencia atribuida explícitamente a la segmentación y a la regla de
+  parada.
 - **SC-002**: En al menos el 95% de una muestra de >= 50 capturas, la latencia L2 —desde el último
   frame de la seña, anotado a ciegas por una persona competente en LSA sobre grabación externa,
   hasta la presentación— es menor a 2 segundos en el dispositivo de referencia.
@@ -812,8 +1100,10 @@ cuántas logran un encuadre válido y una captura completa en menos de 1 minuto.
   (E1, E2, E3), con sus parámetros efectivos de lux, distancia, resolución, fps y fondo registrados
   por sesión, sobre el subconjunto congelado de 10 señas de NFR-018, con al menos 10 intentos por
   seña en cada entorno, y alcanza al menos 0.70 de accuracy en cada entorno.
-- **SC-004**: En el build de producción, cero peticiones de red salen del dispositivo durante una
-  sesión completa, verificable mediante inspección del tráfico saliente.
+- **SC-004**: Con el pulido desactivado, cero peticiones de red salen del dispositivo durante una
+  sesión completa. Con el pulido activado, la inspección del tráfico saliente muestra únicamente
+  secuencias de glosas hacia el servicio de pulido: cero frames, cero keypoints, cero
+  identificadores de sesión o de persona.
 - **SC-013**: El build de producción no contiene ninguna ruta de código de instrumentación o
   exportación de la evaluación, verificable por inspección del artefacto distribuido.
 - **SC-005**: En una auditoría de 100 capturas sin reconocimiento sobre umbral, en cero casos se
@@ -836,11 +1126,36 @@ cuántas logran un encuadre válido y una captura completa en menos de 1 minuto.
   segundo; cero casos de fallo silencioso en el protocolo de prueba.
 - **SC-010**: Una persona que abre la aplicación por primera vez encuentra el vocabulario soportado
   y el aviso de "asistencia, no intérprete" en menos de 30 segundos, sin ayuda.
-- **SC-011**: En el 100% de los intentos inválidos provocados (duración máxima alcanzada sin
-  reconocer, material insuficiente, manos perdidas), el sistema descarta y explica el motivo, y en
-  cero casos clasifica la captura.
-- **SC-012**: Ninguna captura ejecuta más de 3 intentos de reconocimiento, verificable por
-  instrumentación local.
+- **SC-011**: En el 100% de los eventos inválidos provocados (manos perdidas a mitad de seña,
+  material insuficiente), el sistema descarta y explica el motivo, y en cero casos clasifica el
+  tramo.
+- **SC-012**: Ningún evento de seña detectada ejecuta más de 3 intentos de reconocimiento,
+  verificable por instrumentación local.
+- **SC-018**: Sobre una sesión continua con 20 señas separadas por pausas naturales, el sistema
+  produce exactamente 20 eventos de seña detectada: cero fusiones de dos señas en una, cero
+  duplicados de una misma seña.
+- **SC-019**: Sobre una sesión de 3 minutos en la que la persona no seña —conversa, se acomoda el
+  pelo, gesticula, se desplaza— el sistema produce **cero** traducciones (FR-034).
+- **SC-020**: El informe de evaluación desglosa el error según las cuatro categorías de NFR-022 (no
+  detectada / falso positivo / mal delimitada / mal clasificada), de modo que la diferencia entre
+  NFR-001a y NFR-001b queda explicada y no meramente reportada.
+- **SC-021**: Sobre un conjunto de al menos 50 secuencias de glosas, el 100% de las palabras de
+  contenido de las frases generadas traza por lema a una glosa de entrada. Cero palabras de
+  contenido inventadas (FR-040).
+- **SC-022**: En el 100% de las presentaciones, la glosa cruda es visible junto a la frase pulida,
+  de modo que un observador puede distinguir qué señó la persona y qué agregó el modelo.
+- **SC-023**: En una instalación nueva, ninguna glosa sale del dispositivo antes de que la persona
+  haya visto el aviso de FR-041 y decidido. Verificable por inspección del tráfico saliente durante
+  el primer uso.
+- **SC-024**: Con el pulido desactivado, el sistema completa una sesión de 10 señas con voz agrupada
+  por pausa pronunciando glosa cruda, sin ninguna petición de red y sin degradación del
+  reconocimiento.
+- **SC-025**: El servicio de pulido rechaza el 100% de las peticiones cuyo contenido no sea una
+  secuencia de glosas del vocabulario LSA64, verificable con un conjunto de peticiones adversarias
+  que incluya texto libre.
+- **SC-026**: Con el servicio caído, con el límite de uso excedido o con la red por encima del
+  presupuesto de NFR-023, el sistema completa una sesión de 10 señas pronunciando glosa cruda, sin
+  bloqueos, sin esperas visibles y sin reintentos en bucle.
 - **SC-014**: Con la conectividad del dispositivo deshabilitada después de cargar la aplicación, una
   sesión de 10 capturas se completa sin errores de red visibles y sin degradación medible del
   reconocimiento respecto de la misma sesión con conexión.
@@ -854,19 +1169,23 @@ cuántas logran un encuadre válido y una captura completa en menos de 1 minuto.
 
 - Traducción de frases continuas (dataset LSA-T) — fase futura.
 - Dirección inversa: voz o texto hacia señas.
-- Detección automática del **inicio** de la seña: el inicio de la captura siempre es una acción
-  humana. La segmentación temporal continua sobre un stream sin delimitar —la deuda del Principio
-  XII en su forma completa— queda fuera de este MVP. La detección del **fin** sí está en alcance
-  (FR-008), acotada por un inicio conocido y por un máximo de 3 intentos.
-- Segmentación de frases encadenadas: varias señas dentro de una misma captura.
+- Traducción de **frases**: el sistema segmenta y traduce señas aisladas dentro de un stream
+  continuo, pero no interpreta gramática, orden ni concordancia de LSA. La salida es una secuencia
+  de palabras sueltas, no una oración en español. (La segmentación temporal continua **sí** está en
+  alcance desde DD-002; lo que queda fuera es la interpretación lingüística de lo segmentado.)
 - Inferencia en servidor y cualquier servicio remoto de reconocimiento.
 - **Funcionamiento sin conexión**: arrancar la aplicación sin red, empaquetado y cacheo local para
   uso offline, y todo presupuesto de tamaño de descarga asociado. El reconocimiento sigue siendo
   local —de ahí que la privacidad no cambie— pero cargar la aplicación requiere conexión y no se
   garantiza ni se testea el arranque sin ella. Es la primera candidata a recuperar si el MVP valida,
   porque el subte y la calle son escenarios centrales del producto.
-- Pulido de glosa a frase natural con LLM — deseable, prioridad baja, solo si el resto del MVP está
-  completo.
+- **LLM de terceros**: el pulido glosa→frase corre en un servicio propio del proyecto (DD-003). Queda
+  fuera de alcance delegarlo a una API comercial de terceros, que agregaría un destinatario no
+  controlado para lo que una persona sorda está diciendo y sobre el que el proyecto no puede
+  garantizar NFR-024.
+- **Inferencia del reconocimiento en servidor**: el clasificador permanece en el dispositivo. Aunque
+  la constitution permitiría transmitir keypoints, moverlo allá no aporta nada una vez que corre
+  local, y ampliaría la frontera de datos sin necesidad.
 - Cuentas de usuario y sincronización en la nube.
 - Señas fuera del vocabulario LSA64.
 - Aplicación móvil nativa: el MVP es web. Una iteración con Flutter queda condicionada a que el MVP
@@ -891,6 +1210,10 @@ que no se le puede exigir a nadie en una situación real.
 Lo mismo aplica, en menor grado, a zonas sin señal, con datos agotados o con red saturada — es
 decir, a buena parte del escenario "calle y transporte" que justifica el producto.
 
+Con la aplicación ya cargada y sin red, el **reconocimiento sigue funcionando** (es local) pero el
+**pulido no**: la voz pronuncia la glosa cruda, "agua, beber, gracias" en lugar de una oración. El
+sistema no deja de servir, pero entrega menos.
+
 **El funcionamiento sin conexión es requisito de una iteración posterior, no una mejora opcional.**
 Es la primera candidata a recuperar si el MVP valida. Hasta entonces, toda comunicación pública del
 proyecto MUST describir el alcance como "requiere conexión para abrirse", sin sugerir cobertura del
@@ -900,7 +1223,9 @@ escenario de transporte.
 
 - **Vocabulario de 64 señas**: no es una lengua, es un subconjunto cerrado. Una conversación real
   excede este vocabulario casi de inmediato (FR-029 lo declara en la interfaz).
-- **Señas aisladas, no frases**: una seña por captura. La traducción continua queda para LSA-T.
+- **Señas aisladas, no frases**: el sistema segmenta señas dentro de un stream continuo, pero no
+  interpreta gramática ni orden de LSA. La salida es una secuencia de palabras sueltas, no una
+  oración. La traducción lingüística queda para LSA-T.
 - **Lateralidad no verificada**: LSA64 no declara la lateralidad de sus sujetos, de modo que el
   proyecto **no puede afirmar** que el reconocimiento sea independiente de la mano dominante. Se
   reporta desagregado y, si hay diferencia, se declara en la interfaz.
@@ -910,54 +1235,63 @@ escenario de transporte.
 
 ## Assumptions
 
-- **Un solo dispositivo, dos disposiciones** (DD-001): apoyado e iniciado por la persona señante
-  (modo autónomo, predeterminado) o sostenido e iniciado por el interlocutor (modo asistido). En
-  ambos la cámara frontal apunta a la persona señante y ella se ve a sí misma. No se contempla
-  emparejar dos dispositivos.
-- **La cámara puede estar apoyada o sostenida a pulso**: el modo asistido introduce movimiento de
-  cámara, que es condición normal de uso y no un caso degradado; el modo autónomo no lo tiene, pero
-  a cambio nadie corrige el encuadre.
-- **La voz importa más en modo autónomo**: con el dispositivo apoyado mirando a la persona señante,
-  la voz es el único canal que alcanza al interlocutor sin manipular el aparato. US1 sin US2 entrega
-  bastante menos valor en el modo predeterminado que en el asistido.
+- **Un solo dispositivo, sostenido o apoyado**: la cámara frontal apunta a la persona señante y ella
+  se ve a sí misma. Sostenerlo da mejor encuadre porque alguien corrige el ángulo; apoyarlo permite
+  a la persona señante iniciar sola. No requiere funcionalidad distinta ni se contempla emparejar
+  dos dispositivos.
+- **La cámara puede estar apoyada o sostenida a pulso**: sostenida introduce movimiento de cámara,
+  que es condición normal de uso y no un caso degradado.
+- **La voz importa mucho con el dispositivo apoyado**: en esa disposición la pantalla mira a la
+  persona señante, de modo que la voz es el único canal que alcanza al interlocutor sin manipular el
+  aparato. US1 sin US2 entrega bastante menos valor cuando el dispositivo está apoyado.
 - **MVP web**: la persona accede desde un navegador en computadora o teléfono; no hay instalación.
   Cargar la aplicación requiere conexión; una vez cargada, el reconocimiento no la necesita.
-- **La privacidad no depende del alcance offline**: nada se transmite porque la inferencia es local,
-  no porque la aplicación esté empaquetada para uso sin conexión. Descartar el funcionamiento
-  offline no toca NFR-006.
-- **Inicio manual, fin automático**: el interlocutor inicia la captura; el sistema decide cuándo
-  terminó la seña. Se asume que conocer el inicio reduce el problema de segmentación lo suficiente
-  como para hacerlo tratable, a diferencia de la ventana deslizante sobre stream continuo que la
-  fase exploratoria dejó sin resolver.
+- **La privacidad del reconocimiento no depende de la red**: video y keypoints nunca se transmiten
+  porque la inferencia es local. Lo único que puede viajar son las glosas, y solo hacia el servicio
+  de pulido, que es desactivable (DD-005, NFR-025).
+- **El pulido depende de la red; el reconocimiento no**: sin conexión el sistema sigue reconociendo
+  y hablando, con glosa cruda. Es la degradación deliberada de FR-031.
+- **Segmentación continua** (DD-002): una acción humana por conversación; el sistema detecta inicio y
+  fin de cada seña. Se asume que el problema que la fase exploratoria dejó sin resolver —ventana
+  deslizante con confianza inestable— es abordable en el plazo del proyecto. **Es el supuesto más
+  fuerte de toda la spec**, y por eso es el único que tiene camino de repliegue construido de
+  antemano (FR-037) y una puerta de decisión con fecha y número (NFR-022).
+- **Entrenamiento con señas recortadas vs. uso sobre stream continuo**: LSA64 versión cut no contiene
+  transiciones ni reposo, que sí abundan en el uso real. Cerrar esa brecha —por aumento de datos,
+  por reentrenamiento con material continuo, o por diseño del segmentador— es trabajo de la fase de
+  plan, y NFR-022 obliga a medir cuánto cuesta.
 - **Riesgo de parada opcional (optional stopping)**: si el criterio para dejar de grabar es "hasta
   que el clasificador esté seguro", el sistema busca activamente una ventana que produzca confianza
   alta, lo que infla la confianza aparente y aumenta los falsos positivos. Esto presiona
   directamente el Principio VIII. El tope de 3 intentos acota el problema pero no lo elimina; por eso
   la compensación dejó de ser un supuesto y es hoy un requisito verificable (**NFR-019**, **SC-016**).
-- **Tiempo muerto inicial**: entre el inicio de la captura y el comienzo real de la seña hay un
-  tramo sin movimiento que no existe en los datos de entrenamiento (LSA64 versión cut contiene señas
-  ya recortadas). Cómo se excluye ese tramo es decisión de la fase de plan, pero incluirlo sin más
-  desalinearía el contrato del Principio IV.
+- **Distinguir seña de no-seña**: problema nuevo introducido por DD-002 que no existía con captura
+  por seña, donde la acción humana garantizaba que lo grabado era un intento de señar. Ahora el
+  sistema debe decidirlo solo, sobre movimiento humano espontáneo. FR-034 fija el comportamiento
+  ante duda —callar—, pero la técnica queda para la fase de plan.
 - **Dispositivo de referencia**: ver NFR-003, donde quedó declarado como valor provisional con
   criterio y momento de revisión.
 - **Tensión reconocimiento local vs. baseline**: ejecutar el modelo en el dispositivo puede exigir
   una versión más liviana que la validada en la fase exploratoria. NFR-001a mide esa configuración
   sobre el dataset; toda caída por debajo de 0.85 requiere justificación escrita según el Principio
   V. Resolver esta tensión es trabajo de la fase de plan.
-- **Decisiones diferidas a la fase de plan, con dueño**: (a) valores numéricos de estricto / normal /
-  permisivo, condicionados a la medición de NFR-019; (b) modelos concretos del dispositivo de
-  referencia; (c) cota empírica del Nivel 2 del contrato de keypoints; (d) rango de duración de seña
-  con el que el reconocimiento se mantiene sobre el umbral. Ninguna es una omisión: las cuatro
-  dependen de mediciones que aún no existen y todas tienen requisito que las obliga.
+- **Decisiones diferidas a la fase de plan, con dueño**: (a) modelos concretos del dispositivo de
+  referencia (NFR-003); (b) cota empírica del Nivel 2 del contrato de keypoints (NFR-014); (c) rango
+  de duración de seña con el que el reconocimiento se mantiene sobre el umbral; (d) dónde se
+  despliega el servicio de pulido. Ninguna es una omisión: las cuatro dependen de mediciones o
+  decisiones de infraestructura que aún no existen, y todas tienen un requisito que las obliga. Los
+  valores numéricos de los umbrales de confianza dejaron de estar diferidos: están en FR-016 como
+  provisionales, sujetos a la recalibración de NFR-019.
 - **Vocabulario cerrado**: las 64 etiquetas de LSA64 se presentan con su traducción al español; no
   hay ampliación de vocabulario por parte de la persona usuaria.
 - **Historial efímero**: el historial de sesión no sobrevive al cierre de la aplicación; solo las
   preferencias persisten.
-- **Valores provisionales declarados**: cuatro números de esta spec se fijaron sin evidencia y
-  tienen criterio y momento de revisión escritos en su propio requisito — umbrales de confianza
-  (FR-016), 0.70 de robustez (NFR-005), rangos de lux y distancia de los entornos (NFR-004),
-  dispositivo de referencia (NFR-003), y margen de 2 puntos de NFR-019. Ninguno se presenta como
-  definitivo.
+- **Valores provisionales declarados**: todos los números de esta spec fijados sin evidencia llevan
+  criterio y momento de revisión escritos en su propio requisito — umbrales de confianza (FR-016),
+  0.70 de robustez y de sistema desplegado (NFR-005, NFR-001b), rangos de lux (NFR-004), dispositivo
+  de referencia y umbral de L1 (NFR-003), margen de 2 puntos (NFR-019), presupuesto de 3 s y red de
+  referencia 4G (NFR-023), pausa de 1,5 s y máximo de 5 señas por bloque (FR-038), y límite de 30
+  peticiones por minuto (NFR-026). Ninguno se presenta como definitivo.
 - **Umbrales por defecto**: "normal" es el valor por defecto; "estricto" y "permisivo" desplazan el
   umbral en direcciones opuestas. Los valores numéricos concretos se fijan en la fase de plan a
   partir de la curva de confianza medida, no en esta especificación.

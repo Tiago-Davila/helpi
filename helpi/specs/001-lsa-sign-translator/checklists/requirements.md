@@ -2,7 +2,7 @@
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-07-23
-**Last validated**: 2026-07-25 (iteración 3, tras la sesión de `/speckit-clarify`)
+**Last validated**: 2026-07-25 (iteración 5, sesión de `/speckit-clarify` sobre no funcionales)
 **Feature**: [spec.md](../spec.md)
 
 ## Content Quality
@@ -34,15 +34,16 @@
 
 - [x] Keypoint data contract covered (Principle IV) — NFR-014
 - [x] Per-subject evaluation against 0.85 baseline (Principle V) — NFR-001, NFR-002, SC-001
-- [x] Privacy: nothing leaves the device in the production build (Principle VII) — FR-002, NFR-006,
-      NFR-007, NFR-017, SC-004, SC-013
+- [x] Privacy: video y keypoints nunca salen del dispositivo; solo las glosas, hacia el servicio de
+      pulido, desactivable (Principle VII) — DD-005, FR-002, FR-041, NFR-006, NFR-007, NFR-017,
+      NFR-024, NFR-025, SC-004, SC-013, SC-023
 - [x] Explicit confidence and assistance-not-interpreter framing (Principle VIII) — FR-013, FR-017,
       FR-029, SC-005
 - [x] Latency < 2 s (Principle IX) — NFR-003, SC-002
 - [x] LSA64 non-commercial attribution (Principle X) — FR-030, NFR-012, NFR-013
-- [x] Inherited POC debt not worsened (Principle XII) — la feature resuelve *parcialmente* la deuda
-      de segmentación temporal: detecta el fin de la seña con inicio conocido y tope de 3 intentos
-      (FR-008). La segmentación continua sin delimitación humana sigue fuera de alcance.
+- [x] Inherited POC debt not worsened (Principle XII) — DD-002 **asume la deuda completa**: la
+      segmentación temporal continua pasa de fuera de alcance a trabajo central (FR-008), con
+      respaldo manual (FR-037) y puerta de decisión medida (NFR-022).
 
 ## Resolved Ambiguities
 
@@ -95,5 +96,52 @@ condicionan el diseño:
    2 s de NFR-003. El plan debe verificar que el presupuesto cierra en el dispositivo de referencia.
 5. **Números provisionales**: el 0.70 de NFR-005 y el dispositivo de referencia de NFR-003 se fijan
    sin evidencia de campo previa.
+
+### Iteración 4 — segunda sesión de `/speckit-clarify` (2026-07-25)
+
+Cinco decisiones que ampliaron el alcance de forma sustantiva: DD-002 (segmentación continua),
+DD-003 (voz agrupada + LLM), DD-004 (LLM restringido a palabras funcionales), DD-005 (frontera de
+privacidad redefinida), más el respaldo manual de FR-037.
+
+**Regresión: "Requirements are testable and unambiguous" pasó a NO cumplido.** Dos valores nuevos
+quedaron sin cuantificar del todo:
+
+1. **NFR-023 — "condiciones de red móvil típicas"**: no está definido. El presupuesto de 3 s para la
+   frase hablada no es medible sin declarar contra qué red se mide (tipo de conexión, latencia base
+   asumida).
+2. **FR-038 — máximo de señas por bloque**: se exige que exista un tope pero no se fija el número.
+
+El resto de los términos nuevos sí quedó medible: la pausa de 1,5 s (provisional, con criterio de
+calibración), y la restricción del LLM verificable por trazado de lemas (FR-040, SC-021).
+
+**Contradicción corregida durante la revalidación**: US2 seguía describiendo la voz disparándose por
+seña, lo que contradecía FR-038. Se reescribieron su narrativa y sus cinco escenarios.
+
+Todos los demás ítems siguen pasando. La spec **no** está lista para `/speckit-plan` hasta cerrar
+los dos valores de arriba.
+
+### Iteración 5 — `/speckit-clarify` sobre requisitos no funcionales (2026-07-25)
+
+**Regresión cerrada.** "Requirements are testable and unambiguous" vuelve a cumplirse: NFR-023
+declara red de referencia 4G con RTT 50–150 ms, y FR-038 fija el máximo en 5 señas por bloque.
+
+Además se cerraron tres huecos que la revisión anterior no había detectado y que el servidor de
+DD-003 había dejado abiertos:
+
+1. **NFR-001b no tenía umbral.** El requisito que describe "el número que la persona usuaria
+   experimenta" solo obligaba a reportarlo, mientras que el que sí tenía puerta (NFR-001a, 0.85)
+   mide un componente que nadie usa directamente. Ahora exige >= 0.70, el mismo número de NFR-005 y
+   de la puerta de NFR-022, para que incumplirlo y disparar el repliegue de FR-037 sean el mismo
+   evento.
+2. **El servicio de pulido no tenía ningún requisito operativo.** Nuevo NFR-026: disponibilidad
+   >= 95% solo en ventanas de evaluación (puede ser modesta porque la caída degrada a glosa cruda),
+   límite de 30 peticiones por minuto y origen, tamaño máximo de 5 glosas, y validación contra el
+   vocabulario cerrado — que vuelve al endpoint inútil como LLM de propósito general sin necesidad
+   de cuentas ni claves.
+3. **NFR-024 dejaba el servicio operativamente ciego.** Nuevo NFR-027: métricas agregadas sin
+   contenido, para poder diagnosticar una caída durante una ronda con participantes sordos sin
+   guardar qué dijo nadie.
+4. **L1 no tenía umbral** y por lo tanto no podía hacer fallar a CI. Ahora < 1 s, provisional,
+   derivado de dejar margen dentro de los 2 s de L2.
 
 Todos los ítems pasan. La spec está lista para `/speckit-plan`.
