@@ -79,6 +79,41 @@
   de petición de NFR-026? → A: **5 señas**. Bloques cortos, frases simples, latencia predecible y
   petición acotada; a cambio corta con más frecuencia los enunciados largos.
 
+### Session 2026-07-29
+
+- Q: ¿Qué separa la categoría "alta" de "media" en FR-013, dado que la spec solo define la frontera
+  de "no entendí"? → A: **Las fronteras son las de FR-016**: "alta" = confianza >= umbral del nivel
+  *estricto* vigente; "media" = entre el umbral activo y el de estricto. No se introduce ningún
+  número nuevo: ambas fronteras se recalibran junto con los umbrales en la medición de NFR-019. Con
+  el nivel estricto activo, todo reconocimiento aceptado es "alta", lo cual es coherente.
+- Q: ¿Quién de los dos actores humanos configura las preferencias (CHK008)? → A: **La persona
+  señante es la dueña de las preferencias.** La pantalla de configuración se diseña para ella:
+  operable sin audio (NFR-010) y validada con personas sordas (NFR-021, tarea T4). El interlocutor
+  puede accionarla físicamente cuando sostiene el dispositivo, pero el destinatario del diseño es la
+  persona señante. En los requisitos de configuración, "la persona usuaria" significa la persona
+  señante.
+- Q: ¿Qué significa exactamente "muestreado por linspace" en NFR-014, dado que `np.linspace` en
+  punto flotante no es reproducible bit a bit entre Python y JavaScript? → A: **La forma entera
+  exacta** `idx[i] = (i·(T−1)) div (N−1)` (división entera), idéntica en todos los productores. Es
+  la versión exacta del mismo criterio (`linspace` de índices + truncado), sin dependencia de la
+  representación en punto flotante. La definición normativa completa vive en el contrato versionado
+  de keypoints. La enmienda espejo (PATCH) a la constitution se tramita por el procedimiento de
+  Governance, aparte de esta clarificación.
+- Q: ¿Cuál es el dispositivo de referencia de NFR-003? → A: **Samsung Galaxy A10, con prioridad
+  mobile-first**: el teléfono es la referencia vinculante; la notebook es secundaria (una notebook
+  genérica del equipo, modelo a asentar al medir). El A10 (2019) queda por debajo de la banda
+  provisional "gama media de los últimos 4 años" — se declara a sabiendas como objetivo **más
+  exigente**: si el sistema cumple los 2 s en un A10, cumple en cualquier gama media actual. La
+  resolución y los fps efectivos se miden y registran al declararlo en la lista de NFR-020. Rige el
+  criterio de revisión de NFR-003 si el presupuesto no se alcanza.
+- Q: ¿Hace falta un modo restringido (kiosco) cuando la persona señante entrega su teléfono
+  desbloqueado a un interlocutor desconocido (CHK009)? → A: **Fuera de alcance, declarado como
+  limitación conocida.** Una aplicación web no puede impedir que quien sostiene el teléfono salga de
+  ella; prometer contención sería incumplible. Mitigación con lo que la app sí controla: el
+  historial es efímero y la sesión no expone datos personales (NFR-008), y detener la grabación está
+  siempre a un toque (FR-001). Un modo kiosco real queda como candidato para la eventual iteración
+  nativa.
+
 ## Decisiones de diseño registradas
 
 ### DD-001 — Quién inicia la grabación *(SUPERSEDIDA por DD-002)*
@@ -678,10 +713,13 @@ cuántas logran un encuadre válido y una captura completa en menos de 1 minuto.
   (1) `es-AR`; (2) cualquier otra variante rioplatense declarada (`es-UY`); (3) cualquier `es-*`;
   (4) ninguna disponible → FR-012 no aplica y rige el escenario 3 de US2.
 - **FR-013**: El sistema MUST presentar el nivel de confianza en 3 categorías nombradas —alta, media,
-  no entendí— acompañadas de indicador visual, y MUST NOT presentarlo únicamente como número. En
-  prueba con ≥5 participantes sin formación técnica, ≥80% MUST interpretar correctamente qué
-  significa cada categoría. En el caso "no entendí" MUST presentarse solo esa categoría, sin valor
-  numérico y sin etiqueta candidata.
+  no entendí— acompañadas de indicador visual, y MUST NOT presentarlo únicamente como número. Las
+  fronteras entre categorías son las de FR-016: **"alta"** = confianza >= umbral del nivel
+  *estricto* vigente; **"media"** = confianza entre el umbral activo y el de estricto; **"no
+  entendí"** = por debajo del umbral activo. No se introduce ningún valor adicional: ambas fronteras
+  se recalibran junto con los umbrales según NFR-019. En prueba con ≥5 participantes sin formación
+  técnica, ≥80% MUST interpretar correctamente qué significa cada categoría. En el caso "no entendí"
+  MUST presentarse solo esa categoría, sin valor numérico y sin etiqueta candidata.
 - **FR-014**: El sistema MUST mantener un historial de la sesión con las señas reconocidas en orden
   cronológico.
 - **FR-015**: El sistema MUST permitir limpiar el historial de la sesión mediante una acción
@@ -721,6 +759,12 @@ cuántas logran un encuadre válido y una captura completa en menos de 1 minuto.
   NOT fallar en silencio.
 
 **Configuración**
+
+En esta sección, "la persona usuaria" es la **persona señante**: las preferencias afectan su
+comunicación (umbral, espejo, la voz que habla en su nombre) y por eso ella es la dueña del diseño.
+La pantalla de preferencias MUST ser operable sin audio (NFR-010); su usabilidad se valida con la
+tarea T4 del protocolo de NFR-021, ejecutada por personas sordas sin ayuda. El interlocutor puede
+accionarla físicamente cuando sostiene el dispositivo, sin funcionalidad distinta.
 
 - **FR-024**: El sistema MUST permitir activar y desactivar la reproducción por voz, y elegir entre
   las voces en español disponibles en el dispositivo.
@@ -816,13 +860,19 @@ cuántas logran un encuadre válido y una captura completa en menos de 1 minuto.
     dispositivo de referencia.
   - El presupuesto es íntegramente de cómputo local y los hasta 3 intentos de FR-008 se consumen
     dentro de él.
-  - **Dispositivo de referencia — VALOR PROVISIONAL**: hasta que se fije, se toma como referencia un
-    teléfono de gama media de los últimos 4 años y una notebook equivalente. El modelo concreto MUST
-    declararse al iniciar la fase de plan, junto con su resolución y fps efectivos, y MUST formar
-    parte de la lista de NFR-020. **Criterio de revisión**: si el dispositivo declarado no alcanza
-    los 2 s, MUST reportarse el percentil real alcanzado y decidirse explícitamente entre optimizar,
-    subir el presupuesto con justificación en `research.md` (Principio IX), o declarar un
-    dispositivo de referencia distinto — nunca dejar el número sin cumplir y sin decisión.
+  - **Dispositivo de referencia — DECLARADO (Session 2026-07-29)**: **Samsung Galaxy A10**, con
+    prioridad **mobile-first** — el teléfono es la referencia vinculante para L1 y L2; la notebook
+    es secundaria (notebook genérica del equipo, modelo a asentar al registrar la primera medición).
+    El A10 (2019) queda por debajo de la banda provisional original ("gama media de los últimos 4
+    años") y se declara a sabiendas como objetivo más exigente: cumplir los 2 s en él implica
+    cumplirlos en cualquier gama media actual. Su resolución y fps efectivos MUST medirse y
+    registrarse al incorporarlo a la lista de NFR-020. **Criterio de revisión**: si el dispositivo
+    declarado no alcanza los 2 s, MUST reportarse el percentil real alcanzado y decidirse
+    explícitamente entre optimizar, subir el presupuesto con justificación en `research.md`
+    (Principio IX), o declarar un dispositivo de referencia distinto — nunca dejar el número sin
+    cumplir y sin decisión. Dado que el A10 es deliberadamente más exigente que la banda original,
+    redeclarar hacia un gama media de los últimos 4 años es una salida prevista y no un fracaso del
+    requisito.
   - Sin dispositivo de referencia declarado, NFR-003 no es verificable: un mismo sistema cumple o
     incumple según el hardware en que se lo mida.
   - **Alcance**: NFR-003 aplica a la presentación del **texto** de cada seña. La frase hablada,
@@ -1008,7 +1058,9 @@ cuántas logran un encuadre válido y una captura completa en menos de 1 minuto.
   - **Nivel 1 — transformación (BLOQUEANTE de CI)**: dados los mismos landmarks crudos de entrada,
     todo productor MUST producir el mismo vector de 201 coordenadas (63 + 63 + 75), centrado en el
     punto medio de los hombros (landmarks 11 y 12), con z sin centrar y largo fijo muestreado por
-    linspace. **Fixture**: conjunto versionado en el repositorio que cubra las 64 clases al menos una
+    linspace **en su forma entera exacta**: `idx[i] = (i·(T−1)) div (N−1)` (división entera),
+    idéntica en todos los productores y sin dependencia del punto flotante; la definición normativa
+    completa está en el contrato versionado de keypoints (`contracts/keypoints/`). **Fixture**: conjunto versionado en el repositorio que cubra las 64 clases al menos una
     vez, generado por el preprocesamiento de referencia y congelado. **Tolerancia**: error absoluto
     máximo por coordenada <= 1e-6. **Productores obligados**: preprocesamiento Python de
     entrenamiento y cliente de la aplicación.
@@ -1232,6 +1284,12 @@ escenario de transporte.
 - **Dirección única**: el sistema traduce de LSA a español. La respuesta del interlocutor oyente
   hacia la persona sorda no está cubierta por ningún requisito; ocurre por los medios que las
   personas ya usaran antes (escribir, gestos, lectura labial).
+- **Sin modo restringido al entregar el dispositivo**: el modelo de uso implica entregar el teléfono
+  desbloqueado a un interlocutor que puede ser un desconocido, y una aplicación web no puede impedir
+  que quien lo sostiene salga de ella. No hay modo kiosco en el MVP (Session 2026-07-29, CHK009).
+  Mitigación dentro de lo controlable: historial efímero y sin datos personales expuestos en sesión
+  (NFR-008), y control de detener la grabación siempre accesible (FR-001). Un modo kiosco real queda
+  como candidato para la eventual iteración nativa.
 
 ## Assumptions
 

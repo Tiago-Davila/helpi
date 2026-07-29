@@ -1,39 +1,35 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: (plantilla sin ratificar) → 1.0.0
-Bump rationale: MAJOR inicial. Primera ratificación: se define el conjunto completo de
-principios de gobierno del proyecto a partir de la fase exploratoria (5 experimentos).
+Version change: 1.0.0 → 1.0.1
+Bump rationale: PATCH. Aclaración sin cambio semántico del Principio IV: "muestreadas con
+linspace" se precisa como la forma entera exacta idx[i] = (i·(T−1)) div (N−1), idéntica en
+todos los productores. No redefine el criterio de muestreo (es linspace de índices +
+truncado, la versión exacta del mismo cálculo); elimina la ambigüedad que permitía
+implementar np.linspace en punto flotante, cuya no-reproducibilidad bit a bit entre Python
+y JavaScript es en sí una fuente de la divergencia silenciosa que este principio combate.
+Origen: clarificación Session 2026-07-29 de spec 001-lsa-sign-translator (Q3) y análisis
+R-009 en specs/001-lsa-sign-translator/research.md.
 
 Modified principles:
-  - [PRINCIPLE_1_NAME] → I. La Especificación Manda
-  - [PRINCIPLE_2_NAME] → II. Arquitectura del Pipeline (NO NEGOCIABLE)
-  - [PRINCIPLE_3_NAME] → III. Keypoints, Nunca Píxeles
-  - [PRINCIPLE_4_NAME] → IV. Contrato de Datos de Keypoints (NO NEGOCIABLE)
-  - [PRINCIPLE_5_NAME] → V. Metodología de Evaluación por Sujeto
-  (nuevos, no presentes en la plantilla): VI–XIV
+  - IV. Contrato de Datos de Keypoints (NO NEGOCIABLE): regla de muestreo temporal
+    precisada (sin cambio semántico; los demás términos intactos)
 
-Added sections:
-  - Core Principles: 14 principios (la plantilla traía 5 slots)
-  - Restricciones Adicionales (ex [SECTION_2_NAME]): privacidad, licencia, latencia,
-    deuda técnica heredada de la POC
-  - Flujo de Trabajo y Puertas de Calidad (ex [SECTION_3_NAME]): fases Spec Kit,
-    CI bloqueante, revisión de PR
-  - Governance: procedimiento de enmienda, versionado, revisión de cumplimiento
-
-Removed sections: ninguna (todos los placeholders de la plantilla fueron reemplazados)
+Added sections: ninguna
+Removed sections: ninguna
 
 Templates requiring updates:
-  - ✅ .specify/templates/plan-template.md (Constitution Check con puertas concretas)
-  - ✅ .specify/templates/spec-template.md (secciones obligatorias: privacidad,
-       confianza, latencia, trazabilidad)
-  - ✅ .specify/templates/tasks-template.md (tests del contrato de datos NO opcionales;
-       categorías de tareas por principio)
-  - ✅ .specify/templates/checklist-template.md (nota de cumplimiento constitucional)
-  - ⚠ Readme.md (raíz del repo, fuera de helpi/): pendiente de añadir aviso de
-       herramienta de ASISTENCIA + atribución LSA64 (Principios VIII y X)
+  - ✅ .specify/templates/plan-template.md (gate IV: "integer-exact linspace")
+  - ✅ .specify/templates/spec-template.md (sin menciones de linspace; sin cambios)
+  - ✅ .specify/templates/tasks-template.md (sin menciones de linspace; sin cambios)
+  - ⚠ Readme.md (raíz del repo, fuera de helpi/): SIGUE pendiente de añadir aviso de
+       herramienta de ASISTENCIA + atribución LSA64 (Principios VIII y X) — trazado como
+       T136 en specs/001-lsa-sign-translator/tasks.md
 
-Deferred TODOs: ninguno. RATIFICATION_DATE fijada al día de esta ratificación.
+Deferred TODOs: ninguno.
+
+Historial:
+  - 1.0.0 (2026-07-23): ratificación inicial, 14 principios desde la fase exploratoria.
 -->
 
 # Helpi Constitution
@@ -101,7 +97,10 @@ Reglas de normalización, idénticas para todos los productores:
 
 - Centrado en el punto medio de los hombros (pose landmarks 11 y 12).
 - La componente `z` NO se centra.
-- Secuencias de largo fijo, muestreadas con `linspace` sobre los frames disponibles.
+- Secuencias de largo fijo, muestreadas con `linspace` sobre los frames disponibles, en su
+  **forma entera exacta**: `idx[i] = (i·(T−1)) div (N−1)` (división entera), idéntica en todos los
+  productores y sin dependencia de la representación en punto flotante. La definición normativa
+  completa y sus casos borde viven en el contrato versionado de keypoints (`contracts/keypoints/`).
 
 TODO productor de keypoints — preprocesamiento en Python, cliente web, cliente móvil,
 cualquier futuro cliente — MUST cumplir este contrato de forma idéntica, bit a bit dentro de
@@ -302,4 +301,4 @@ puertas de CI del apartado anterior son la verificación automática mínima. La
 justificadas por escrito bloquean el merge. La complejidad añadida MUST justificarse; ante
 duda, gana la opción más simple.
 
-**Version**: 1.0.0 | **Ratified**: 2026-07-23 | **Last Amended**: 2026-07-23
+**Version**: 1.0.1 | **Ratified**: 2026-07-23 | **Last Amended**: 2026-07-29

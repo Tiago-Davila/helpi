@@ -4,7 +4,7 @@
 
 **Input**: Feature specification from `specs/001-lsa-sign-translator/spec.md`
 
-**Constitution**: [.specify/memory/constitution.md](../../.specify/memory/constitution.md) v1.0.0
+**Constitution**: [.specify/memory/constitution.md](../../.specify/memory/constitution.md) v1.0.1
 
 **Artefactos de esta fase**: [research.md](./research.md) · [data-model.md](./data-model.md) ·
 [contracts/](./contracts/) · [quickstart.md](./quickstart.md)

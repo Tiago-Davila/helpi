@@ -48,7 +48,7 @@ or the plan must change. See `.specify/memory/constitution.md`.
 | I | Every planned capability traces to a user story / `FR-###` | | |
 | II | Pipeline order respected: video → keypoints → sequence model → gloss+confidence → text/speech; LLM only gloss→sentence | | |
 | III | Recognition consumes keypoints only, never pixels; no image filters feeding the classifier | | |
-| IV | Keypoint data contract unchanged (63+63+75 = 201, shoulder-midpoint centering, z uncentered, linspace fixed-length); contract tests cover every producer | | |
+| IV | Keypoint data contract unchanged (63+63+75 = 201, shoulder-midpoint centering, z uncentered, integer-exact linspace `idx[i] = (i*(T-1)) div (N-1)` fixed-length); contract tests cover every producer | | |
 | V | Reportable metrics use per-subject split; no regression below 0.85 accuracy (LSA64, subject 10 held-out) | | |
 | VI | Each experiment records config, seed, dataset, dependency versions; artifacts stored separately | | |
 | VII | Raw video never leaves the device; only keypoints cross the network | | |
