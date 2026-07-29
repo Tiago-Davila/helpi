@@ -70,3 +70,68 @@ Fuera de alcance: traducción continua de frases (LSA-T, fase futura), señas in
 - LSA64: https://facundoq.github.io/datasets/lsa64/
 - Guía datasets señas: http://facundoq.github.io/guides/sign_language_datasets/slr
 - LSA-T (continuo, futuro). Grupo LIDI (UNLP): contacto potencial.
+
+
+<!-- SPEC-KIT:BEGIN - generado por update_agent_context.py, no editar a mano -->
+
+## Estado de la especificacion (generado automaticamente)
+
+Feature activa: `specs/001-lsa-sign-translator`  
+Ultima actualizacion: 2026-07-29 19:35 UTC
+
+### Artefactos
+
+| Archivo | Rol | Estado |
+|---|---|---|
+| `spec.md` | Especificacion | presente (2026-07-29) |
+| `plan.md` | Plan tecnico | presente (2026-07-29) |
+| `research.md` | Decisiones y trade-offs | presente (2026-07-29) |
+| `data-model.md` | Modelo de datos | presente (2026-07-29) |
+| `quickstart.md` | Validacion E2E | presente (2026-07-29) |
+| `tasks.md` | Plan de ejecucion | **FALTA** |
+| `contracts/` | Contratos | 5 archivo(s) |
+
+**Inventario de identificadores:** 5 DD, 40 FR, 27 NFR, 15 R, 26 SC, 6 US
+
+### Decisiones de diseño (DD)
+
+- DD-001 — Quién inicia la grabación (SUPERSEDIDA por DD-002)
+- DD-002 — Grabación continua con segmentación automática de señas
+- DD-003 — Voz agrupada por pausa y pulido glosa→frase con LLM
+- DD-004 — El LLM solo puede agregar palabras funcionales
+- DD-005 — La frontera de privacidad se redefine: salen glosas, no keypoints ni video
+
+### Research (R)
+
+- R-001 — Migración de MediaPipe Holistic a Tasks API
+- R-002 — Aporte real de la componente z (201 vs 134 coordenadas)
+- R-003 — Runtime de inferencia en el dispositivo
+- R-004 — Segmentación temporal: detectar inicio y fin de seña
+- R-005 — Optional stopping: cuantificar la inflación y compensar el umbral
+- R-006 — Tiempo muerto inicial y transiciones ausentes en LSA64 cut
+- R-007 — Umbral de confianza: global o calibrado por clase
+- R-008 — Presupuesto de latencia y dispositivo de referencia
+- R-009 — Criterio exacto de normalización temporal
+- R-010 — TTS con Web Speech API: selección de voz, cola y degradación
+- R-011 — Servicio de pulido: modelo, despliegue y validación
+- R-012 — Valores provisionales: criterio y momento de revisión
+- R-013 — Pares de señas confundidos y suficiencia de la configuración de mano
+- R-014 — Equivalencia numérica Python ↔ TypeScript
+- R-015 — Antecedentes de viabilidad de inferencia local
+
+### Abierto / no resuelto
+
+- El modelo concreto del dispositivo de referencia (NFR-003). Requiere saber qué hardware tiene
+- El runtime y el modelo del servicio de pulido (R-011). Depende de infraestructura disponible.
+- La cota empírica del Nivel 2 del contrato (NFR-014). Se mide en la Fase C, por definición.
+- El rango de duración de seña con el que el reconocimiento se mantiene sobre el umbral. Se mide
+- Los valores finales de los umbrales de confianza. Salen de NFR-019, no de este documento.
+
+### Reglas de trabajo
+
+- La especificacion manda sobre la implementacion.
+- Una tarea, un diff, un commit. No avanzar a la siguiente sin cerrar.
+- Fuente de verdad: los archivos en `specs/001-lsa-sign-translator/`, no este resumen.
+- Este bloque es generado: editarlo a mano no tiene efecto.
+
+<!-- SPEC-KIT:END -->
