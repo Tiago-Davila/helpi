@@ -68,12 +68,12 @@ están sujetos a la regla general de "tests opcionales":
 
 ## Decisiones abiertas y qué bloquean
 
-Las cinco decisiones que [plan.md](./plan.md) §*Qué NO resuelve este plan* dejó abiertas por
-depender de datos externos al repositorio. **Ninguna tarea asume un valor no decidido.**
+Las decisiones que [plan.md](./plan.md) §*Qué NO resuelve este plan* dejó abiertas por depender de
+datos externos al repositorio. **Ninguna tarea asume un valor no decidido.**
 
 | # | Decisión abierta | Qué hay que resolver para desbloquear | Tareas bloqueadas |
 |---|---|---|---|
-| **D1** | Modelo concreto del dispositivo de referencia (NFR-003) | Declarar teléfono de gama media y notebook con resolución y fps efectivos **medidos**, e incorporarlos a la lista de NFR-020 | T157, T160, T161 |
+| ~~**D1**~~ | ~~Modelo concreto del dispositivo de referencia (NFR-003)~~ | **CERRADA** en la clarificación del 2026-07-29: **Samsung Galaxy A10, mobile-first**; notebook secundaria. Ninguna tarea queda bloqueada por esto | — (T157 pasa a medir resolución y fps efectivos del A10) |
 | **D2** | Runtime, modelo y despliegue del servicio de pulido (R-011) | Decidir dónde corre y con qué modelo. La spec descarta delegarlo a una API comercial de terceros | T144, T145 |
 | **D3** | Cota empírica del Nivel 2 del contrato (NFR-014) | Se **mide** en T091. No se asume | T091 la produce; nadie la consume antes |
 | **D4** | Rango de duración de seña sobre el umbral | Se mide en T048 con el dataset regenerado | T106 (parámetros de duración del segmentador) |
@@ -502,8 +502,8 @@ misma salida**: ambos consumen el mismo resultado de la política de confianza.
 
 - [ ] T112 [IMPL] [US1] Implementar la presentación del texto en `frontend/src/presentation/text/Result.tsx`, dimensionado por **ángulo visual** >= 0,4° (2 m para la persona señante, 40 cm para el interlocutor) con contraste >= 4,5:1
       ↳ Traza: FR-011, NFR-011, SC-007 · Dep: T065 · Repo: frontend
-- [ ] T113 [IMPL] [US1] Implementar las 3 categorías nombradas de confianza (alta / media / no entendí) con indicador visual en `frontend/src/presentation/text/Confidence.tsx`; **MUST NOT** presentarse únicamente como número, y en "no entendí" **sin valor numérico y sin etiqueta candidata**
-      ↳ Traza: FR-013, FR-017, Principio VIII · Dep: T066, T112 · Repo: frontend
+- [ ] T113 [IMPL] [US1] Implementar las 3 categorías nombradas de confianza (alta / media / no entendí) con indicador visual en `frontend/src/presentation/text/Confidence.tsx`; **MUST NOT** presentarse únicamente como número, y en "no entendí" **sin valor numérico y sin etiqueta candidata**. Fronteras según FR-013: **alta** = confianza >= umbral del nivel *estricto*; **media** = entre el umbral activo y el de estricto. Ambas se leen de `thresholds.json`; **ningún valor propio en este módulo**
+      ↳ Traza: FR-013, FR-016, FR-017, Principio VIII · Dep: T066, T112 · Repo: frontend
 - [ ] T114 [IMPL] [US5] Implementar el historial de sesión en memoria en `frontend/src/session/history.ts`: orden cronológico, solo entradas presentadas, **no se restaura al reabrir**
       ↳ Traza: FR-014, US5 esc. 3, [data-model.md §6.1](./data-model.md) · Dep: T113 · Repo: frontend
 - [ ] T115 [IMPL] [US5] Implementar la limpieza del historial con acción explícita **y confirmación** en `frontend/src/session/history.ts`
@@ -549,8 +549,8 @@ misma salida**: ambos consumen el mismo resultado de la política de confianza.
 
 - [ ] T131 [IMPL] [US7] Implementar las preferencias persistentes en `frontend/src/prefs/store.ts` según [data-model.md §5](./data-model.md), con `pulido_activado` en `false` y `aviso_pulido_visto` en `false` por defecto, y revalidación de la voz guardada al arrancar
       ↳ Traza: FR-024, FR-025, FR-026, FR-027, FR-041, SC-023 · Dep: T125, T068 · Repo: frontend
-- [ ] T132 [IMPL] [US7] Implementar la pantalla de preferencias en `frontend/src/prefs/Preferences.tsx`: voz on/off y selección, umbral en 3 opciones nombradas **con una explicación de una frase cada una**, modo espejo, modo de captura
-      ↳ Traza: FR-024, FR-025, FR-026, FR-037 · Dep: T131 · Repo: frontend
+- [ ] T132 [IMPL] [US7] Implementar la pantalla de preferencias en `frontend/src/prefs/Preferences.tsx`: voz on/off y selección, umbral en 3 opciones nombradas **con una explicación de una frase cada una**, modo espejo, modo de captura. **La destinataria del diseño es la persona señante** (spec §Configuración, clarificación 2026-07-29): la pantalla MUST ser operable sin audio (NFR-010) y su usabilidad se valida con la tarea T4 del protocolo de NFR-021, ejecutada por personas sordas sin ayuda
+      ↳ Traza: FR-024, FR-025, FR-026, FR-037, NFR-010, NFR-021 T4 · Dep: T131 · Repo: frontend
 - [ ] T133 [P] [IMPL] [US6] Implementar la lista completa de las 64 señas con su significado en español en `frontend/src/vocabulary/VocabularyList.tsx`, leyendo `labels.json` del artefacto de modelo
       ↳ Traza: FR-028, US6 esc. 1, SC-010 · Dep: T080 · Repo: frontend
 - [ ] T134 [P] [IMPL] [US6] Implementar el aviso **visible y persistente** de vocabulario limitado y de "asistencia, no reemplazo de intérpretes humanos" en `frontend/src/layout/ScopeNotice.tsx`, presente en cualquier pantalla
@@ -634,19 +634,18 @@ reales de LSA**, no por inspección interna.
 
 - [ ] T156 [IMPL] Sortear el subconjunto congelado de **10 señas** con semilla registrada **antes** de la primera medición, y congelarlo en `specs/001-lsa-sign-translator/field-sample.json`; reutilizarlo idéntico en los tres entornos y en toda medición posterior
       ↳ Traza: NFR-018 — impide que la puerta de NFR-005 se acomode eligiendo señas fáciles · Dep: — · Repo: raíz
-- [ ] T157 [IMPL] **[BLOQUEADA: D1 — dispositivo de referencia (NFR-003)]** Declarar el dispositivo de referencia (teléfono de gama media de los últimos 4 años y notebook) con resolución y fps efectivos **medidos**, e incorporarlo a la lista de >= 3 dispositivos de NFR-020, en `specs/001-lsa-sign-translator/devices.md`
-      - **Para desbloquear**: saber qué hardware tiene disponible el equipo. **Sin dispositivo de referencia declarado, NFR-003 no es verificable**: un mismo sistema cumple o incumple según el hardware en que se lo mida.
-      ↳ Traza: NFR-003, NFR-020, D1 · Dep: — · Repo: raíz
+- [ ] T157 [IMPL] Medir y registrar la **resolución y los fps efectivos** (medidos, no nominales) del dispositivo de referencia declarado —**Samsung Galaxy A10**, mobile-first— e incorporarlo junto a la notebook (modelo a asentar aquí) a la lista de >= 3 dispositivos de NFR-020, en `specs/001-lsa-sign-translator/devices.md`
+      - **Criterio de terminado**: fps efectivos del A10 con `HandLandmarker` + `PoseLandmarker` corriendo sobre cada frame, medidos en sesión real. **Es la medición que decide la viabilidad en este hardware** (R-008): si no sostiene >= 15 fps (NFR-004), el camino es bajar la resolución de entrada al detector —no recortar el presupuesto de L1— y, agotado eso, redeclarar el dispositivo, que es salida prevista y no fracaso del requisito.
+      ↳ Traza: NFR-003, NFR-004, NFR-020, R-008 · Dep: T098 · Repo: raíz
 - [ ] T158 [IMPL] Documentar el protocolo de los 3 entornos en `specs/001-lsa-sign-translator/field-protocol.md` con sus parámetros observables y los mínimos comunes (>= 640×480 px, >= 15 fps efectivos), y la regla de que toda sesión fuera de rango **se descarta y se repite**
       ↳ Traza: NFR-004, NFR-016, SC-003 · Dep: T156 · Repo: raíz
 - [ ] T159 [IMPL] **Ejecutar la primera medición completa de NFR-022** contra anotación humana de referencia sobre grabación externa, produciendo el desglose de las cuatro categorías y la atribución de la diferencia entre NFR-001a y NFR-001b
       ↳ Traza: NFR-022, NFR-001b, SC-020 · Dep: T057, T105 · Repo: ml
       ⚠ **Puerta de decisión**: si con segmentación continua la accuracy no alcanza **0.70 en E1** —el entorno más favorable—, el modo manual de FR-037 pasa a **predeterminado** y la segmentación continua queda opcional, documentando decisión y evidencia. **Se ejecuta en cuanto US1 está operativa, no al cierre.**
-- [ ] T160 [IMPL] **[BLOQUEADA: D1]** Medir **L1** (fin detectado → texto, < 1 s) como métrica de regresión de CI, en `frontend/tests/perf/l1.spec.ts`
-      - **Para desbloquear**: T157.
+- [ ] T160 [IMPL] Medir **L1** (fin detectado → texto, < 1 s) en el Samsung Galaxy A10 como métrica de regresión de CI, en `frontend/tests/perf/l1.spec.ts`
       ↳ Traza: NFR-003 L1, R-008 · Dep: T157, T105 · Repo: frontend
-- [ ] T161 [IMPL] **[BLOQUEADA: D1]** Medir **L2** (último frame anotado a ciegas por una persona competente en LSA sobre grabación con dispositivo externo → presentación) sobre >= 50 capturas, con criterio p95 < 2 s
-      - **Para desbloquear**: T157. **Criterio de revisión**: si no se alcanza, reportar el percentil real y decidir explícitamente entre optimizar `T_off`, subir el presupuesto con justificación bajo el Principio IX, o declarar otro dispositivo de referencia. **Nunca dejar el número incumplido y sin decisión.**
+- [ ] T161 [IMPL] Medir **L2** en el Samsung Galaxy A10 (último frame anotado a ciegas por una persona competente en LSA sobre grabación con dispositivo externo → presentación) sobre >= 50 capturas, con criterio p95 < 2 s
+      - **Criterio de revisión**: si no se alcanza, reportar el percentil real y decidir explícitamente entre optimizar `T_off`, subir el presupuesto con justificación bajo el Principio IX, o declarar otro dispositivo de referencia. **Nunca dejar el número incumplido y sin decisión.** Como el A10 es deliberadamente más exigente que la banda provisional original, redeclarar hacia un gama media de los últimos 4 años es una salida prevista.
       ↳ Traza: NFR-003 L2, SC-002, R-008 · Dep: T157, T155 · Repo: raíz
 - [ ] T162 [IMPL] Ejecutar la **primera corrida completa del protocolo** en E1, E2 y E3 sobre el subconjunto congelado, con >= 10 intentos por seña, reportando por separado por entorno
       ↳ Traza: NFR-004, NFR-005, NFR-016, SC-003 · Dep: T158, T153, T157 · Repo: raíz

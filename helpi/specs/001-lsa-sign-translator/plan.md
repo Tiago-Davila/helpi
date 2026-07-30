@@ -125,10 +125,14 @@ lingüístico, más un proyecto de ML fuera de línea.
 64 clases · 10 sujetos · 5 repeticiones por seña y sujeto (3200 videos) · modelo LSTM de ~0,5 M
 parámetros · secuencias de 40 × 201 floats · 8 historias de usuario, 41 FR, 27 NFR, 26 SC.
 
-**Dispositivo de referencia (NFR-003) — a declarar antes de la primera medición de L2**:
-sigue siendo **NEEDS DECISION**. El plan fija el procedimiento y el momento en
-[research.md R-008](./research.md), no el modelo concreto: elegirlo requiere saber qué hardware
-tiene disponible el equipo, dato que no está en la spec ni en el repo.
+**Dispositivo de referencia (NFR-003) — DECLARADO**: **Samsung Galaxy A10**, con prioridad
+**mobile-first** (el teléfono es la referencia vinculante para L1 y L2; la notebook es secundaria).
+Cerrado en la clarificación del 2026-07-29. Queda **por debajo** de la banda provisional original y se
+asume a sabiendas como objetivo más exigente. Su consecuencia técnica está analizada en
+[research.md R-008](./research.md): en este hardware el riesgo se desplaza de la latencia al
+**throughput de extracción de keypoints** (>= 15 fps con dos detectores por frame, NFR-004), que pasa a
+ser la medición que decide la viabilidad. Resta medir resolución y fps efectivos e incorporarlo a
+NFR-020 (T157).
 
 ---
 
@@ -608,14 +612,16 @@ tareas de la fase `tasks`.
 
 Declarado para que no quede implícito:
 
-- **El modelo concreto del dispositivo de referencia (NFR-003)**. Requiere saber qué hardware tiene
-  el equipo. Procedimiento y momento en R-008; el valor, no.
 - **El runtime y el modelo del servicio de pulido (R-011)**. Depende de infraestructura disponible.
 - **La cota empírica del Nivel 2 del contrato (NFR-014)**. Se mide en la Fase C, por definición.
 - **El rango de duración de seña con el que el reconocimiento se mantiene sobre el umbral**. Se mide
   en la Fase B con el dataset regenerado.
 - **Los valores finales de los umbrales de confianza**. Salen de NFR-019, no de este documento.
 
-Ninguno es una omisión: los cinco están declarados en la spec como diferidos a esta fase **con
+Ninguno es una omisión: los cuatro están declarados en la spec como diferidos a esta fase **con
 dueño y con requisito que los obliga**, y lo que esta fase debía aportar es el procedimiento y el
 momento de resolución, que están en `research.md`.
+
+**Cerrado después de escribir este plan**: el modelo concreto del dispositivo de referencia (NFR-003)
+era el quinto punto de esta lista y quedó resuelto en la clarificación del 2026-07-29 — Samsung
+Galaxy A10, mobile-first. Ver *Technical Context* y [research.md R-008](./research.md).

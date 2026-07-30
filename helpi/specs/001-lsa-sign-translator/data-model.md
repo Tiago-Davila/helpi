@@ -122,9 +122,14 @@ SenaReconocida {
 }
 ```
 
-`categoria` se deriva de `confianza` y del umbral vigente. FR-013 prohíbe presentar la confianza
-**únicamente** como número: la categoría nombrada más su indicador visual son obligatorios; el
-número es opcional y acompaña, nunca sustituye.
+`categoria` se deriva de `confianza` y de **dos** fronteras, ambas provenientes de FR-016: **`ALTA`**
+si `confianza >= umbral del nivel estricto`; **`MEDIA`** si está entre el umbral activo y el de
+estricto. Por debajo del umbral activo no hay `SenaReconocida`: el evento resuelve `NO_ENTENDIDA`.
+No hay ningún valor propio de esta capa — las dos fronteras se recalibran junto con los umbrales
+según NFR-019, y con el nivel estricto activo toda seña aceptada es `ALTA`.
+
+FR-013 prohíbe presentar la confianza **únicamente** como número: la categoría nombrada más su
+indicador visual son obligatorios; el número es opcional y acompaña, nunca sustituye.
 
 ### 1.5 Vocabulario LSA64
 

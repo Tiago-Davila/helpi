@@ -29,7 +29,7 @@ compromiso es el método, el momento y el criterio de aceptación.
 | R-005 | Optional stopping: inflación de confianza y compensación | PROCEDIMIENTO |
 | R-006 | Tiempo muerto inicial y transiciones ausentes en LSA64 cut | DECIDIDO |
 | R-007 | Umbral global vs calibrado por clase | PROCEDIMIENTO |
-| R-008 | Presupuesto de latencia y dispositivo de referencia | DECIDIDO / ABIERTO |
+| R-008 | Presupuesto de latencia y dispositivo de referencia | DECIDIDO |
 | R-009 | Criterio exacto de normalización temporal | DECIDIDO |
 | R-010 | TTS con Web Speech API: selección, cola y degradación | DECIDIDO |
 | R-011 | Servicio de pulido: modelo, despliegue y validación | ABIERTO / DECIDIDO |
@@ -499,7 +499,7 @@ es un hallazgo de modelo, no de política. Ese caso se reporta como tal.
 
 ## R-008 — Presupuesto de latencia y dispositivo de referencia
 
-**Estado**: DECIDIDO (desglose) + ABIERTO (dispositivo)
+**Estado**: DECIDIDO (desglose y dispositivo)
 
 ### Contexto
 
@@ -552,24 +552,37 @@ Consecuencias que ordenan el trabajo:
   (`HandLandmarker` + `PoseLandmarker`) sobre cada frame. Si no se sostiene, el camino es bajar la
   resolución de entrada al detector, no recortar el presupuesto de L1.
 
-### Dispositivo de referencia — ABIERTO
+### Dispositivo de referencia — DECLARADO (Session 2026-07-29)
 
-NFR-003 exige declararlo **al iniciar la fase de plan**, y no puede decidirse desde el repositorio:
-depende de qué hardware tiene disponible el equipo. Lo que este documento fija es el procedimiento:
+**Samsung Galaxy A10, con prioridad mobile-first.** El teléfono es la referencia vinculante para L1
+y L2; la notebook es secundaria (notebook genérica del equipo, modelo a asentar al registrar la
+primera medición). Declarado en la clarificación del 2026-07-29 e incorporado a NFR-003.
 
-1. Declarar modelo concreto de teléfono de gama media (últimos 4 años) y de notebook, con su
-   resolución y fps efectivos medidos, no nominales.
-2. Incorporarlos a la lista de >= 3 dispositivos de NFR-020.
-3. Primera medición de L2 en cuanto US1 esté operativa, sobre >= 50 capturas, con el último frame
+**Consecuencia asumida deliberadamente**: el A10 (2019, Exynos 7884, 2 GB de RAM) queda **por debajo**
+de la banda provisional original ("gama media de los últimos 4 años"). Es un objetivo *más exigente*,
+no una relajación: cumplir el presupuesto en un A10 implica cumplirlo en cualquier gama media actual.
+
+**Lo que esto cambia en el análisis de latencia de esta entrada**: el riesgo se desplaza de golpe.
+L1 tiene margen enorme (~50 ms estimados contra 1000 ms de presupuesto) y ese margen absorbe un
+dispositivo lento sin problema. La restricción que el A10 pone realmente en duda es la otra: **sostener
+>= 15 fps efectivos con `HandLandmarker` + `PoseLandmarker` corriendo sobre cada frame** (NFR-004).
+Es *throughput* continuo, no latencia posterior al fin de seña, y en este hardware es la medición que
+decide la viabilidad. Si no se sostiene, el camino es bajar la resolución de entrada al detector
+—no recortar el presupuesto de L1— y, agotado eso, redeclarar el dispositivo.
+
+Procedimiento que resta ejecutar:
+
+1. Medir y registrar la resolución y los fps efectivos del A10 (medidos, no nominales) e incorporarlo
+   a la lista de >= 3 dispositivos de NFR-020. Asentar el modelo concreto de la notebook.
+2. Primera medición de L2 en cuanto US1 esté operativa, sobre >= 50 capturas, con el último frame
    anotado a ciegas por una persona competente en LSA sobre **grabación con un dispositivo externo a
    la aplicación** (NFR-017(c) prohíbe que la aplicación registre video, y esa prohibición no se
    relaja para medir).
-4. **Criterio de revisión (NFR-003)**: si no alcanza los 2 s, reportar el percentil real y decidir
+3. **Criterio de revisión (NFR-003)**: si no alcanza los 2 s, reportar el percentil real y decidir
    explícitamente entre optimizar `T_off`, subir el presupuesto con justificación bajo el
    Principio IX, o declarar otro dispositivo de referencia. Nunca dejar el número incumplido y sin
-   decisión.
-
-Hasta que se declare, rige el valor provisional de la spec (gama media de los últimos 4 años).
+   decisión. Como el A10 es deliberadamente más exigente que la banda original, **redeclarar hacia un
+   gama media de los últimos 4 años es una salida prevista y no un fracaso del requisito**.
 
 ### Nota sobre NFR-023 (frase hablada)
 
@@ -808,7 +821,7 @@ entrada de planificación).
 | Margen de 2 puntos de FPR | NFR-019 | Primera medición de la curva | Si con 2 puntos la cobertura cae por debajo de un nivel usable, se ajusta el margen documentando el intercambio | D |
 | 0,70 de NFR-005 (robustez por entorno) | NFR-005 | Tras la **primera corrida completa** del protocolo en E1/E2/E3, en cuanto US1 y US3 estén completas | E3 entre 0,55 y 0,70 → se reajusta el umbral **por entorno**, documentando valor y evidencia. E3 < 0,55 → fallo de robustez, se revisa el enfoque, no el umbral | F |
 | 0,70 de NFR-001b (sistema desplegado) | NFR-001b | Junto con NFR-005 | Mismo número y mismo significado que NFR-005 y que la puerta de NFR-022; incumplirlo **es** el evento que dispara el repliegue a FR-037 | D/F |
-| Dispositivo de referencia | NFR-003 | Al declararse, antes de la primera medición de L2 | Ver R-008 | D |
+| ~~Dispositivo de referencia~~ **DECLARADO**: Samsung Galaxy A10, mobile-first | NFR-003 | Cerrado en la clarificación del 2026-07-29 | Resta medir resolución y fps efectivos; redeclarar es salida prevista (ver R-008) | D |
 | Umbral de L1 (< 1 s) | NFR-003 | Con la primera medición de L2 | Se deriva del margen real dentro de los 2 s de L2 | D |
 | Rangos de lux de E1/E2/E3 | NFR-004 | Junto con NFR-005, tras la primera corrida | Si los rangos no se pueden sostener en campo, se redeclaran con los valores efectivos registrados | F |
 | 3 s y RTT 50–150 ms | NFR-023 | Primera medición con el servicio desplegado | Modelo más chico, glosa cruda siempre, o subir presupuesto con justificación | E |

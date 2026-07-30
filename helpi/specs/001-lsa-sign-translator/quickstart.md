@@ -309,7 +309,8 @@ continua queda como funcionalidad opcional, documentando la decisión y la evide
 
 ## V11 — Latencia L1 y L2
 
-**Prerequisitos**: V9, dispositivo de referencia **declarado** (sin él NFR-003 no es verificable).
+**Prerequisitos**: V9, más el dispositivo de referencia con su resolución y fps efectivos medidos.
+El dispositivo está **declarado**: **Samsung Galaxy A10**, mobile-first (notebook secundaria).
 
 **L1** (proxy automatizable, regresión de CI): tiempo entre el fin de seña detectado por el sistema
 y la presentación del texto. Umbral: **< 1 s**.
@@ -327,7 +328,14 @@ aplicación**— y la presentación. Umbral: **< 2 s en el p95 de >= 50 capturas
 
 Si no se alcanzan los 2 s: reportar el percentil real y **decidir explícitamente** entre optimizar
 `T_off`, subir el presupuesto con justificación bajo el Principio IX, o declarar otro dispositivo de
-referencia. Nunca dejar el número incumplido y sin decisión.
+referencia. Nunca dejar el número incumplido y sin decisión. Como el A10 es deliberadamente más
+exigente que la banda provisional original, redeclarar hacia un gama media de los últimos 4 años es
+una salida prevista.
+
+> **En el A10, la medición que decide la viabilidad no es esta.** L1 tiene ~950 ms de margen. El
+> riesgo real es sostener **>= 15 fps efectivos** con `HandLandmarker` + `PoseLandmarker` sobre cada
+> frame (NFR-004) — se mide en T157, y si no se sostiene, el camino es bajar la resolución de entrada
+> al detector, no recortar el presupuesto de L1.
 
 **Verifica**: NFR-003 · SC-002
 
