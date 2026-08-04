@@ -77,7 +77,7 @@ Fuera de alcance: traducción continua de frases (LSA-T, fase futura), señas in
 ## Estado de la especificacion (generado automaticamente)
 
 Feature activa: `specs/001-lsa-sign-translator`  
-Ultima actualizacion: 2026-07-29 19:35 UTC
+Ultima actualizacion: 2026-07-30 01:02 UTC
 
 ### Artefactos
 
@@ -88,10 +88,12 @@ Ultima actualizacion: 2026-07-29 19:35 UTC
 | `research.md` | Decisiones y trade-offs | presente (2026-07-29) |
 | `data-model.md` | Modelo de datos | presente (2026-07-29) |
 | `quickstart.md` | Validacion E2E | presente (2026-07-29) |
-| `tasks.md` | Plan de ejecucion | **FALTA** |
+| `tasks.md` | Plan de ejecucion | presente (2026-07-29) |
 | `contracts/` | Contratos | 5 archivo(s) |
 
-**Inventario de identificadores:** 5 DD, 40 FR, 27 NFR, 15 R, 26 SC, 6 US
+**Inventario de identificadores:** 5 DD, 40 FR, 27 NFR, 18 R, 26 SC, 182 T, 8 US
+
+**Progreso de tareas:** 0/183 (0%)
 
 ### Decisiones de diseño (DD)
 
@@ -121,7 +123,6 @@ Ultima actualizacion: 2026-07-29 19:35 UTC
 
 ### Abierto / no resuelto
 
-- El modelo concreto del dispositivo de referencia (NFR-003). Requiere saber qué hardware tiene
 - El runtime y el modelo del servicio de pulido (R-011). Depende de infraestructura disponible.
 - La cota empírica del Nivel 2 del contrato (NFR-014). Se mide en la Fase C, por definición.
 - El rango de duración de seña con el que el reconocimiento se mantiene sobre el umbral. Se mide
