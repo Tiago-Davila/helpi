@@ -81,6 +81,7 @@ class SessionCoordinator(private val context: Context) {
     private var generation = 0
 
     private var partialTurnId: Long = -1
+    private var pausedAtMs: Long = 0
     private var visualState = VisualChannelState.NO_DISPONIBLE
     private var audioState = AudioChannelState.NO_DISPONIBLE
     private var framing = FramingEvaluator.Issue.SIN_PERSONA
@@ -249,6 +250,7 @@ class SessionCoordinator(private val context: Context) {
     fun pause() = submit(generation) {
         if (!stateMachine.canTransition(SessionState.PAUSADA)) return@submit
         generation++
+        pausedAtMs = now()
         stateMachine.transition(SessionState.PAUSADA)
         speechOutput?.stop()
         speech?.closeGate()
@@ -262,8 +264,36 @@ class SessionCoordinator(private val context: Context) {
         publish()
     }
 
+    /**
+     * Reanudación EXPLÍCITA ("Reanudar"): nunca automática. Si la pausa
+     * superó la vigencia, la sesión se invalida y el historial se descarta;
+     * se verifica el vencimiento aunque Android haya suspendido los timers.
+     */
+    fun resume() = submit(generation) {
+        if (stateMachine.current() != SessionState.PAUSADA) return@submit
+        if (now() - pausedAtMs > PAUSE_TTL_MS) {
+            notice = "La pausa superó los 2 minutos: la conversación se descartó."
+            doClose()
+            return@submit
+        }
+        // se re-verifica el estado de los canales antes de volver a mostrar
+        stateMachine.transition(SessionState.PREPARANDO)
+        stateMachine.transition(SessionState.LISTA)
+        stateMachine.transition(targetActiveState())
+        if (capabilities.stt) {
+            speech?.openGate()
+            audioState = AudioChannelState.STT_ESCUCHANDO
+        }
+        if (capabilities.vision) {
+            visualState = VisualChannelState.BUSCANDO_ENCUADRE
+        }
+        publish()
+    }
+
     /** Cierre explícito: descarta el historial y libera recursos. */
-    fun closeSession() = submit(generation) {
+    fun closeSession() = submit(generation) { doClose() }
+
+    private fun doClose() {
         generation++
         if (stateMachine.canTransition(SessionState.CERRANDO)) {
             stateMachine.transition(SessionState.CERRANDO)
@@ -487,6 +517,8 @@ class SessionCoordinator(private val context: Context) {
     companion object {
         /** Umbral inicial de laboratorio (D03); no aprobado de producción. */
         const val DEFAULT_THRESHOLD = 0.90f
+        /** Vigencia de la pausa; pasada, la sesión se invalida (D07). */
+        const val PAUSE_TTL_MS = 2L * 60 * 1000
         private const val PRE_ROLL_FRAMES = 8
     }
 }

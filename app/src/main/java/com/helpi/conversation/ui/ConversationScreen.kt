@@ -50,6 +50,27 @@ fun ConversationScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
 
+    if (state.session == SessionState.PAUSADA) {
+        // el chat no se muestra hasta reanudar explícitamente (privacidad)
+        Column(
+            modifier = Modifier.fillMaxSize().padding(24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(text = "La conversación está pausada", fontSize = 28.sp)
+            Text(
+                text = "Por privacidad, el contenido queda oculto. " +
+                    "Si la pausa supera los 2 minutos, la conversación se descarta.",
+                fontSize = 18.sp,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+            Button(modifier = Modifier.padding(top = 24.dp), onClick = viewModel::resume) {
+                Text(text = "Reanudar", fontSize = 22.sp)
+            }
+        }
+        return
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
         StatusBar(state)
         Row(modifier = Modifier.weight(1f)) {

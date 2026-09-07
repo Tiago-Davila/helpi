@@ -16,6 +16,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
     fun prepare() = coordinator.prepare()
     fun start() = coordinator.startConversation()
     fun pause() = coordinator.pause()
+    fun resume() = coordinator.resume()
     fun markIncorrect(turnId: Long) = coordinator.markIncorrect(turnId)
     fun closeSession() = coordinator.closeSession()
 
