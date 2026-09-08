@@ -1,0 +1,9 @@
+{
+  "modelVersion": "1.0",
+  "catalogVersion": "1.0",
+  "modelSha256": "13fe8912f78162519708a9b94138f5551faa5095cd5a8ee069a387ea2d09a1c8",
+  "numClasses": 64,
+  "outputsProbabilities": false,
+  "frames": 40,
+  "coords": 201
+}
