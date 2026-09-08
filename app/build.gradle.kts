@@ -15,6 +15,14 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // MediaPipe Tasks solo publica arm64-v8a, armeabi-v7a y x86. Sin este
+        // filtro el instalador elige x86_64 (lo aportan LiteRT y Vosk) y las
+        // .so de MediaPipe no se extraen: UnsatisfiedLinkError en el <clinit>
+        // de HolisticLandmarker. El soporte de ABI de la app lo acota MediaPipe.
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
     }
 
     // Obligatorio: sin esto Gradle comprime los modelos en el APK y
