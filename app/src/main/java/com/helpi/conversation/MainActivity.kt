@@ -108,8 +108,10 @@ class MainActivity : ComponentActivity() {
                 onFrame = { frame -> viewModel.coordinator.onLandmarks(frame) },
                 onError = { /* el coordinador ya refleja calidad insuficiente */ },
             )
-        } catch (e: Exception) {
-            // .task ausente o incompatible: canal visual inhabilitado con causa
+        } catch (e: Throwable) {
+            // .task ausente/incompatible, o .so del ABI equivocado
+            // (UnsatisfiedLinkError es Error, no Exception): el canal visual
+            // se inhabilita con causa, la actividad no se cae.
             null
         }
         extractor = ext
