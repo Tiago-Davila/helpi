@@ -16,12 +16,10 @@ android {
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // MediaPipe Tasks solo publica arm64-v8a, armeabi-v7a y x86. Sin este
-        // filtro el instalador elige x86_64 (lo aportan LiteRT y Vosk) y las
-        // .so de MediaPipe no se extraen: UnsatisfiedLinkError en el <clinit>
-        // de HolisticLandmarker. El soporte de ABI de la app lo acota MediaPipe.
+        // MediaPipe Tasks 0.10.32 incluye x86_64, necesario para probar la misma
+        // cadena de inferencia en el emulador oficial de Google.
         ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
         }
     }
 
@@ -76,7 +74,13 @@ dependencies {
     implementation(libs.camerax.lifecycle)
     implementation(libs.camerax.view)
 
-    implementation(libs.mediapipe.tasks.vision)
+    implementation(libs.mediapipe.tasks.vision) {
+        // tasks-core 0.10.32 fue compilado contra el retorno concreto de
+        // Any.Builder.build(); protobuf-javalite 4.26.1 sólo expone el retorno
+        // genérico y falla en runtime. El runtime completo conserva esa firma.
+        exclude(group = "com.google.protobuf", module = "protobuf-javalite")
+    }
+    implementation("com.google.protobuf:protobuf-java:4.26.1")
     implementation(libs.litert)
     implementation(libs.vosk.android)
 

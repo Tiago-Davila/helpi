@@ -39,7 +39,7 @@ import com.helpi.conversation.ui.theme.HelpiType
  */
 enum class SeccionHotbar(val etiqueta: String, val icono: Int) {
     TRADUCTOR("Traductor", R.drawable.ic_tab_traductor),
-    CUENTA("Cuenta", R.drawable.ic_tab_cuenta),
+    INFORMACION("Acerca de", R.drawable.ic_tab_cuenta),
 }
 
 /**
@@ -53,7 +53,7 @@ fun Hotbar(
     onSeleccionar: (SeccionHotbar) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.fillMaxWidth()) {
+    Column(modifier = modifier.fillMaxWidth().background(HelpiColors.Surface)) {
         HorizontalDivider(color = HelpiColors.Divider, thickness = 1.dp)
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -80,7 +80,7 @@ private fun HotbarItem(
 ) {
     Column(
         modifier = modifier
-            .height(76.dp)
+            .height(64.dp)
             .clickable(onClick = onClick)
             .semantics {
                 role = Role.Tab
@@ -92,19 +92,19 @@ private fun HotbarItem(
     ) {
         Box(
             modifier = Modifier
-                .width(60.dp)
-                .height(34.dp)
+                .width(54.dp)
+                .height(28.dp)
                 .background(
-                    color = if (activa) HelpiColors.LedSoft else Color.Transparent,
-                    shape = RoundedCornerShape(17.dp),
+                    color = if (activa) HelpiColors.BrandCore else Color.Transparent,
+                    shape = RoundedCornerShape(14.dp),
                 ),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 painter = painterResource(seccion.icono),
                 contentDescription = null,
-                tint = if (activa) HelpiColors.BgBase else HelpiColors.LedSoft,
-                modifier = Modifier.size(28.dp),
+                tint = if (activa) HelpiColors.LedSoft else HelpiColors.LedMuted,
+                modifier = Modifier.size(22.dp),
             )
         }
         Text(

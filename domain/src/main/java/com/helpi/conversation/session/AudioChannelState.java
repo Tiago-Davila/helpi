@@ -3,6 +3,7 @@ package com.helpi.conversation.session;
 /** Estado del canal de audio (STT/TTS). */
 public enum AudioChannelState {
     NO_DISPONIBLE,
+    STT_LISTO,
     STT_ESCUCHANDO,
     STT_TRANSCRIBIENDO,
     TTS_PENDIENTE,

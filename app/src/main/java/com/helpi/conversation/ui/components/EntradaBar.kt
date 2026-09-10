@@ -52,11 +52,15 @@ fun EntradaBar(
     disponibles: Set<ModoEntrada>,
     onSeleccionar: (ModoEntrada) -> Unit,
     modifier: Modifier = Modifier,
-    altura: androidx.compose.ui.unit.Dp = 112.dp,
+    altura: androidx.compose.ui.unit.Dp = 64.dp,
 ) {
     Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(20.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .background(HelpiColors.Surface, RoundedCornerShape(22.dp))
+            .border(1.dp, HelpiColors.Divider, RoundedCornerShape(22.dp))
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         ModoEntrada.entries.forEach { modo ->
             EntradaBoton(
@@ -85,17 +89,17 @@ private fun EntradaBoton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val forma = RoundedCornerShape(28.dp)
+    val forma = RoundedCornerShape(18.dp)
 
     val fondo = when {
         !habilitado -> Color.Transparent
-        activo -> HelpiColors.LedSoft
-        else -> HelpiColors.BrandCore
+        activo -> HelpiColors.BrandCore
+        else -> Color.Transparent
     }
     val contenido = when {
         !habilitado -> HelpiColors.LedMuted.copy(alpha = 0.38f)
-        activo -> HelpiColors.BgBase
-        else -> HelpiColors.LedSoft
+        activo -> HelpiColors.LedSoft
+        else -> HelpiColors.LedMuted
     }
 
     val estadoLeido = when {
@@ -125,19 +129,19 @@ private fun EntradaBoton(
                 if (!habilitado) disabled()
                 contentDescription = "${modo.etiqueta}, $estadoLeido"
             }
-            .padding(8.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically),
+            .padding(horizontal = 6.dp, vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Icon(
             painter = painterResource(modo.icono),
             contentDescription = null,
             tint = contenido,
-            modifier = Modifier.size(32.dp),
+            modifier = Modifier.size(23.dp),
         )
         Text(
             text = modo.etiqueta,
-            style = HelpiType.LabelBoton,
+            style = HelpiType.LabelHotbar,
             color = contenido,
             textAlign = TextAlign.Center,
             modifier = Modifier.clearAndSetSemantics { },

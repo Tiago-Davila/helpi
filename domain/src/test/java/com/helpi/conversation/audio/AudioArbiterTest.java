@@ -144,4 +144,18 @@ public class AudioArbiterTest {
         arbiter.sttGateClosed(800); // confirmación duplicada
         assertEquals(AudioArbiter.State.SPEAKING, arbiter.state());
     }
+
+    @Test
+    public void resetDescartaAudioDeLaSesionAnterior() {
+        arbiter.enqueue(1, "mensaje viejo", 0);
+        arbiter.tick(600);
+        assertEquals(AudioArbiter.State.WAITING_GATE, arbiter.state());
+
+        arbiter.reset();
+        arbiter.sttGateClosed(700); // confirmación tardía de la sesión cerrada
+        arbiter.tick(2000);
+
+        assertEquals(AudioArbiter.State.IDLE, arbiter.state());
+        assertFalse(rec.events.contains("speak:1"));
+    }
 }

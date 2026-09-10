@@ -18,6 +18,9 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
     fun pause() = coordinator.pause()
     fun resume() = coordinator.resume()
     fun markIncorrect(turnId: Long) = coordinator.markIncorrect(turnId)
+    fun setConfidenceThreshold(value: Float) = coordinator.setConfidenceThreshold(value)
+    fun submitTyped(text: String) = coordinator.submitTyped(text)
+    fun repeatTurn(turnId: Long) = coordinator.repeatTurn(turnId)
     fun closeSession() = coordinator.closeSession()
 
     override fun onCleared() {

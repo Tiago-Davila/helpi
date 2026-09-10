@@ -51,6 +51,16 @@ public final class Conversation {
         return replace(t);
     }
 
+    /** Publica texto escrito por la persona sorda y lo deja listo para TTS. */
+    public Turn publishTyped(long turnId, String text) {
+        if (text == null || text.trim().isEmpty()) {
+            throw new IllegalArgumentException("el texto escrito no puede estar vacío");
+        }
+        Turn t = get(turnId).withText(text.trim(), TurnState.FINAL)
+                .withVoiceState(VoiceState.PENDING);
+        return replace(t);
+    }
+
     /** El canal se interrumpió: el parcial queda marcado, no consolidado. */
     public Turn markIncomplete(long turnId) {
         return replace(get(turnId).withState(TurnState.INCOMPLETE));

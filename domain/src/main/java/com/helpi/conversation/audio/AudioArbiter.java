@@ -104,6 +104,19 @@ public final class AudioArbiter {
         return queue.removeIf(p -> p.id == messageId);
     }
 
+    /**
+     * Descarta por completo el ciclo acústico actual. Se usa al cerrar una
+     * conversación para que ningún texto pendiente pueda pasar a la próxima.
+     * No emite callbacks porque el coordinador elimina también sus turnos.
+     */
+    public void reset() {
+        queue.clear();
+        currentMessageId = -1;
+        stateEnteredAtMs = 0;
+        hearingSpeaking = false;
+        state = State.IDLE;
+    }
+
     /** El oyente está (o dejó de estar) hablando según Vosk. */
     public void hearingSpeechActive(boolean active, long nowMs) {
         this.hearingSpeaking = active;

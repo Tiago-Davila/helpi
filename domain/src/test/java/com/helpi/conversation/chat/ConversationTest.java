@@ -57,6 +57,16 @@ public class ConversationTest {
     }
 
     @Test
+    public void textoEscritoQuedaFinalYPendienteDeVoz() {
+        Conversation c = new Conversation();
+        Turn t = c.open(Speaker.DEAF, 100);
+        Turn published = c.publishTyped(t.id(), "  Necesito ayuda  ");
+        assertEquals("Necesito ayuda", published.text());
+        assertEquals(TurnState.FINAL, published.state());
+        assertEquals(VoiceState.PENDING, published.voiceState());
+    }
+
+    @Test
     public void interrupcionMarcaIncompletoNoFinal() {
         Conversation c = new Conversation();
         Turn t = c.open(Speaker.HEARING, 100);
