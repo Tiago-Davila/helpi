@@ -9,26 +9,37 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.helpi.conversation.ui.ConversationScreen
 import com.helpi.conversation.ui.ConversationViewModel
+import com.helpi.conversation.ui.theme.HelpiColors
+import com.helpi.conversation.ui.theme.HelpiTheme
+import com.helpi.conversation.ui.theme.HelpiType
 import com.helpi.conversation.vision.FrontCameraSource
 import com.helpi.conversation.vision.HolisticExtractor
 
@@ -61,18 +72,24 @@ class MainActivity : ComponentActivity() {
             WindowManager.LayoutParams.FLAG_SECURE,
         )
         setContent {
-            MaterialTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
-                    if (!onboardingDone) {
-                        Onboarding {
-                            onboardingDone = true
-                            requestPermissionsAndPrepare()
+            HelpiTheme {
+                Surface(modifier = Modifier.fillMaxSize(), color = HelpiColors.BgBase) {
+                    // El fondo llega al borde, el contenido no: con targetSdk
+                    // 35 Android dibuja de borde a borde y sin esto la barra
+                    // de estado tapa el aviso de alcance y la barra de
+                    // navegación tapa la hotbar.
+                    Box(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
+                        if (!onboardingDone) {
+                            Onboarding {
+                                onboardingDone = true
+                                requestPermissionsAndPrepare()
+                            }
+                        } else {
+                            ConversationScreen(
+                                viewModel = viewModel,
+                                cameraPreview = { CameraPreview() },
+                            )
                         }
-                    } else {
-                        ConversationScreen(
-                            viewModel = viewModel,
-                            cameraPreview = { CameraPreview() },
-                        )
                     }
                 }
             }
@@ -84,14 +101,17 @@ class MainActivity : ComponentActivity() {
         if (!hasPermission(Manifest.permission.CAMERA)) {
             Text(
                 text = "No puedo ver señas: la cámara no está permitida.",
-                fontSize = 20.sp,
+                style = HelpiType.BodyM,
+                color = HelpiColors.LedSoft,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(24.dp),
             )
             return
         }
+        // El visor que lo contiene ya fija proporción y esquinas: acá solo
+        // hay que llenarlo.
         AndroidView(
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(3f / 4f),
+            modifier = Modifier.fillMaxSize(),
             factory = { context ->
                 PreviewView(context).also { previewView ->
                     startVision(previewView)
@@ -153,36 +173,53 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun Onboarding(onContinue: () -> Unit) {
-    Column(modifier = Modifier.padding(24.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
         Text(
             text = "Herramienta de ASISTENCIA experimental",
-            fontSize = 28.sp,
+            style = HelpiType.BodyChat,
+            color = HelpiColors.LedSoft,
         )
         Text(
-            modifier = Modifier.padding(top = 12.dp),
-            fontSize = 20.sp,
+            style = HelpiType.BodyM,
+            color = HelpiColors.LedSoft,
             text = "Reconoce solo 64 señas aisladas de LSA64 y puede equivocarse. " +
                 "No reemplaza a una persona intérprete ni sirve para emergencias. " +
                 "El vocabulario no fue diseñado para comunicación asistida.",
         )
         Text(
-            modifier = Modifier.padding(top = 12.dp),
-            fontSize = 20.sp,
-            text = "Sostené la tablet con la PANTALLA hacia la otra persona. " +
+            style = HelpiType.BodyM,
+            color = HelpiColors.LedSoft,
+            text = "Sostené el dispositivo con la PANTALLA hacia la otra persona. " +
                 "Vos vas a escuchar sus respuestas por el parlante.",
         )
         Text(
-            modifier = Modifier.padding(top = 12.dp),
-            fontSize = 16.sp,
+            style = HelpiType.CaptionDisclaimer,
+            color = HelpiColors.LedMuted,
             text = "La conversación vive solo en memoria y se borra al cerrarla. " +
                 "Nada sale del dispositivo. " +
                 "Modelo entrenado sobre LSA64 (LIDI, UNLP) — CC BY-NC-SA 4.0.",
         )
-        Button(
-            modifier = Modifier.padding(top = 24.dp),
-            onClick = onContinue,
+        Box(
+            modifier = Modifier
+                .padding(top = 12.dp)
+                .fillMaxWidth()
+                .widthIn(max = 420.dp)
+                .height(72.dp)
+                .border(1.5.dp, HelpiColors.LedSoft, RoundedCornerShape(24.dp))
+                .clickable(onClick = onContinue),
+            contentAlignment = Alignment.Center,
         ) {
-            Text(text = "Entendido, continuar", fontSize = 22.sp)
+            Text(
+                text = "Entendido, continuar",
+                style = HelpiType.LabelBoton,
+                color = HelpiColors.LedSoft,
+            )
         }
     }
 }

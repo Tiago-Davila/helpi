@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Exportado de Figma (Entrada / Botón · icono Cámara). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="32dp"
+    android:height="32dp"
+    android:viewportWidth="32"
+    android:viewportHeight="32">
+    <path
+        android:pathData="M4 10H9L11 7H21L23 10H27C27.5304 10 28.0391 10.2107 28.4142 10.5858C28.7893 10.9609 29 11.4696 29 12V23C29 23.5304 28.7893 24.0391 28.4142 24.4142C28.0391 24.7893 27.5304 25 27 25H4C3.46957 25 2.96086 24.7893 2.58579 24.4142C2.21071 24.0391 2 23.5304 2 23V12C2 11.4696 2.21071 10.9609 2.58579 10.5858C2.96086 10.2107 3.46957 10 4 10Z"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.4"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M16 23C18.7614 23 21 20.7614 21 18C21 15.2386 18.7614 13 16 13C13.2386 13 11 15.2386 11 18C11 20.7614 13.2386 23 16 23Z"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.4" />
+</vector>

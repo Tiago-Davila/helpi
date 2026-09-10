@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Exportado de Figma (Entrada / Botón · icono Micrófono). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="32dp"
+    android:height="32dp"
+    android:viewportWidth="32"
+    android:viewportHeight="32">
+    <path
+        android:pathData="M20 7C20 4.79086 18.2091 3 16 3C13.7909 3 12 4.79086 12 7V14C12 16.2091 13.7909 18 16 18C18.2091 18 20 16.2091 20 14V7Z"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.4" />
+    <path
+        android:pathData="M7 14V16C7 18.3869 7.94821 20.6761 9.63604 22.364C11.3239 24.0518 13.6131 25 16 25C18.3869 25 20.6761 24.0518 22.364 22.364C24.0518 20.6761 25 18.3869 25 16V14"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.4"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M16 25V29"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.4"
+        android:strokeLineCap="round" />
+</vector>

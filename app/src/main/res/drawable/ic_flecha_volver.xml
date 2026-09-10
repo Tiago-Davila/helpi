@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Exportado de Figma (Barra superior · flecha). En Figma la flecha viene con
+     opacity 0.2; acá va opaca: al 20% no alcanza contraste sobre brand/core. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="12dp"
+    android:height="10dp"
+    android:viewportWidth="12"
+    android:viewportHeight="10">
+    <path
+        android:pathData="M12 5H0M5 10L0 5L5 0"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>
