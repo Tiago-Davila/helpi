@@ -1,65 +1,41 @@
 package com.helpi.conversation.ui
 
+import androidx.activity.compose.BackHandler
+import androidx.annotation.DrawableRes
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helpi.conversation.R
 import com.helpi.conversation.chat.Speaker
 import com.helpi.conversation.chat.Turn
@@ -68,708 +44,794 @@ import com.helpi.conversation.session.AudioChannelState
 import com.helpi.conversation.session.SessionCoordinator
 import com.helpi.conversation.session.SessionState
 import com.helpi.conversation.session.VisualChannelState
-import com.helpi.conversation.ui.components.EntradaBar
 import com.helpi.conversation.ui.components.EvaEstado
 import com.helpi.conversation.ui.components.EvaOrb
 import com.helpi.conversation.ui.components.Hotbar
-import com.helpi.conversation.ui.components.ModoEntrada
+import com.helpi.conversation.ui.components.NotaSistema
 import com.helpi.conversation.ui.components.SeccionHotbar
-import com.helpi.conversation.ui.components.TurnBubble
+import com.helpi.conversation.ui.components.TurnoMensaje
 import com.helpi.conversation.ui.theme.HelpiColors
+import com.helpi.conversation.ui.theme.HelpiShapes
 import com.helpi.conversation.ui.theme.HelpiType
 import com.helpi.conversation.vision.FramingEvaluator
-import java.util.Locale
 
-private enum class Vista { TRADUCTOR, CONVERSACION }
-
-private data class Medidas(val anchoExpandido: Boolean, val altoComprimido: Boolean) {
-    val margen: Dp get() = if (anchoExpandido) 32.dp else 18.dp
-    val alturaEntrada: Dp get() = if (altoComprimido) 56.dp else 64.dp
-}
+internal data class ConversationActions(
+    val start: () -> Unit = {},
+    val close: () -> Unit = {},
+    val resume: () -> Unit = {},
+    val microphone: () -> Unit = {},
+    val camera: () -> Unit = {},
+    val threshold: (Float) -> Unit = {},
+    val send: (String) -> Unit = {},
+    val repeat: (Long) -> Unit = {},
+    val incorrect: (Long) -> Unit = {},
+    val dismissNotice: () -> Unit = {},
+    val nuevaConversacion: () -> Unit = {},
+    val nombrarInterlocutor: (String) -> Unit = {},
+    val renombrarCuenta: (String) -> Unit = {},
+    val cancelarPedidoDeNombre: () -> Unit = {},
+)
 
 @Composable
 fun ConversationScreen(
     viewModel: ConversationViewModel,
+    onStart: () -> Unit,
     cameraPreview: @Composable () -> Unit = {},
 ) {
-    val state by viewModel.uiState.collectAsState()
-
-    if (state.session == SessionState.PAUSADA) {
-        PantallaPausada(onResume = viewModel::resume)
-        return
-    }
-
-    var vista by remember { mutableStateOf(Vista.TRADUCTOR) }
-    var seccion by remember { mutableStateOf(SeccionHotbar.TRADUCTOR) }
-    var modo by remember { mutableStateOf(ModoEntrada.ESCRIBIR) }
-
-    BoxWithConstraints(modifier = Modifier.fillMaxSize().background(HelpiColors.BgBase)) {
-        val medidas = Medidas(maxWidth >= 700.dp, maxHeight < 620.dp)
-        Column(modifier = Modifier.fillMaxSize().imePadding()) {
-            AppHeader(
-                state = state,
-                modifier = Modifier.padding(horizontal = medidas.margen),
-            )
-
-            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                when {
-                    seccion == SeccionHotbar.INFORMACION -> InformacionScreen(state, medidas)
-                    vista == Vista.CONVERSACION -> VistaConversacion(
-                        state = state,
-                        medidas = medidas,
-                        onVolver = { vista = Vista.TRADUCTOR },
-                        onMarkIncorrect = viewModel::markIncorrect,
-                    )
-                    else -> VistaTraductor(
-                        state = state,
-                        medidas = medidas,
-                        modo = modo,
-                        cameraPreview = cameraPreview,
-                        onIniciar = viewModel::start,
-                        onPreparar = viewModel::prepare,
-                        onFinalizar = viewModel::closeSession,
-                        onEnviarTexto = viewModel::submitTyped,
-                        onRepetir = viewModel::repeatTurn,
-                        onCambiarUmbral = viewModel::setConfidenceThreshold,
-                        onVerConversacion = { vista = Vista.CONVERSACION },
-                    )
-                }
-            }
-
-            if (seccion == SeccionHotbar.TRADUCTOR && vista == Vista.TRADUCTOR) {
-                EntradaBar(
-                    seleccionado = modo,
-                    disponibles = modosDisponibles(state),
-                    onSeleccionar = { modo = it },
-                    altura = medidas.alturaEntrada,
-                    modifier = Modifier.padding(horizontal = medidas.margen, vertical = 10.dp),
-                )
-            }
-            Hotbar(seleccionada = seccion, onSeleccionar = { seccion = it })
-        }
-    }
-}
-
-@Composable
-private fun AppHeader(state: SessionCoordinator.UiState, modifier: Modifier = Modifier) {
-    Row(
-        modifier = modifier.fillMaxWidth().height(68.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column {
-            Text("Helpi", style = HelpiType.LabelBoton, color = HelpiColors.LedSoft)
-            Text("Conversación accesible", style = HelpiType.BodyS, color = HelpiColors.LedMuted)
-        }
-        Surface(
-            color = HelpiColors.Surface,
-            shape = RoundedCornerShape(50),
-            border = androidx.compose.foundation.BorderStroke(1.dp, HelpiColors.Divider),
-        ) {
-            Text(
-                text = if (state.session == SessionState.ACTIVA ||
-                    state.session == SessionState.ACTIVA_LIMITADA
-                ) "● En curso" else "100 % local",
-                style = HelpiType.LabelHotbar,
-                color = if (state.session == SessionState.ACTIVA ||
-                    state.session == SessionState.ACTIVA_LIMITADA
-                ) HelpiColors.Success else HelpiColors.LedMuted,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-            )
-        }
-    }
-}
-
-@Composable
-private fun VistaTraductor(
-    state: SessionCoordinator.UiState,
-    medidas: Medidas,
-    modo: ModoEntrada,
-    cameraPreview: @Composable () -> Unit,
-    onIniciar: () -> Unit,
-    onPreparar: () -> Unit,
-    onFinalizar: () -> Unit,
-    onEnviarTexto: (String) -> Unit,
-    onRepetir: (Long) -> Unit,
-    onCambiarUmbral: (Float) -> Unit,
-    onVerConversacion: () -> Unit,
-) {
-    val activo = state.session == SessionState.ACTIVA ||
-        state.session == SessionState.ACTIVA_LIMITADA
-    val ultimo = state.turns.lastOrNull {
-        it.speaker() != Speaker.SYSTEM && it.text().isNotBlank() && it.state() != TurnState.REJECTED
-    }
-
-    if (medidas.anchoExpandido) {
-        Row(
-            modifier = Modifier.fillMaxSize().padding(horizontal = medidas.margen),
-            horizontalArrangement = Arrangement.spacedBy(24.dp),
-        ) {
-            Column(
-                modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                PanelDeEntrada(modo, state, activo, cameraPreview, onEnviarTexto, onCambiarUmbral)
-                ControlesDeSesion(state, onIniciar, onPreparar, onFinalizar)
-            }
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                TituloSeccion("Conversación")
-                ListaDeTurnos(state.turns, null, Modifier.weight(1f))
-            }
-        }
-        return
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = medidas.margen),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        PanelDeEntrada(modo, state, activo, cameraPreview, onEnviarTexto, onCambiarUmbral)
-
-        state.notice?.let { Aviso(it) }
-
-        if (ultimo != null) {
-            UltimoMensaje(
-                turn = ultimo,
-                puedeRepetir = activo && state.capabilities.tts && ultimo.speaker() == Speaker.DEAF,
-                onRepetir = { onRepetir(ultimo.id()) },
-            )
-        }
-
-        ControlesDeSesion(state, onIniciar, onPreparar, onFinalizar)
-
-        if (state.turns.isNotEmpty()) {
-            TextButton(onClick = onVerConversacion) {
-                Text(
-                    "Ver conversación (${state.turns.count { it.state() != TurnState.REJECTED }})",
-                    style = HelpiType.LabelBoton,
-                    color = HelpiColors.BrandCore,
-                )
-            }
-        }
-        Spacer(Modifier.height(4.dp))
-    }
-}
-
-@Composable
-private fun PanelDeEntrada(
-    modo: ModoEntrada,
-    state: SessionCoordinator.UiState,
-    activo: Boolean,
-    cameraPreview: @Composable () -> Unit,
-    onEnviarTexto: (String) -> Unit,
-    onCambiarUmbral: (Float) -> Unit,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-        val (titulo, bajada) = when (modo) {
-            ModoEntrada.ESCRIBIR -> "Escribir" to "El teléfono lo mostrará y lo dirá en voz alta."
-            ModoEntrada.HABLAR -> "Escuchar" to "La otra persona puede responder con su voz."
-            ModoEntrada.MOSTRAR -> "Cámara LSA" to "Mostrá una seña aislada y luego dejá las manos quietas."
-        }
-        TituloSeccion(titulo)
-        Text(bajada, style = HelpiType.BodyS, color = HelpiColors.LedMuted)
-
-        when (modo) {
-            ModoEntrada.ESCRIBIR -> TecladoCard(activo, onEnviarTexto)
-            ModoEntrada.HABLAR -> MicrofonoCard(state, activo)
-            ModoEntrada.MOSTRAR -> CamaraCard(state, cameraPreview, onCambiarUmbral)
-        }
-    }
-}
-
-@Composable
-private fun TecladoCard(activo: Boolean, onEnviarTexto: (String) -> Unit) {
-    var texto by rememberSaveable { mutableStateOf("") }
-    fun enviar() {
-        if (activo && texto.isNotBlank()) {
-            onEnviarTexto(texto)
-            texto = ""
-        }
-    }
-
-    Surface(
-        color = HelpiColors.Surface,
-        shape = RoundedCornerShape(24.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, HelpiColors.Divider),
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            OutlinedTextField(
-                value = texto,
-                onValueChange = { if (it.length <= 300) texto = it },
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 3,
-                maxLines = 6,
-                shape = RoundedCornerShape(18.dp),
-                label = { Text("Tu mensaje") },
-                placeholder = { Text("Escribí lo que querés decir…") },
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                keyboardActions = KeyboardActions(onSend = { enviar() }),
-                supportingText = {
-                    Text(if (activo) "${texto.length}/300" else "Iniciá la conversación para enviar")
-                },
-            )
-            Button(
-                onClick = { enviar() },
-                enabled = activo && texto.isNotBlank(),
-                modifier = Modifier.fillMaxWidth().height(54.dp),
-                shape = RoundedCornerShape(17.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = HelpiColors.BrandCore),
-            ) {
-                Text("Decir mensaje", style = HelpiType.LabelBoton)
-            }
-        }
-    }
-}
-
-@Composable
-private fun MicrofonoCard(state: SessionCoordinator.UiState, activo: Boolean) {
-    val escuchando = activo && (state.audio == AudioChannelState.STT_ESCUCHANDO ||
-        state.audio == AudioChannelState.STT_TRANSCRIBIENDO)
-    val disponible = state.capabilities.stt
-    Surface(
-        color = HelpiColors.Surface,
-        shape = RoundedCornerShape(24.dp),
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp,
-            if (escuchando) HelpiColors.Success.copy(alpha = 0.7f) else HelpiColors.Divider,
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val participantes by viewModel.participantes.collectAsStateWithLifecycle()
+    ConversationContent(
+        state,
+        ConversationActions(
+            start = onStart,
+            close = viewModel::closeSession,
+            resume = viewModel::resume,
+            microphone = viewModel::toggleMicrophone,
+            camera = viewModel::toggleCamera,
+            threshold = viewModel::setConfidenceThreshold,
+            send = viewModel::submitTyped,
+            repeat = viewModel::repeatTurn,
+            incorrect = viewModel::markIncorrect,
+            dismissNotice = viewModel::dismissNotice,
+            nuevaConversacion = viewModel::nuevaConversacion,
+            nombrarInterlocutor = viewModel::nombrarInterlocutor,
+            renombrarCuenta = viewModel::renombrarCuenta,
+            cancelarPedidoDeNombre = viewModel::cancelarPedidoDeNombre,
         ),
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(96.dp)
-                    .background(
-                        if (escuchando) HelpiColors.BrandCore else HelpiColors.SurfaceRaised,
-                        CircleShape,
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painterResource(R.drawable.ic_entrada_microfono),
-                    contentDescription = null,
-                    tint = HelpiColors.LedSoft,
-                    modifier = Modifier.size(38.dp),
-                )
-            }
-            Text(
-                text = when {
-                    !disponible -> "Micrófono no disponible"
-                    !activo -> "Listo para escuchar"
-                    state.audio == AudioChannelState.STT_TRANSCRIBIENDO -> "Transcribiendo…"
-                    state.audio == AudioChannelState.TTS_HABLANDO -> "Helpi está hablando"
-                    else -> "Escuchando"
-                },
-                style = HelpiType.BodyChat,
-                color = HelpiColors.LedSoft,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-            )
-            Text(
-                text = if (disponible) {
-                    "Reconocimiento de español con Vosk, sin enviar audio a internet."
-                } else {
-                    state.capabilities.sttDetail
-                },
-                style = HelpiType.BodyS,
-                color = if (disponible) HelpiColors.LedMuted else HelpiColors.Warning,
-                textAlign = TextAlign.Center,
-            )
-        }
-    }
+        participantes,
+        cameraPreview,
+    )
 }
 
 @Composable
-private fun CamaraCard(
+internal fun ConversationContent(
     state: SessionCoordinator.UiState,
-    cameraPreview: @Composable () -> Unit,
-    onCambiarUmbral: (Float) -> Unit,
-) {
-    Surface(
-        color = HelpiColors.Surface,
-        shape = RoundedCornerShape(24.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, HelpiColors.Divider),
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(4f / 3f)
-                    .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-                    .background(HelpiColors.SurfaceRaised),
-                contentAlignment = Alignment.Center,
-            ) {
-                if (state.capabilities.vision) cameraPreview() else {
-                    Text(
-                        state.capabilities.visionDetail.ifBlank { "Cámara no disponible" },
-                        style = HelpiType.BodyM,
-                        color = HelpiColors.Warning,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(24.dp),
-                    )
-                }
-                Surface(
-                    modifier = Modifier.align(Alignment.TopStart).padding(12.dp),
-                    color = HelpiColors.BgBase.copy(alpha = 0.82f),
-                    shape = RoundedCornerShape(50),
-                ) {
-                    Text(
-                        visualLabel(state.visual),
-                        style = HelpiType.LabelHotbar,
-                        color = HelpiColors.LedSoft,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
-                    )
-                }
-            }
-
-            Column(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                MensajeDeEncuadre(state.framing, state.visual)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text("Umbral de confianza", style = HelpiType.BodyM, color = HelpiColors.LedSoft)
-                    Text(
-                        porcentaje(state.confidenceThreshold),
-                        style = HelpiType.BodyM.copy(fontWeight = FontWeight.Bold),
-                        color = HelpiColors.BrandCore,
-                    )
-                }
-                Slider(
-                    value = state.confidenceThreshold,
-                    onValueChange = onCambiarUmbral,
-                    valueRange = SessionCoordinator.MIN_THRESHOLD..SessionCoordinator.MAX_THRESHOLD,
-                    colors = SliderDefaults.colors(
-                        thumbColor = HelpiColors.LedSoft,
-                        activeTrackColor = HelpiColors.BrandCore,
-                        inactiveTrackColor = HelpiColors.SurfaceRaised,
-                    ),
-                    modifier = Modifier.semantics {
-                        contentDescription = "Umbral de confianza ${porcentaje(state.confidenceThreshold)}"
-                    },
-                )
-                Text(
-                    "Sólo se comunica una seña si supera este valor. Fuera del vocabulario, no adivina.",
-                    style = HelpiType.BodyS,
-                    color = HelpiColors.LedMuted,
-                )
-            }
-
-            state.lastRecognition?.let { feedback ->
-                HorizontalDivider(color = HelpiColors.Divider)
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            if (feedback.accepted) feedback.gloss ?: "Seña reconocida" else "Seña no reconocida",
-                            style = HelpiType.BodyM,
-                            color = HelpiColors.LedSoft,
-                        )
-                        Text(
-                            "Confianza ${porcentaje(feedback.confidence)} · umbral ${porcentaje(feedback.threshold)}",
-                            style = HelpiType.BodyS,
-                            color = HelpiColors.LedMuted,
-                        )
-                    }
-                    EstadoPill(feedback.accepted)
-                }
-            }
-            Spacer(Modifier.height(2.dp))
-        }
-    }
-}
-
-@Composable
-private fun EstadoPill(aceptada: Boolean) {
-    val color = if (aceptada) HelpiColors.Success else HelpiColors.Warning
-    Surface(color = color.copy(alpha = 0.15f), shape = RoundedCornerShape(50)) {
-        Text(
-            if (aceptada) "Aceptada" else "Bajo umbral",
-            style = HelpiType.LabelHotbar,
-            color = color,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-        )
-    }
-}
-
-@Composable
-private fun UltimoMensaje(turn: Turn, puedeRepetir: Boolean, onRepetir: () -> Unit) {
-    Surface(
-        color = HelpiColors.Surface,
-        shape = RoundedCornerShape(24.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, HelpiColors.Divider),
-        modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
-    ) {
-        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                if (turn.speaker() == Speaker.DEAF) "TU MENSAJE" else "RESPUESTA",
-                style = HelpiType.LabelHotbar,
-                color = HelpiColors.LedMuted,
-            )
-            Text(turn.text(), style = HelpiType.BodyChat, color = HelpiColors.LedSoft)
-            if (puedeRepetir) {
-                TextButton(onClick = onRepetir, contentPadding = PaddingValues(0.dp)) {
-                    Text("Repetir en voz alta", style = HelpiType.LabelBoton, color = HelpiColors.BrandCore)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ControlesDeSesion(
-    state: SessionCoordinator.UiState,
-    onIniciar: () -> Unit,
-    onPreparar: () -> Unit,
-    onFinalizar: () -> Unit,
+    actions: ConversationActions,
+    participantes: Participantes = Participantes(),
+    cameraPreview: @Composable () -> Unit = {},
 ) {
     when (state.session) {
-        SessionState.INICIO, SessionState.PREPARANDO -> Row(
-            modifier = Modifier.fillMaxWidth().height(56.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            CircularProgressIndicator(modifier = Modifier.size(22.dp), color = HelpiColors.BrandCore)
-            Text("  Preparando modelos locales…", style = HelpiType.BodyS, color = HelpiColors.LedMuted)
-        }
-        SessionState.LISTA -> AccionPrincipal("Iniciar conversación", onIniciar)
-        SessionState.ACTIVA, SessionState.ACTIVA_LIMITADA -> OutlinedButton(
-            onClick = onFinalizar,
-            modifier = Modifier.fillMaxWidth().height(52.dp),
-            shape = RoundedCornerShape(16.dp),
-        ) {
-            Text("Finalizar y borrar", style = HelpiType.LabelBoton, color = HelpiColors.LedSoft)
-        }
-        SessionState.CERRADA -> AccionPrincipal("Nueva conversación", onPreparar)
-        SessionState.BLOQUEADA -> Text(
-            "No hay canales disponibles. Revisá los permisos del sistema.",
-            style = HelpiType.BodyM,
-            color = HelpiColors.Warning,
-            textAlign = TextAlign.Center,
-        )
-        else -> Unit
+        SessionState.ACTIVA, SessionState.ACTIVA_LIMITADA ->
+            SalaDeConversacion(state, actions, participantes, cameraPreview)
+        else -> Inicio(state, actions, participantes)
     }
 }
 
-@Composable
-private fun AccionPrincipal(texto: String, onClick: () -> Unit) {
-    Button(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth().height(54.dp),
-        shape = RoundedCornerShape(17.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = HelpiColors.BrandCore),
-    ) {
-        Text(texto, style = HelpiType.LabelBoton, color = Color.White)
-    }
-}
+// ---------------------------------------------------------------------------
+// Inicio
+// ---------------------------------------------------------------------------
 
+/**
+ * Fuera de una conversación la aplicación tiene dos destinos: el traductor y
+ * la cuenta. La barra inferior solo existe acá; una vez que hay alguien del
+ * otro lado la pantalla es entera para la conversación.
+ */
 @Composable
-private fun VistaConversacion(
+private fun Inicio(
     state: SessionCoordinator.UiState,
-    medidas: Medidas,
-    onVolver: () -> Unit,
-    onMarkIncorrect: (Long) -> Unit,
+    actions: ConversationActions,
+    participantes: Participantes,
 ) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = medidas.margen, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("Conversación", style = HelpiType.BodyChat, color = HelpiColors.LedSoft)
-            TextButton(onClick = onVolver) {
-                Text("Listo", style = HelpiType.LabelBoton, color = HelpiColors.BrandCore)
+    var seccion by rememberSaveable { mutableStateOf(SeccionHotbar.TRADUCTOR) }
+    var pidiendoNombre by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(participantes.solicitarNombre) {
+        if (participantes.solicitarNombre) {
+            seccion = SeccionHotbar.TRADUCTOR
+            pidiendoNombre = true
+        }
+    }
+
+    Column(Modifier.fillMaxSize().testTag("welcome")) {
+        Box(Modifier.weight(1f)) {
+            when (seccion) {
+                SeccionHotbar.TRADUCTOR -> Bienvenida(
+                    state = state,
+                    onIniciar = { pidiendoNombre = true },
+                    onReanudar = actions.resume,
+                )
+                SeccionHotbar.CUENTA -> PantallaCuenta(
+                    state = state,
+                    participantes = participantes,
+                    onThreshold = actions.threshold,
+                    onRenombrarCuenta = actions.renombrarCuenta,
+                )
             }
         }
-        ListaDeTurnos(
-            turns = state.turns,
-            onMarkIncorrect = onMarkIncorrect,
-            modifier = Modifier.weight(1f).padding(horizontal = medidas.margen),
+        Hotbar(seccion, onSeleccionar = { seccion = it })
+    }
+
+    if (pidiendoNombre) {
+        DialogoDeNombre(
+            titulo = "¿Con quién vas a conversar?",
+            explicacion = "El nombre aparece arriba de cada mensaje que Helpi traduzca. " +
+                "Se borra al terminar la conversación.",
+            inicial = participantes.interlocutor,
+            confirmar = "Empezar",
+            onConfirmar = {
+                actions.nombrarInterlocutor(it)
+                pidiendoNombre = false
+                actions.start()
+            },
+            omitir = "Sin nombre",
+            onOmitir = {
+                actions.nombrarInterlocutor("")
+                pidiendoNombre = false
+                actions.start()
+            },
+            onDismiss = {
+                pidiendoNombre = false
+                actions.cancelarPedidoDeNombre()
+            },
         )
     }
 }
 
 @Composable
-private fun ListaDeTurnos(
-    turns: List<Turn>,
-    onMarkIncorrect: ((Long) -> Unit)?,
-    modifier: Modifier = Modifier,
+private fun Bienvenida(
+    state: SessionCoordinator.UiState,
+    onIniciar: () -> Unit,
+    onReanudar: () -> Unit,
 ) {
-    val visibles = turns.filter { it.state() != TurnState.REJECTED }
-    val listState = rememberLazyListState()
-    LaunchedEffect(visibles.size) {
-        if (visibles.isNotEmpty()) listState.animateScrollToItem(visibles.lastIndex)
-    }
-    if (visibles.isEmpty()) {
-        Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            Text("Todavía no hay mensajes", style = HelpiType.BodyM, color = HelpiColors.LedMuted)
-        }
-        return
-    }
-    LazyColumn(
-        modifier = modifier,
-        state = listState,
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-        contentPadding = PaddingValues(vertical = 12.dp),
-    ) {
-        items(visibles, key = { it.id() }) { turn ->
-            TurnBubble(turn, onMarkIncorrect)
-        }
-    }
-}
+    val pausada = state.session == SessionState.PAUSADA
+    val preparando = state.session == SessionState.PREPARANDO ||
+        state.session == SessionState.LISTA ||
+        state.session == SessionState.CERRANDO
 
-@Composable
-private fun InformacionScreen(state: SessionCoordinator.UiState, medidas: Medidas) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = medidas.margen, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        modifier = Modifier.fillMaxSize().padding(horizontal = 28.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("Acerca de Helpi", style = HelpiType.BodyChat, color = HelpiColors.LedSoft)
-        InfoCard("Privacidad", "La cámara, el micrófono y los modelos funcionan en el dispositivo. La conversación vive sólo en memoria y se borra al finalizar.")
-        InfoCard("Modelo LSA", "Eva reconoce 64 señas aisladas del conjunto LSA64. Umbral actual: ${porcentaje(state.confidenceThreshold)}. No interpreta frases ni fuerza una clase cuando no tiene confianza.")
-        InfoCard("Limitaciones", "Es una asistencia experimental: puede equivocarse, no reemplaza a una persona intérprete y no debe usarse para emergencias. El modelo fue entrenado principalmente con personas diestras en condiciones de laboratorio.")
-        InfoCard(
-            "Atribución",
-            "LSA64 — LIDI, Universidad Nacional de La Plata. Modelo derivado bajo " +
-                "CC BY-NC-SA 4.0, sólo para uso no comercial. Reconocimiento de voz: " +
-                "Vosk y modelo español small 0.42, Apache 2.0.",
-        )
-        InfoCard(
-            "Estado local",
-            "Cámara/modelo: ${capacidad(state.capabilities.vision, state.capabilities.visionDetail)}\n" +
-                "Micrófono/Vosk: ${capacidad(state.capabilities.stt, state.capabilities.sttDetail)}\n" +
-                "Voz: ${capacidad(state.capabilities.tts, state.capabilities.ttsDetail)}",
+        Spacer(Modifier.weight(1f))
+        EvaOrb(
+            if (preparando) EvaEstado.PENSANDO else EvaEstado.REPOSO,
+            Modifier.size(200.dp).semantics { contentDescription = "Helpi" },
         )
         Spacer(Modifier.height(12.dp))
+        Text("Helpi", style = HelpiType.Display, color = HelpiColors.LedSoft)
+        Spacer(Modifier.height(10.dp))
+        Text(
+            if (pausada) {
+                "Reanudá para continuar. Después de dos minutos la conversación se borra."
+            } else {
+                "Lengua de señas argentina traducida acá mismo, sin conexión y sin que el " +
+                    "video salga del teléfono."
+            },
+            style = HelpiType.BodyM,
+            color = HelpiColors.LedMuted,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.weight(1f))
+        Button(
+            onClick = if (pausada) onReanudar else onIniciar,
+            enabled = !preparando,
+            shape = HelpiShapes.Pastilla,
+            modifier = Modifier.widthIn(max = 380.dp).fillMaxWidth().heightIn(min = 58.dp),
+        ) {
+            if (preparando) {
+                CircularProgressIndicator(
+                    Modifier.size(20.dp),
+                    color = HelpiColors.BgBase,
+                    strokeWidth = 2.dp,
+                )
+                Spacer(Modifier.width(12.dp))
+            }
+            Text(
+                when {
+                    preparando -> "Preparando…"
+                    pausada -> "Reanudar conversación"
+                    else -> "Iniciar conversación"
+                },
+                style = HelpiType.LabelBoton,
+            )
+        }
+        Spacer(Modifier.height(14.dp))
+        Text(
+            "Helpi ayuda a comunicarse. No reemplaza a una persona intérprete.",
+            style = HelpiType.CaptionDisclaimer,
+            color = HelpiColors.LedMuted,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(20.dp))
     }
 }
 
+// ---------------------------------------------------------------------------
+// Conversación
+// ---------------------------------------------------------------------------
+
 @Composable
-private fun InfoCard(titulo: String, texto: String) {
-    Surface(
-        color = HelpiColors.Surface,
-        shape = RoundedCornerShape(20.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, HelpiColors.Divider),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(titulo, style = HelpiType.BodyM.copy(fontWeight = FontWeight.Bold), color = HelpiColors.LedSoft)
-            Text(texto, style = HelpiType.BodyS, color = HelpiColors.LedMuted)
+private fun SalaDeConversacion(
+    state: SessionCoordinator.UiState,
+    actions: ConversationActions,
+    participantes: Participantes,
+    cameraPreview: @Composable () -> Unit,
+) {
+    var ajustes by remember { mutableStateOf(false) }
+    var finalizando by remember { mutableStateOf(false) }
+    var empezandoDeNuevo by remember { mutableStateOf(false) }
+    var teclado by remember { mutableStateOf(false) }
+    val controlTeclado = LocalSoftwareKeyboardController.current
+
+    BackHandler {
+        if (teclado) {
+            teclado = false
+            controlTeclado?.hide()
+        } else {
+            finalizando = true
         }
     }
-}
 
-@Composable
-private fun Aviso(texto: String) {
-    Surface(
-        color = HelpiColors.Warning.copy(alpha = 0.10f),
-        shape = RoundedCornerShape(16.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, HelpiColors.Warning.copy(alpha = 0.35f)),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Text(
-            texto,
-            style = HelpiType.BodyS,
-            color = HelpiColors.Warning,
-            modifier = Modifier.padding(12.dp).semantics { liveRegion = LiveRegionMode.Assertive },
+    Column(Modifier.fillMaxSize().imePadding().testTag("conversation")) {
+        Encabezado(
+            interlocutor = participantes.interlocutor,
+            onNueva = { empezandoDeNuevo = true },
+            onAjustes = { ajustes = true },
+            onCerrar = { finalizando = true },
+        )
+        BoxWithConstraints(Modifier.weight(1f).padding(horizontal = 14.dp)) {
+            val apaisado = maxWidth > maxHeight && maxWidth >= 600.dp
+            // La cámara cede altura cuando se abre el teclado: escribir es una
+            // actividad de lectura, y con el teclado arriba la conversación
+            // necesita el espacio más que la imagen.
+            val fraccion by animateFloatAsState(if (teclado) 0.36f else 0.58f, label = "camara")
+            val alturaCamara = (maxHeight * fraccion).coerceIn(180.dp, 520.dp)
+            val panel = @Composable { modificador: Modifier ->
+                PanelDeCaptura(
+                    state = state,
+                    actions = actions,
+                    teclado = teclado,
+                    onTeclado = {
+                        teclado = !teclado
+                        if (!teclado) controlTeclado?.hide()
+                    },
+                    cameraPreview = cameraPreview,
+                    modifier = modificador,
+                )
+            }
+            if (apaisado) {
+                Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    panel(Modifier.weight(0.46f).fillMaxHeight())
+                    ListaDeMensajes(
+                        state,
+                        actions,
+                        participantes,
+                        Modifier.weight(0.54f).fillMaxHeight(),
+                    )
+                }
+            } else {
+                Column(Modifier.fillMaxSize()) {
+                    panel(Modifier.fillMaxWidth().height(alturaCamara))
+                    ListaDeMensajes(
+                        state,
+                        actions,
+                        participantes,
+                        Modifier.weight(1f).fillMaxWidth(),
+                    )
+                }
+            }
+        }
+        state.notice?.let {
+            Row(
+                Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    it,
+                    style = HelpiType.BodyS,
+                    color = HelpiColors.Warning,
+                    modifier = Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite },
+                )
+                IconButton(onClick = actions.dismissNotice) {
+                    Icon(
+                        painterResource(R.drawable.ic_close),
+                        "Cerrar aviso",
+                        tint = HelpiColors.LedMuted,
+                    )
+                }
+            }
+        }
+        if (teclado) Redactor(actions.send)
+        Spacer(Modifier.height(8.dp))
+    }
+
+    if (ajustes) HojaDeAjustes(state, actions.threshold) { ajustes = false }
+    if (finalizando) {
+        Confirmacion(
+            titulo = "¿Finalizar conversación?",
+            cuerpo = "Se borran los mensajes de esta conversación.",
+            confirmar = "Finalizar",
+            onConfirmar = {
+                controlTeclado?.hide()
+                actions.close()
+                finalizando = false
+            },
+            onCancelar = { finalizando = false },
+        )
+    }
+    if (empezandoDeNuevo) {
+        Confirmacion(
+            titulo = "¿Empezar una conversación nueva?",
+            cuerpo = "Se borran los mensajes actuales y Helpi te pide el nombre de la " +
+                "próxima persona.",
+            confirmar = "Empezar de nuevo",
+            onConfirmar = {
+                controlTeclado?.hide()
+                actions.nuevaConversacion()
+                empezandoDeNuevo = false
+            },
+            onCancelar = { empezandoDeNuevo = false },
         )
     }
 }
 
 @Composable
-private fun MensajeDeEncuadre(issue: FramingEvaluator.Issue, visual: VisualChannelState) {
-    if (visual == VisualChannelState.NO_DISPONIBLE) return
-    val texto = when (issue) {
-        FramingEvaluator.Issue.OK -> null
-        FramingEvaluator.Issue.SIN_PERSONA -> "No veo a nadie frente a la cámara"
-        FramingEvaluator.Issue.SIN_HOMBROS -> "Mostrá también los hombros; alejá un poco el teléfono"
-        FramingEvaluator.Issue.MANOS_AL_BORDE -> "Mantené las manos dentro del cuadro"
-        FramingEvaluator.Issue.MANO_PERDIDA -> "Perdí de vista una mano"
-    } ?: return
-    Text(
-        texto,
-        style = HelpiType.BodyS,
-        color = HelpiColors.Warning,
-        modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
+private fun Confirmacion(
+    titulo: String,
+    cuerpo: String,
+    confirmar: String,
+    onConfirmar: () -> Unit,
+    onCancelar: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onCancelar,
+        title = { Text(titulo) },
+        text = { Text(cuerpo) },
+        confirmButton = { TextButton(onClick = onConfirmar) { Text(confirmar) } },
+        dismissButton = { TextButton(onClick = onCancelar) { Text("Continuar") } },
+        containerColor = HelpiColors.Surface,
     )
 }
 
 @Composable
-private fun TituloSeccion(texto: String) {
-    Text(
-        texto,
-        style = HelpiType.BodyChat.copy(fontWeight = FontWeight.Bold),
-        color = HelpiColors.LedSoft,
-    )
-}
-
-@Composable
-private fun PantallaPausada(onResume: () -> Unit) {
-    Surface(color = HelpiColors.BgBase, modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier.fillMaxSize().padding(28.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp, Alignment.CenterVertically),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            EvaOrb(EvaEstado.REPOSO, Modifier.size(150.dp))
-            Text("Conversación pausada", style = HelpiType.BodyChat, color = HelpiColors.LedSoft)
+private fun Encabezado(
+    interlocutor: String,
+    onNueva: () -> Unit,
+    onAjustes: () -> Unit,
+    onCerrar: () -> Unit,
+) {
+    Row(
+        Modifier.fillMaxWidth().height(56.dp).padding(start = 20.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text("Helpi", style = HelpiType.TitleM, color = HelpiColors.LedSoft)
             Text(
-                "El contenido está oculto por privacidad. Después de 2 minutos se borra.",
+                interlocutor,
+                style = HelpiType.BodyS,
+                color = HelpiColors.LedMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        AccionDeEncabezado(R.drawable.ic_nueva_conversacion, "Nueva conversación", onNueva)
+        AccionDeEncabezado(R.drawable.ic_settings, "Configuración", onAjustes, tamano = 21.dp)
+        AccionDeEncabezado(R.drawable.ic_close, "Finalizar conversación", onCerrar)
+    }
+}
+
+@Composable
+private fun AccionDeEncabezado(
+    @DrawableRes icono: Int,
+    etiqueta: String,
+    onClick: () -> Unit,
+    tamano: androidx.compose.ui.unit.Dp = 22.dp,
+) {
+    IconButton(onClick = onClick, modifier = Modifier.size(48.dp)) {
+        Icon(painterResource(icono), etiqueta, tint = HelpiColors.LedMuted, modifier = Modifier.size(tamano))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Cámara
+// ---------------------------------------------------------------------------
+
+/**
+ * La cámara ocupa todo el ancho y algo más de la mitad del alto: es lo que la
+ * persona que hace señas tiene que ver de sí misma para saber si entra en el
+ * cuadro, y recortarla para hacerle lugar a una columna de botones era cambiar
+ * lo importante por lo accesorio.
+ *
+ * Los controles flotan encima, sobre un velo oscuro y con borde de vidrio, de
+ * modo que se lean igual contra una pared blanca o contra una sombra.
+ */
+@Composable
+private fun PanelDeCaptura(
+    state: SessionCoordinator.UiState,
+    actions: ConversationActions,
+    teclado: Boolean,
+    onTeclado: () -> Unit,
+    cameraPreview: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val camaraViva = state.cameraEnabled && state.capabilities.vision
+
+    Box(
+        modifier
+            .clip(HelpiShapes.Panel)
+            .background(Color.Black)
+            .testTag("camera"),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (camaraViva) {
+            cameraPreview()
+            Box(
+                Modifier.matchParentSize().background(
+                    Brush.verticalGradient(
+                        0.00f to Color.Black.copy(alpha = 0.45f),
+                        0.22f to Color.Transparent,
+                        0.68f to Color.Transparent,
+                        1.00f to Color.Black.copy(alpha = 0.55f),
+                    ),
+                ),
+            )
+        } else {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(24.dp),
+            ) {
+                Icon(
+                    painterResource(R.drawable.ic_entrada_camara),
+                    null,
+                    tint = HelpiColors.LedMuted,
+                    modifier = Modifier.size(32.dp),
+                )
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    when {
+                        state.capabilities.vision -> "Activá la cámara para mostrar una seña."
+                        state.capabilities.visionDetail.contains("permiso") ->
+                            "Permití el acceso a la cámara en los ajustes del teléfono."
+                        else -> "No hay cámara disponible. Podés continuar con voz o texto."
+                    },
+                    style = HelpiType.BodyS,
+                    color = HelpiColors.LedMuted,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
+
+        Column(
+            Modifier
+                .align(Alignment.TopEnd)
+                .padding(10.dp)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            BotonDeVidrio(
+                icono = R.drawable.ic_entrada_microfono,
+                etiqueta = when {
+                    !state.capabilities.stt -> "Micrófono no disponible"
+                    state.microphoneEnabled -> "Silenciar micrófono"
+                    else -> "Activar micrófono"
+                },
+                activo = state.microphoneEnabled && state.capabilities.stt,
+                habilitado = state.capabilities.stt,
+                tachado = !state.microphoneEnabled || !state.capabilities.stt,
+                onClick = actions.microphone,
+            )
+            BotonDeVidrio(
+                icono = R.drawable.ic_entrada_camara,
+                etiqueta = when {
+                    !state.capabilities.vision -> "Cámara no disponible"
+                    state.cameraEnabled -> "Apagar cámara"
+                    else -> "Activar cámara"
+                },
+                activo = camaraViva,
+                habilitado = state.capabilities.vision,
+                tachado = !camaraViva,
+                onClick = actions.camera,
+            )
+            BotonDeVidrio(
+                icono = R.drawable.ic_entrada_teclado,
+                etiqueta = if (teclado) "Ocultar teclado" else "Escribir mensaje",
+                activo = teclado,
+                onClick = onTeclado,
+            )
+        }
+
+        Row(
+            Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .padding(start = 10.dp, end = 68.dp, bottom = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            val eva = estadoDeEva(state)
+            EvaOrb(
+                eva,
+                Modifier.size(54.dp).semantics {
+                    contentDescription = when (eva) {
+                        EvaEstado.ESCUCHANDO -> "Helpi está escuchando"
+                        EvaEstado.HABLANDO -> "Helpi está hablando"
+                        EvaEstado.PENSANDO -> "Helpi está reconociendo la seña"
+                        EvaEstado.REPOSO -> "Helpi en pausa"
+                    }
+                },
+            )
+            if (camaraViva) {
+                instruccionDeEncuadre(state)?.let {
+                    Text(
+                        it,
+                        style = HelpiType.BodyS,
+                        color = Color.White,
+                        modifier = Modifier
+                            .background(HelpiColors.VeloCamara, HelpiShapes.Chip)
+                            .border(1.dp, HelpiColors.VidrioBorde, HelpiShapes.Chip)
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                            .semantics { liveRegion = LiveRegionMode.Polite },
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun estadoDeEva(state: SessionCoordinator.UiState) = when {
+    state.audio == AudioChannelState.TTS_HABLANDO -> EvaEstado.HABLANDO
+    state.visual == VisualChannelState.REARMANDO && state.cameraEnabled -> EvaEstado.PENSANDO
+    state.microphoneEnabled && state.capabilities.stt &&
+        (
+            state.audio == AudioChannelState.STT_ESCUCHANDO ||
+                state.audio == AudioChannelState.STT_TRANSCRIBIENDO
+            ) -> EvaEstado.ESCUCHANDO
+    else -> EvaEstado.REPOSO
+}
+
+@Composable
+private fun BotonDeVidrio(
+    @DrawableRes icono: Int,
+    etiqueta: String,
+    activo: Boolean = false,
+    habilitado: Boolean = true,
+    tachado: Boolean = false,
+    onClick: () -> Unit,
+) {
+    IconButton(
+        onClick = onClick,
+        enabled = habilitado,
+        modifier = Modifier
+            .size(48.dp)
+            .clip(CircleShape)
+            .background(if (activo) HelpiColors.BrandCore.copy(alpha = 0.92f) else HelpiColors.VeloCamara)
+            .border(1.dp, HelpiColors.VidrioBorde, CircleShape)
+            .semantics { stateDescription = if (activo) "Activado" else "Desactivado" },
+    ) {
+        Box(Modifier.size(21.dp)) {
+            val tinte = if (habilitado) HelpiColors.LedSoft else HelpiColors.LedMuted.copy(alpha = 0.5f)
+            Icon(painterResource(icono), etiqueta, tint = tinte, modifier = Modifier.fillMaxSize())
+            if (tachado) {
+                Canvas(Modifier.fillMaxSize()) {
+                    drawLine(
+                        tinte,
+                        Offset(1f, 1f),
+                        Offset(size.width - 1f, size.height - 1f),
+                        2.dp.toPx(),
+                        StrokeCap.Round,
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Mensajes
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun ListaDeMensajes(
+    state: SessionCoordinator.UiState,
+    actions: ConversationActions,
+    participantes: Participantes,
+    modifier: Modifier = Modifier,
+) {
+    val turnos = state.turns
+        .filter { it.state() != TurnState.REJECTED && it.text().isNotBlank() }
+        .reversed()
+    val listState = rememberLazyListState()
+    LaunchedEffect(turnos.firstOrNull()?.id(), turnos.firstOrNull()?.text()) {
+        if (turnos.isNotEmpty() && listState.firstVisibleItemIndex <= 1) {
+            listState.animateScrollToItem(0)
+        }
+    }
+
+    if (turnos.isEmpty()) {
+        Box(modifier.testTag("messages"), contentAlignment = Alignment.Center) {
+            Text(
+                "Mostrá una seña frente a la cámara. También podés hablar o escribir.",
                 style = HelpiType.BodyM,
                 color = HelpiColors.LedMuted,
                 textAlign = TextAlign.Center,
+                modifier = Modifier.padding(28.dp),
             )
-            AccionPrincipal("Reanudar", onResume)
+        }
+        return
+    }
+
+    LazyColumn(
+        modifier = modifier.testTag("messages"),
+        state = listState,
+        reverseLayout = true,
+        contentPadding = PaddingValues(top = 18.dp, bottom = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        itemsIndexed(turnos, key = { _, turno -> turno.id() }) { indice, turno ->
+            // La lista está invertida: el mensaje de arriba es el siguiente del array.
+            val anterior = turnos.getOrNull(indice + 1)
+            if (turno.speaker() == Speaker.SYSTEM) {
+                NotaSistema(turno.text())
+            } else {
+                val propio = turno.speaker() == Speaker.HEARING
+                TurnoMensaje(
+                    turn = turno,
+                    autor = if (propio) participantes.cuenta else participantes.interlocutor,
+                    mostrarAutor = anterior?.speaker() != turno.speaker(),
+                    propio = propio,
+                    onRepetir = repetirDe(turno, propio, state, actions),
+                    onMarcarIncorrecto = marcarIncorrectoDe(turno, propio, actions),
+                )
+            }
         }
     }
 }
 
-private fun modosDisponibles(state: SessionCoordinator.UiState): Set<ModoEntrada> = buildSet {
-    add(ModoEntrada.ESCRIBIR)
-    if (state.capabilities.stt) add(ModoEntrada.HABLAR)
-    if (state.capabilities.vision) add(ModoEntrada.MOSTRAR)
+/**
+ * Solo se repiten los turnos de la persona sorda: son los que Helpi pronuncia
+ * en voz alta. Repetir la voz de quien está hablando al lado no tendría
+ * sentido.
+ */
+private fun repetirDe(
+    turno: Turn,
+    propio: Boolean,
+    state: SessionCoordinator.UiState,
+    actions: ConversationActions,
+): (() -> Unit)? =
+    if (!propio && state.capabilities.tts && !turno.markedIncorrect()) {
+        { actions.repeat(turno.id()) }
+    } else {
+        null
+    }
+
+private fun marcarIncorrectoDe(
+    turno: Turn,
+    propio: Boolean,
+    actions: ConversationActions,
+): (() -> Unit)? =
+    if (!propio && !turno.markedIncorrect() && turno.state() == TurnState.FINAL) {
+        { actions.incorrect(turno.id()) }
+    } else {
+        null
+    }
+
+@Composable
+private fun Redactor(onEnviar: (String) -> Unit) {
+    // El borrador vive únicamente durante esta conversación, no se guarda en el Bundle.
+    var texto by remember { mutableStateOf("") }
+    val foco = remember { FocusRequester() }
+    LaunchedEffect(Unit) { foco.requestFocus() }
+    fun enviar() {
+        if (texto.isNotBlank()) {
+            onEnviar(texto.trim())
+            texto = ""
+        }
+    }
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.Bottom,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        OutlinedTextField(
+            value = texto,
+            onValueChange = { texto = it.take(300) },
+            modifier = Modifier.weight(1f).focusRequester(foco).testTag("messageInput"),
+            placeholder = { Text("Escribí un mensaje…", style = HelpiType.BodyM) },
+            textStyle = HelpiType.BodyM,
+            maxLines = 3,
+            shape = HelpiShapes.Pastilla,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+            keyboardActions = KeyboardActions(onSend = { enviar() }),
+        )
+        FilledIconButton(
+            onClick = { enviar() },
+            enabled = texto.isNotBlank(),
+            modifier = Modifier.padding(bottom = 4.dp).size(50.dp),
+        ) {
+            Icon(painterResource(R.drawable.ic_send), "Enviar y leer en voz alta")
+        }
+    }
 }
 
-private fun visualLabel(state: VisualChannelState): String = when (state) {
-    VisualChannelState.NO_DISPONIBLE -> "Cámara no disponible"
-    VisualChannelState.BUSCANDO_ENCUADRE -> "Buscando encuadre"
-    VisualChannelState.ESPERANDO_REPOSO -> "Dejá las manos quietas"
-    VisualChannelState.ARMADO -> "Lista para una seña"
-    VisualChannelState.CAPTURANDO_SENA -> "Capturando seña"
-    VisualChannelState.CONFIRMANDO_FIN -> "Confirmando fin"
-    VisualChannelState.REARMANDO -> "Procesando con Eva"
-    VisualChannelState.CALIDAD_INSUFICIENTE -> "Mejorá el encuadre"
-    VisualChannelState.SUSPENDIDO_RENDIMIENTO -> "Pausada por rendimiento"
+// ---------------------------------------------------------------------------
+// Ajustes de la conversación
+// ---------------------------------------------------------------------------
+
+/**
+ * Lo que se toca sin salir de la conversación. Los límites del modelo y las
+ * licencias no están duplicados acá: viven en la pestaña Cuenta, que es donde
+ * se leen con tiempo y no con alguien esperando enfrente.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun HojaDeAjustes(
+    state: SessionCoordinator.UiState,
+    onThreshold: (Float) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var ayuda by remember { mutableStateOf(false) }
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = HelpiColors.Surface,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+        Column(
+            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Configuración", style = HelpiType.LabelBoton)
+                TextButton(onClick = onDismiss) { Text("Listo") }
+            }
+            ControlDeUmbral(state, onThreshold)
+            AvisosDeCapacidades(state)
+            HorizontalDivider(color = HelpiColors.Divider)
+            TextButton(onClick = { ayuda = !ayuda }) {
+                Text(if (ayuda) "Ocultar instrucciones" else "Cómo usar Helpi")
+            }
+            if (ayuda) {
+                Text(
+                    "Mostrá los hombros y las manos. Hacé una seña aislada y dejá las manos " +
+                        "quietas al terminar. Usá los botones sobre la cámara para silenciar, " +
+                        "apagar la imagen o escribir. Mantené presionado un mensaje traducido " +
+                        "para repetirlo en voz alta o marcarlo como incorrecto. Esperá a que " +
+                        "Helpi termine de hablar antes de la seña siguiente.",
+                    style = HelpiType.BodyM,
+                )
+            }
+            Text(
+                "Los límites del modelo y las licencias están en la pestaña Cuenta.",
+                style = HelpiType.BodyS,
+                color = HelpiColors.LedMuted,
+            )
+            Spacer(Modifier.height(24.dp))
+        }
+    }
 }
 
-private fun porcentaje(value: Float): String =
-    String.format(Locale("es", "AR"), "%.0f %%", value * 100f)
-
-private fun capacidad(disponible: Boolean, detalle: String): String = when {
-    disponible && detalle.isBlank() -> "disponible"
-    disponible -> "disponible ($detalle)"
-    detalle.isNotBlank() -> "no disponible ($detalle)"
-    else -> "no disponible"
+private fun instruccionDeEncuadre(state: SessionCoordinator.UiState): String? = when (state.framing) {
+    FramingEvaluator.Issue.SIN_PERSONA -> "Mostrá los hombros y las manos."
+    FramingEvaluator.Issue.SIN_HOMBROS -> "Alejá un poco el teléfono para mostrar los hombros."
+    FramingEvaluator.Issue.MANOS_AL_BORDE -> "Mantené las manos dentro del cuadro."
+    FramingEvaluator.Issue.MANO_PERDIDA -> "Volvé a mostrar las dos manos."
+    FramingEvaluator.Issue.OK -> when (state.visual) {
+        VisualChannelState.ARMADO -> "Mostrá una seña."
+        VisualChannelState.ESPERANDO_REPOSO -> "Dejá las manos quietas un momento."
+        else -> null
+    }
 }

@@ -19,39 +19,38 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.lerp
 import com.helpi.conversation.ui.theme.HelpiColors
 import com.helpi.conversation.ui.theme.LocalAnimacionesActivas
+import com.helpi.conversation.ui.theme.rutaBurbuja
 
 /**
- * Estados de la esfera de Eva.
+ * Estados de la burbuja de Eva.
  *
- * Del componente en Figma (`Eva / Burbuja`): «el estado se lee por tamaño,
- * cantidad de luz y elemento circundante». Las tres diferencias son
- * estáticas y simultáneas, así que el estado sigue siendo legible con las
- * animaciones del sistema desactivadas y sin depender del color.
+ * El estado se lee por tamaño, cantidad de luz y elemento circundante. Las
+ * tres diferencias son estáticas y simultáneas, así que el estado sigue siendo
+ * legible con las animaciones del sistema desactivadas y sin depender del
+ * color.
  */
 enum class EvaEstado {
-    /** Nada en curso. Esfera chica, poca luz, sin anillos. */
+    /** Nada en curso. Burbuja chica, poca luz, sin anillos. */
     REPOSO,
 
-    /**
-     * Micrófono abierto. No existe en el archivo de Figma: se extiende el
-     * sistema siguiendo su propia regla (más luz que reposo, menos que
-     * hablando; un anillo en lugar de dos).
-     */
+    /** Micrófono abierto. Más luz que reposo, menos que hablando; un anillo. */
     ESCUCHANDO,
 
-    /** Clasificando una seña. Esfera chica y anillo punteado que gira. */
+    /** Clasificando una seña. Burbuja chica y anillo punteado que gira. */
     PENSANDO,
 
-    /** Reproduciendo voz. Esfera grande, muy iluminada, dos anillos. */
+    /** Reproduciendo voz. Burbuja grande, muy iluminada, dos anillos. */
     HABLANDO,
 }
 
 /**
- * Esfera de vidrio de Eva. Se dibuja proporcional al tamaño que recibe, de
- * modo que la misma composable sirve para el orbe principal y para el
- * indicador chico que acompaña a «Pensando…».
+ * La burbuja de Helpi. Se dibuja proporcional al tamaño que recibe, de modo
+ * que la misma composable sirve para el logotipo de inicio, el indicador sobre
+ * la cámara y la marca del encabezado.
  *
  * Es decorativa: el estado va escrito al lado en texto, nunca solo en la
  * forma. Por eso no expone descripción de accesibilidad propia.
@@ -85,91 +84,65 @@ fun EvaOrb(estado: EvaEstado, modifier: Modifier = Modifier) {
 
     Box(modifier = modifier.aspectRatio(1f)) {
         Canvas(modifier = Modifier.matchParentSize()) {
-            val lado = size.minDimension
-            val centro = Offset(size.width / 2f, size.height / 2f)
-            dibujarEva(estado, lado, centro, pulsoEfectivo, giroEfectivo)
+            dibujarEva(estado, pulsoEfectivo, giroEfectivo)
         }
     }
 }
 
 /**
- * Fracciones tomadas de los SVG exportados, normalizadas contra el lado del
- * marco: reposo 64/240, hablando 84/272, anillos 105/272 y 117/272.
+ * Lado del cuadrado que genera la burbuja, como fracción del marco.
+ *
+ * Las esquinas cortas hacen que la silueta sobresalga de ese cuadrado, así
+ * que los valores dejan margen para que los anillos de estado tampoco se
+ * recorten al girar (ver `EXTENSION_BURBUJA`).
  */
-private fun DrawScope.dibujarEva(
-    estado: EvaEstado,
-    lado: Float,
-    centro: Offset,
-    pulso: Float,
-    giro: Float,
-) {
-    val radio = lado * when (estado) {
-        EvaEstado.REPOSO -> 0.2667f
-        EvaEstado.PENSANDO -> 0.2400f
-        EvaEstado.ESCUCHANDO -> 0.2800f
-        EvaEstado.HABLANDO -> 0.3088f
-    }
+private fun escalaDe(estado: EvaEstado) = when (estado) {
+    EvaEstado.REPOSO -> 0.50f
+    EvaEstado.PENSANDO -> 0.455f
+    EvaEstado.ESCUCHANDO -> 0.525f
+    EvaEstado.HABLANDO -> 0.575f
+}
 
-    // Parada de luz: dónde termina el blanco del degradado. Es la "cantidad
-    // de luz" del componente — 0.10 en reposo, 0.58 hablando (del SVG).
-    val luz = when (estado) {
-        EvaEstado.REPOSO -> 0.10f
-        EvaEstado.PENSANDO -> 0.16f
-        EvaEstado.ESCUCHANDO -> 0.32f
-        EvaEstado.HABLANDO -> 0.58f
-    }
+/** Dónde termina el blanco del degradado: la «cantidad de luz» del estado. */
+private fun luzDe(estado: EvaEstado) = when (estado) {
+    EvaEstado.REPOSO -> 0.12f
+    EvaEstado.PENSANDO -> 0.18f
+    EvaEstado.ESCUCHANDO -> 0.34f
+    EvaEstado.HABLANDO -> 0.58f
+}
 
-    val alfaResplandor = when (estado) {
-        EvaEstado.REPOSO -> 0.20f
-        EvaEstado.PENSANDO -> 0.30f
-        EvaEstado.ESCUCHANDO -> 0.40f
-        EvaEstado.HABLANDO -> 0.60f
-    }
+private fun alfaResplandorDe(estado: EvaEstado) = when (estado) {
+    EvaEstado.REPOSO -> 0.20f
+    EvaEstado.PENSANDO -> 0.30f
+    EvaEstado.ESCUCHANDO -> 0.40f
+    EvaEstado.HABLANDO -> 0.60f
+}
 
-    dibujarResplandor(centro, radio, alfaResplandor)
+private fun DrawScope.dibujarEva(estado: EvaEstado, pulso: Float, giro: Float) {
+    val escala = escalaDe(estado)
+    val lado = size.minDimension
+    val centro = Offset(size.width / 2f, size.height / 2f)
 
-    // Degradado vertical acotado a la esfera: blanco arriba, brand al medio,
-    // fondo abajo. Son los tres colores del sistema, en ese orden.
-    drawCircle(
-        brush = Brush.verticalGradient(
-            colorStops = arrayOf(
-                0.00f to HelpiColors.LedSoft,
-                luz to HelpiColors.LedSoft,
-                (luz + (1f - luz) * 0.62f) to HelpiColors.BrandCore,
-                1.00f to HelpiColors.BgBase,
-            ),
-            startY = centro.y - radio,
-            endY = centro.y + radio,
-        ),
-        radius = radio,
-        center = centro,
-    )
-
-    // Borde de luz: evita que la base de la esfera se funda con el fondo.
-    drawCircle(
-        color = HelpiColors.LedSoft,
-        radius = radio - lado * 0.003f,
-        center = centro,
-        style = Stroke(width = lado * 0.006f),
-    )
+    dibujarResplandor(escala, alfaResplandorDe(estado), centro, lado)
+    dibujarCuerpo(escala, luzDe(estado), centro, lado)
+    dibujarBrilloEspecular(escala, centro, lado, estado)
+    dibujarContornoDeLuz(escala, lado)
 
     when (estado) {
         EvaEstado.HABLANDO -> {
-            dibujarAnillo(centro, lado * 0.386f + lado * 0.012f * pulso, lado, 1f - pulso * 0.45f)
-            dibujarAnillo(centro, lado * 0.430f + lado * 0.020f * pulso, lado, 0.75f - pulso * 0.45f)
+            dibujarAnillo(escala * (1.20f + 0.03f * pulso), lado, 1f - pulso * 0.45f)
+            dibujarAnillo(escala * (1.34f + 0.05f * pulso), lado, 0.75f - pulso * 0.45f)
         }
         EvaEstado.ESCUCHANDO -> {
-            dibujarAnillo(centro, lado * 0.360f + lado * 0.016f * pulso, lado, 0.9f - pulso * 0.4f)
+            dibujarAnillo(escala * (1.22f + 0.04f * pulso), lado, 0.9f - pulso * 0.4f)
         }
         EvaEstado.PENSANDO -> {
-            val trazo = lado * 0.014f
             rotate(degrees = giro, pivot = centro) {
-                drawCircle(
+                drawPath(
+                    path = rutaBurbuja(size, escala * 1.30f),
                     color = HelpiColors.LedSoft,
-                    radius = lado * 0.330f,
-                    center = centro,
                     style = Stroke(
-                        width = trazo,
+                        width = lado * 0.014f,
                         pathEffect = PathEffect.dashPathEffect(
                             floatArrayOf(lado * 0.05f, lado * 0.035f),
                         ),
@@ -181,29 +154,105 @@ private fun DrawScope.dibujarEva(
     }
 }
 
-/** Halo de `brand/core`: en el SVG es un drop shadow dilatado y desenfocado. */
-private fun DrawScope.dibujarResplandor(centro: Offset, radio: Float, alfa: Float) {
-    val radioResplandor = radio * 1.9f
-    drawCircle(
+/**
+ * Halo de marca. Es la burbuja agrandada y desvanecida, no un círculo: si el
+ * resplandor fuera redondo delataría la forma que la silueta justamente evita.
+ */
+private fun DrawScope.dibujarResplandor(
+    escala: Float,
+    alfa: Float,
+    centro: Offset,
+    lado: Float,
+) {
+    drawPath(
+        path = rutaBurbuja(size, escala * 1.85f),
         brush = Brush.radialGradient(
             colorStops = arrayOf(
                 0.00f to HelpiColors.BrandCore.copy(alpha = alfa),
-                0.52f to HelpiColors.BrandCore.copy(alpha = alfa * 0.7f),
+                0.48f to HelpiColors.BrandCore.copy(alpha = alfa * 0.62f),
                 1.00f to Color.Transparent,
             ),
             center = centro,
-            radius = radioResplandor,
+            // El halo se apaga antes del borde del marco: si llegara hasta el
+            // recorte del lienzo se vería el corte en vez de un desvanecido.
+            radius = lado * escala * 0.85f,
         ),
-        radius = radioResplandor,
-        center = centro,
     )
 }
 
-private fun DrawScope.dibujarAnillo(centro: Offset, radio: Float, lado: Float, alfa: Float) {
-    drawCircle(
+/**
+ * Degradado vertical acotado a la burbuja: blanco arriba, azul de marca al
+ * medio, azul profundo abajo. La base es `brand/core` mezclado con `bg/base`,
+ * no un color nuevo: la burbuja sigue siendo el degradado entre los tres
+ * tokens del sistema.
+ */
+private fun DrawScope.dibujarCuerpo(escala: Float, luz: Float, centro: Offset, lado: Float) {
+    // La silueta se extiende más que el cuadrado que la genera, así que el
+    // degradado se estira para cubrirla entera y no dejar la base sin tono.
+    val alto = lado * escala * 1.08f
+    drawPath(
+        path = rutaBurbuja(size, escala),
+        brush = Brush.verticalGradient(
+            colorStops = arrayOf(
+                0.00f to HelpiColors.LedSoft,
+                luz to HelpiColors.LedSoft,
+                (luz + (1f - luz) * 0.58f) to HelpiColors.BrandCore,
+                1.00f to lerp(HelpiColors.BrandCore, HelpiColors.BgBase, 0.62f),
+            ),
+            startY = centro.y - alto / 2f,
+            endY = centro.y + alto / 2f,
+        ),
+    )
+}
+
+/**
+ * Reflejo especular arriba a la izquierda: es lo que convierte el degradado en
+ * una superficie de vidrio. Va achatado, porque un reflejo circular sobre una
+ * forma que no es circular se lee como un error de dibujo.
+ */
+private fun DrawScope.dibujarBrilloEspecular(
+    escala: Float,
+    centro: Offset,
+    lado: Float,
+    estado: EvaEstado,
+) {
+    // Con mucha luz la burbuja ya es casi blanca arriba y el reflejo se pierde.
+    val intensidad = if (estado == EvaEstado.HABLANDO) 0.30f else 0.55f
+    val diametro = lado * escala
+    val radio = diametro * 0.23f
+    // Va justo debajo de donde termina el blanco del degradado: sobre el azul
+    // se ve como un reflejo; dentro del blanco no se vería nada.
+    val foco = Offset(centro.x - diametro * 0.21f, centro.y - diametro * 0.10f)
+    scale(scaleX = 1f, scaleY = 0.58f, pivot = foco) {
+        drawCircle(
+            brush = Brush.radialGradient(
+                colorStops = arrayOf(
+                    0.00f to Color.White.copy(alpha = intensidad),
+                    0.55f to Color.White.copy(alpha = intensidad * 0.35f),
+                    1.00f to Color.Transparent,
+                ),
+                center = foco,
+                radius = radio,
+            ),
+            radius = radio,
+            center = foco,
+        )
+    }
+}
+
+/** Evita que la base de la burbuja se funda con el fondo. */
+private fun DrawScope.dibujarContornoDeLuz(escala: Float, lado: Float) {
+    drawPath(
+        path = rutaBurbuja(size, escala),
+        color = HelpiColors.LedSoft.copy(alpha = 0.85f),
+        style = Stroke(width = lado * 0.006f),
+    )
+}
+
+private fun DrawScope.dibujarAnillo(escala: Float, lado: Float, alfa: Float) {
+    drawPath(
+        path = rutaBurbuja(size, escala),
         color = HelpiColors.LedSoft.copy(alpha = alfa.coerceIn(0f, 1f)),
-        radius = radio,
-        center = centro,
         style = Stroke(width = lado * 0.0074f),
     )
 }

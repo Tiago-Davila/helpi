@@ -1,139 +1,158 @@
 package com.helpi.conversation.ui.components
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.helpi.conversation.chat.Speaker
+import com.helpi.conversation.R
 import com.helpi.conversation.chat.Turn
 import com.helpi.conversation.chat.TurnState
 import com.helpi.conversation.chat.VoiceState
 import com.helpi.conversation.ui.theme.HelpiColors
+import com.helpi.conversation.ui.theme.HelpiShapes
 import com.helpi.conversation.ui.theme.HelpiType
 
+/** Ancho máximo de una burbuja, para que el lado opuesto siempre se note. */
+private const val ANCHO_BURBUJA = 0.86f
+
 /**
- * Un turno del chat.
+ * Un turno de la conversación.
  *
- * Gramática visual del diseño (`Chat / Burbuja`): un lado habla en bloque
- * azul lleno alineado a la izquierda, el otro en bloque con contorno
- * alineado a la derecha, y **el autor va escrito arriba, nunca implícito**.
- * Forma, posición y texto dicen lo mismo tres veces: la atribución no
- * depende del color.
+ * Tres señales dicen lo mismo a la vez: el nombre escrito arriba, el lado en
+ * que se apoya y la esquina «mordida» que apunta a quien habló. La atribución
+ * nunca depende solo del color, porque en una herramienta de comunicación
+ * atribuir mal un mensaje es peor que no mostrarlo.
  *
- * El archivo de Figma rotula el bloque izquierdo como «Eva». Acá el
- * izquierdo es la persona oyente: lo que entra por micrófono es su voz, no
- * del sistema. Eva reconoce, no conversa (CLAUDE.md §1), y atribuirle un
- * turno hablado sería una atribución falsa dentro de una herramienta de
- * comunicación.
+ * `mostrarAutor` es falso cuando el turno anterior es de la misma persona: el
+ * nombre se escribe una vez por tanda, no una vez por mensaje.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun TurnBubble(
-    turn: Turn,
-    onMarkIncorrect: ((Long) -> Unit)?,
-    modifier: Modifier = Modifier,
-) {
-    // El turno vacío todavía no dice nada; el rechazo lo cuenta el sistema.
-    if (turn.state() == TurnState.PENDING && turn.text().isEmpty()) return
-    if (turn.state() == TurnState.REJECTED) return
-
-    when (turn.speaker()) {
-        Speaker.SYSTEM -> SystemNote(turn, modifier)
-        Speaker.HEARING -> SpeakerBubble(
-            turn = turn,
-            autor = "Oyente · micrófono",
-            alineadoADerecha = false,
-            onMarkIncorrect = null,
-            modifier = modifier,
-        )
-        Speaker.DEAF -> SpeakerBubble(
-            turn = turn,
-            autor = "Vos · señas",
-            alineadoADerecha = true,
-            onMarkIncorrect = onMarkIncorrect,
-            modifier = modifier,
-        )
-    }
-}
-
-@Composable
-private fun SpeakerBubble(
+fun TurnoMensaje(
     turn: Turn,
     autor: String,
-    alineadoADerecha: Boolean,
-    onMarkIncorrect: ((Long) -> Unit)?,
+    mostrarAutor: Boolean,
+    propio: Boolean,
+    onRepetir: (() -> Unit)?,
+    onMarcarIncorrecto: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
-    // La esquina "mordida" apunta al hablante: arriba-derecha si el bloque
-    // está a la derecha, arriba-izquierda si está a la izquierda.
-    val forma = if (alineadoADerecha) {
-        RoundedCornerShape(topStart = 24.dp, topEnd = 8.dp, bottomEnd = 24.dp, bottomStart = 24.dp)
-    } else {
-        RoundedCornerShape(topStart = 8.dp, topEnd = 24.dp, bottomEnd = 24.dp, bottomStart = 24.dp)
-    }
+    var menu by remember { mutableStateOf(false) }
+    val hayAcciones = onRepetir != null || onMarcarIncorrecto != null
 
-    Row(modifier = modifier.fillMaxWidth()) {
-        if (alineadoADerecha) Spacer(Modifier.weight(0.12f))
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = if (propio) Arrangement.End else Arrangement.Start,
+    ) {
         Column(
-            modifier = Modifier.weight(0.88f),
-            horizontalAlignment = if (alineadoADerecha) Alignment.End else Alignment.Start,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth(ANCHO_BURBUJA),
+            horizontalAlignment = if (propio) Alignment.End else Alignment.Start,
         ) {
-            Text(
-                text = autor,
-                style = HelpiType.LabelAutor,
-                color = HelpiColors.LedMuted,
-                modifier = Modifier.clearAndSetSemantics { },
-            )
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .then(
-                        if (alineadoADerecha) {
-                            Modifier.border(2.dp, HelpiColors.LedSoft, forma)
-                        } else {
-                            Modifier.background(HelpiColors.BrandCore, forma)
-                        },
-                    )
-                    .padding(horizontal = 20.dp, vertical = 16.dp)
-                    .semantics { contentDescription = "$autor dijo: ${turn.text()}" },
-            ) {
+            if (mostrarAutor) {
                 Text(
-                    text = turn.text(),
-                    style = HelpiType.BodyChat,
-                    color = HelpiColors.LedSoft,
+                    text = autor,
+                    style = HelpiType.LabelAutor,
+                    color = HelpiColors.LedMuted,
+                    modifier = Modifier
+                        .padding(start = 6.dp, end = 6.dp, bottom = 5.dp)
+                        .clearAndSetSemantics { },
                 )
             }
-            EstadoDelTurno(turn)
-            if (turn.markedIncorrect()) {
-                Meta("Marcado como incorrecto")
-            } else if (onMarkIncorrect != null && turn.state() == TurnState.FINAL) {
-                TextButton(onClick = { onMarkIncorrect(turn.id()) }) {
+            Box {
+                Column(
+                    modifier = Modifier
+                        .background(
+                            color = if (propio) HelpiColors.BrandCore else HelpiColors.SurfaceRaised,
+                            shape = if (propio) HelpiShapes.BurbujaPropia else HelpiShapes.BurbujaAjena,
+                        )
+                        .then(
+                            if (propio) {
+                                Modifier
+                            } else {
+                                Modifier.border(
+                                    1.dp,
+                                    HelpiColors.Divider,
+                                    HelpiShapes.BurbujaAjena,
+                                )
+                            },
+                        )
+                        .combinedClickable(
+                            enabled = hayAcciones,
+                            onClick = {},
+                            onLongClick = { menu = true },
+                            onLongClickLabel = "Opciones del mensaje",
+                        )
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .semantics {
+                            contentDescription = "$autor: ${turn.text()}"
+                            liveRegion = LiveRegionMode.Polite
+                        },
+                ) {
                     Text(
-                        text = "No quise decir eso",
-                        style = HelpiType.LabelBoton,
+                        text = turn.text(),
+                        style = HelpiType.BodyChat,
                         color = HelpiColors.LedSoft,
                     )
                 }
+                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    onRepetir?.let { repetir ->
+                        DropdownMenuItem(
+                            text = { Text("Repetir en voz alta") },
+                            onClick = { menu = false; repetir() },
+                        )
+                    }
+                    onMarcarIncorrecto?.let { marcar ->
+                        DropdownMenuItem(
+                            text = { Text("La traducción no es correcta") },
+                            onClick = { menu = false; marcar() },
+                        )
+                    }
+                }
+            }
+            estadoDelTurno(turn)?.let {
+                Text(
+                    text = it,
+                    style = HelpiType.BodyS,
+                    color = HelpiColors.LedMuted,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                )
             }
         }
-        if (!alineadoADerecha) Spacer(Modifier.weight(0.12f))
     }
 }
 
@@ -142,55 +161,81 @@ private fun SpeakerBubble(
  * alcanza para distinguir «pendiente» de «no pronunciado», y esa diferencia
  * cambia lo que la otra persona escuchó.
  */
-@Composable
-private fun EstadoDelTurno(turn: Turn) {
-    when (turn.state()) {
-        TurnState.PARTIAL -> Meta("transcribiendo…")
-        TurnState.INCOMPLETE -> Meta("Incompleto")
-        else -> Unit
-    }
-    when (turn.voiceState()) {
-        VoiceState.PENDING -> Meta("Voz pendiente")
-        VoiceState.SPOKEN -> Meta("Pronunciado")
-        VoiceState.NOT_SPOKEN -> Meta("No pronunciado")
-        VoiceState.CANCELLED -> Meta("Cancelado antes de la voz")
-        VoiceState.NONE -> Unit
-    }
-}
-
-@Composable
-private fun Meta(text: String) {
-    Text(text = text, style = HelpiType.BodyS, color = HelpiColors.LedMuted)
+private fun estadoDelTurno(turn: Turn): String? = when {
+    turn.markedIncorrect() -> "Marcado como incorrecto"
+    turn.state() == TurnState.PARTIAL -> "Transcribiendo…"
+    turn.state() == TurnState.INCOMPLETE -> "Incompleto"
+    turn.voiceState() == VoiceState.NOT_SPOKEN -> "No se pudo leer en voz alta"
+    else -> null
 }
 
 /**
- * Mensajes del sistema: centrados y con acento ámbar, nunca con la forma de
- * una burbuja de persona. Acá es donde aparece «no reconocí la seña», que es
- * el resultado esperado cuando la confianza no alcanza el umbral.
+ * Aviso del sistema: acá es donde aparece «no reconocí la seña», que es el
+ * resultado esperado cuando la confianza no alcanza el umbral (CLAUDE.md §5).
+ *
+ * Va contraído a una línea. Estos avisos explican con detalle qué pasó y por
+ * qué, y ese detalle importa cuando alguien lo busca, pero desplegado empuja
+ * la conversación fuera de la pantalla cada vez que una seña no se reconoce.
+ * El chevron solo aparece si el texto realmente no entra: un aviso corto no
+ * necesita un control que no hace nada.
+ *
+ * Contraído o no, el texto completo viaja en `contentDescription`, así que un
+ * lector de pantalla nunca recibe la versión recortada.
  */
 @Composable
-private fun SystemNote(turn: Turn, modifier: Modifier = Modifier) {
+fun NotaSistema(texto: String, modifier: Modifier = Modifier) {
+    var expandido by rememberSaveable(texto) { mutableStateOf(false) }
+    var desbordado by remember(texto) { mutableStateOf(false) }
+    val desplegable = desbordado || expandido
+    val giro by animateFloatAsState(if (expandido) 180f else 0f, label = "chevron")
+
     Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        Column(
+        Row(
             modifier = Modifier
-                .fillMaxWidth(0.9f)
-                .background(Color.Transparent, RoundedCornerShape(16.dp))
-                .border(1.dp, HelpiColors.Warning.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+                .fillMaxWidth(0.94f)
+                .heightIn(min = 48.dp)
+                .background(HelpiColors.Surface, HelpiShapes.Chip)
+                .border(1.dp, HelpiColors.Warning.copy(alpha = 0.42f), HelpiShapes.Chip)
+                .clickable(enabled = desplegable) { expandido = !expandido }
+                .semantics {
+                    contentDescription = texto
+                    if (desplegable) {
+                        role = Role.Button
+                        stateDescription = if (expandido) "Desplegado" else "Contraído"
+                    }
+                    liveRegion = LiveRegionMode.Polite
+                }
+                .padding(horizontal = 14.dp, vertical = 10.dp)
+                .animateContentSize(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text(
-                text = "SISTEMA",
-                style = HelpiType.LabelHotbar,
-                color = HelpiColors.Warning,
+            Box(
+                modifier = Modifier
+                    .size(7.dp)
+                    .background(HelpiColors.Warning, HelpiShapes.Pastilla),
             )
             Text(
-                text = turn.text(),
-                style = HelpiType.BodyM,
+                text = texto,
+                style = HelpiType.BodyS,
                 color = HelpiColors.LedSoft,
-                textAlign = TextAlign.Center,
+                maxLines = if (expandido) Int.MAX_VALUE else 1,
+                overflow = TextOverflow.Ellipsis,
+                onTextLayout = { if (!expandido) desbordado = it.hasVisualOverflow },
+                modifier = Modifier
+                    .weight(1f)
+                    .clearAndSetSemantics { },
             )
+            if (desplegable) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_chevron),
+                    contentDescription = null,
+                    tint = HelpiColors.LedMuted,
+                    modifier = Modifier
+                        .size(20.dp)
+                        .rotate(giro),
+                )
+            }
         }
     }
 }

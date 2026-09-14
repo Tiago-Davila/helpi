@@ -98,8 +98,39 @@ object HelpiType {
         letterSpacing = 0.4.sp,
     )
 
-    /** Autor del turno, sobre la burbuja. Nunca implícito. */
-    val LabelAutor = LabelHotbar
+    /**
+     * Logotipo de la pantalla de inicio. Es el único lugar donde la tipografía
+     * funciona como elemento gráfico y no como texto a leer, así que se aprieta
+     * el tracking en vez de estirarlo.
+     */
+    val Display = TextStyle(
+        fontFamily = Lexend,
+        fontWeight = FontWeight.Medium,
+        fontSize = 34.sp,
+        lineHeight = 40.sp,
+        letterSpacing = (-0.5).sp,
+    )
+
+    /** Título de sección y de encabezado. */
+    val TitleM = TextStyle(
+        fontFamily = Lexend,
+        fontWeight = FontWeight.Medium,
+        fontSize = 16.sp,
+        lineHeight = 22.sp,
+        letterSpacing = 0.sp,
+    )
+
+    /**
+     * Autor del turno, sobre la burbuja. Nunca implícito. No va en versalitas:
+     * es un nombre propio y se escribe como tal.
+     */
+    val LabelAutor = TextStyle(
+        fontFamily = Lexend,
+        fontWeight = FontWeight.Medium,
+        fontSize = 13.sp,
+        lineHeight = 16.sp,
+        letterSpacing = 0.1.sp,
+    )
 }
 
 internal val HelpiTypography = Typography(

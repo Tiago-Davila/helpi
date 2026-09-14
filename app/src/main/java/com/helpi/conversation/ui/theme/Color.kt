@@ -34,6 +34,15 @@ object HelpiColors {
     val Divider = LedSoft.copy(alpha = 0.12f)
 
     /**
+     * Profundidad, no color nuevo: los controles que flotan sobre la imagen de
+     * la cámara necesitan separarse de un fondo que cambia cuadro a cuadro. El
+     * velo garantiza el contraste del icono pase lo que pase frente al lente;
+     * el borde de vidrio evita que el botón se disuelva sobre una pared clara.
+     */
+    val VeloCamara = Color(0xFF05070C).copy(alpha = 0.58f)
+    val VidrioBorde = LedSoft.copy(alpha = 0.24f)
+
+    /**
      * Estados que la interfaz no puede comunicar solo con los tres colores:
      * advertencia de canal caído o de traducción no reconocida. Se eligió un
      * ámbar cálido porque debe distinguirse del azul del sistema incluso con

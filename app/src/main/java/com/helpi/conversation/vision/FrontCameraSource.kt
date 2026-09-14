@@ -33,10 +33,13 @@ class FrontCameraSource(
     var minAnalysisIntervalMs: Long = 66
 
     private var provider: ProcessCameraProvider? = null
+    private var bindingRevision = 0
 
     fun start(lifecycleOwner: LifecycleOwner, surfaceProvider: Preview.SurfaceProvider?) {
+        val revision = ++bindingRevision
         val future = ProcessCameraProvider.getInstance(context)
         future.addListener({
+            if (revision != bindingRevision) return@addListener
             try {
                 val cameraProvider = future.get()
                 provider = cameraProvider
@@ -90,6 +93,7 @@ class FrontCameraSource(
     }
 
     fun stop() {
+        bindingRevision++
         provider?.unbindAll()
         provider = null
     }

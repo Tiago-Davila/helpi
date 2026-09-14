@@ -65,10 +65,20 @@ class VoskSpeechSource(
 
     fun start() {
         if (service != null) return
+        recognizer.reset()
+        gateOpen = true
         service = SpeechService(recognizer, SAMPLE_RATE).also {
             it.startListening(listener)
         }
-        gateOpen = true
+    }
+
+    /** Libera AudioRecord al silenciar; la próxima activación usa un buffer limpio. */
+    fun stop() {
+        gateOpen = false
+        service?.stop()
+        service?.shutdown()
+        service = null
+        recognizer.reset()
     }
 
     /**
@@ -89,10 +99,7 @@ class VoskSpeechSource(
     }
 
     override fun close() {
-        gateOpen = false
-        service?.stop()
-        service?.shutdown()
-        service = null
+        stop()
         recognizer.close()
         model.close()
     }

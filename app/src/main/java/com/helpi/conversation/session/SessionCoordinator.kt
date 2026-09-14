@@ -69,6 +69,8 @@ class SessionCoordinator(private val context: Context) {
         val confidenceThreshold: Float = DEFAULT_THRESHOLD,
         val lastRecognition: RecognitionFeedback? = null,
         val notice: String? = null,
+        val microphoneEnabled: Boolean = true,
+        val cameraEnabled: Boolean = true,
     )
 
     private val executor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
@@ -76,7 +78,7 @@ class SessionCoordinator(private val context: Context) {
 
     private var stateMachine = SessionStateMachine()
     private val conversation = Conversation()
-    private val segmenter = SignSegmenter(SegmenterConfig.defaults())
+    private var segmenter = SignSegmenter(SegmenterConfig.defaults())
     private val framingEvaluator = FramingEvaluator()
     private val observationFactory = ObservationFactory()
 
@@ -93,6 +95,9 @@ class SessionCoordinator(private val context: Context) {
     private var ticker: ScheduledFuture<*>? = null
     private var confidenceThreshold = DEFAULT_THRESHOLD
     private var lastRecognition: RecognitionFeedback? = null
+    private var microphoneEnabled = true
+    private var cameraEnabled = true
+    private var visionRevision = 0
 
     /** Generación de sesión: los callbacks tardíos de otra generación se descartan. */
     @Volatile
@@ -117,6 +122,7 @@ class SessionCoordinator(private val context: Context) {
             speech?.closeGate()
             // confirmación explícita: la compuerta quedó cerrada
             submit(gen) {
+                if (!isActive() || arbiter.state() != AudioArbiter.State.WAITING_GATE) return@submit
                 audioState = AudioChannelState.TTS_HABLANDO
                 arbiter.sttGateClosed(now())
                 publish()
@@ -124,11 +130,11 @@ class SessionCoordinator(private val context: Context) {
         }
 
         override fun openSttGate() {
-            speech?.openGate()
-            audioState = if (capabilities.stt) {
+            if (microphoneEnabled && isActive()) speech?.openGate()
+            audioState = if (capabilities.stt && microphoneEnabled && isActive()) {
                 AudioChannelState.STT_ESCUCHANDO
             } else {
-                AudioChannelState.NO_DISPONIBLE
+                AudioChannelState.STT_LISTO
             }
         }
 
@@ -149,7 +155,7 @@ class SessionCoordinator(private val context: Context) {
     // ciclo de vida
     // ------------------------------------------------------------------
 
-    fun prepare() = submit(generation) {
+    fun prepare(autoStart: Boolean = false) = submit(generation) {
         if (stateMachine.current() == SessionState.CERRADA) {
             stateMachine = SessionStateMachine()
             visualState = VisualChannelState.NO_DISPONIBLE
@@ -157,6 +163,8 @@ class SessionCoordinator(private val context: Context) {
             capabilities = Capabilities()
             lastRecognition = null
             notice = null
+            microphoneEnabled = true
+            cameraEnabled = true
         }
         if (!stateMachine.canTransition(SessionState.PREPARANDO)) return@submit
         stateMachine.transition(SessionState.PREPARANDO)
@@ -197,6 +205,7 @@ class SessionCoordinator(private val context: Context) {
                         onFinal = { text -> submit(gen) { onSttFinal(text) } },
                         onSpeechActivity = { active ->
                             submit(gen) {
+                                if (!isActive() || !microphoneEnabled) return@submit
                                 arbiter.hearingSpeechActive(active, now())
                                 if (active) audioState = AudioChannelState.STT_TRANSCRIBIENDO
                             }
@@ -258,6 +267,7 @@ class SessionCoordinator(private val context: Context) {
         // sensores. La sesión no queda bloqueada por una capacidad opcional.
         stateMachine.transition(SessionState.LISTA)
         publish()
+        if (autoStart) startConversation()
     }
 
     fun startConversation() = submit(generation) {
@@ -276,7 +286,7 @@ class SessionCoordinator(private val context: Context) {
         val gen = generation
         ticker?.cancel(false)
         ticker = executor.scheduleWithFixedDelay(
-            { if (gen == generation) submit(gen) { arbiter.tick(now()); publish() } },
+            { if (gen == generation) submit(gen) { if (isActive()) { arbiter.tick(now()); publish() } } },
             200, 200, TimeUnit.MILLISECONDS,
         )
         publish()
@@ -288,7 +298,13 @@ class SessionCoordinator(private val context: Context) {
         pausedAtMs = now()
         stateMachine.transition(SessionState.PAUSADA)
         speechOutput?.stop()
-        speech?.closeGate()
+        speech?.stop()
+        conversation.ordered().filter { it.voiceState() == VoiceState.PENDING }.forEach {
+            conversation.updateVoice(it.id(), VoiceState.NOT_SPOKEN)
+        }
+        arbiter.reset()
+        visionRevision++
+        segmenter = SignSegmenter(SegmenterConfig.defaults())
         frameBuffer.clear()
         preRollBuffer.clear()
         observationFactory.reset()
@@ -315,11 +331,11 @@ class SessionCoordinator(private val context: Context) {
         stateMachine.transition(SessionState.PREPARANDO)
         stateMachine.transition(SessionState.LISTA)
         stateMachine.transition(targetActiveState())
-        if (capabilities.stt) {
-            speech?.openGate()
+        if (capabilities.stt && microphoneEnabled) {
+            speech?.start()
             audioState = AudioChannelState.STT_ESCUCHANDO
         }
-        if (capabilities.vision) {
+        if (capabilities.vision && cameraEnabled) {
             visualState = VisualChannelState.BUSCANDO_ENCUADRE
         }
         publish()
@@ -340,8 +356,13 @@ class SessionCoordinator(private val context: Context) {
         speech?.close()
         speech = null
         arbiter.reset()
-        classifier?.close()
+        classifier?.let { closing -> classifierExecutor.execute { closing.close() } }
         classifier = null
+        classifying = false
+        partialTurnId = -1
+        visionRevision++
+        segmenter = SignSegmenter(SegmenterConfig.defaults())
+        observationFactory.reset()
         acceptancePolicy = null
         bundle = null
         lastRecognition = null
@@ -355,9 +376,11 @@ class SessionCoordinator(private val context: Context) {
     }
 
     fun shutdown() {
-        closeSession()
-        executor.shutdown()
-        classifierExecutor.shutdown()
+        executor.execute {
+            doClose()
+            classifierExecutor.shutdown()
+            executor.shutdown()
+        }
     }
 
     // ------------------------------------------------------------------
@@ -371,7 +394,7 @@ class SessionCoordinator(private val context: Context) {
     }
 
     private fun processLandmarks(frame: LandmarkFrame) {
-        if (!capabilities.vision || !isActive()) return
+        if (!capabilities.vision || !cameraEnabled || !isActive()) return
 
         val obs = observationFactory.observe(frame)
         framing = framingEvaluator.evaluate(obs)
@@ -440,6 +463,7 @@ class SessionCoordinator(private val context: Context) {
         val turn = conversation.open(Speaker.DEAF, startMs)
         val gen = generation
         val thresholdUsed = confidenceThreshold
+        val revision = visionRevision
         classifying = true
         classifierExecutor.execute {
             val result = runCatching {
@@ -448,7 +472,7 @@ class SessionCoordinator(private val context: Context) {
             }
             submit(gen) {
                 classifying = false
-                if (!isActive()) {
+                if (!isActive() || !cameraEnabled || revision != visionRevision) {
                     conversation.markRejected(turn.id())
                     publish()
                     return@submit
@@ -477,11 +501,9 @@ class SessionCoordinator(private val context: Context) {
                         } else {
                             conversation.markRejected(turn.id())
                             conversation.systemNote(
-                                    "No reconocí la seña. No dije nada en voz alta. " +
+                                    "No reconocí la seña. Volvé a intentarlo. " +
                                     "Confianza ${(decision.confidence * 100).roundToInt()} %, " +
-                                    "umbral ${(thresholdUsed * 100).roundToInt()} %. " +
-                                    "Dejá las manos quietas un momento y volvé a intentar. " +
-                                    "Solo reconozco las señas del catálogo.",
+                                    "umbral ${(thresholdUsed * 100).roundToInt()} %.",
                                 now(),
                             )
                         }
@@ -525,6 +547,41 @@ class SessionCoordinator(private val context: Context) {
         publish()
     }
 
+    fun toggleMicrophone() = submit(generation) {
+        if (!isActive() || !capabilities.stt) return@submit
+        microphoneEnabled = !microphoneEnabled
+        if (microphoneEnabled) {
+            speech?.start()
+            if (arbiter.state() != AudioArbiter.State.IDLE) speech?.closeGate()
+        } else {
+            speech?.stop()
+            if (partialTurnId >= 0) {
+                conversation.markIncomplete(partialTurnId)
+                partialTurnId = -1
+            }
+            arbiter.hearingSpeechActive(false, now())
+        }
+        if (arbiter.state() == AudioArbiter.State.IDLE) {
+            audioState = if (microphoneEnabled) AudioChannelState.STT_ESCUCHANDO else AudioChannelState.STT_LISTO
+        }
+        publish()
+    }
+
+    fun toggleCamera() = submit(generation) {
+        if (!isActive() || !capabilities.vision) return@submit
+        cameraEnabled = !cameraEnabled
+        visionRevision++
+        frameBuffer.clear()
+        preRollBuffer.clear()
+        observationFactory.reset()
+        segmenter = SignSegmenter(SegmenterConfig.defaults())
+        framing = FramingEvaluator.Issue.SIN_PERSONA
+        visualState = if (cameraEnabled) VisualChannelState.BUSCANDO_ENCUADRE else VisualChannelState.NO_DISPONIBLE
+        publish()
+    }
+
+    fun dismissNotice() = submit(generation) { notice = null; publish() }
+
     /** Texto escrito por la persona sorda: se publica y se pronuncia por TTS. */
     fun submitTyped(text: String) = submit(generation) {
         val normalized = text.trim()
@@ -564,7 +621,7 @@ class SessionCoordinator(private val context: Context) {
     // ------------------------------------------------------------------
 
     private fun onSttPartial(text: String) {
-        if (!isActive()) return
+        if (!isActive() || !microphoneEnabled) return
         if (partialTurnId < 0) {
             partialTurnId = conversation.open(Speaker.HEARING, now()).id()
         }
@@ -574,7 +631,7 @@ class SessionCoordinator(private val context: Context) {
     }
 
     private fun onSttFinal(text: String) {
-        if (!isActive()) return
+        if (!isActive() || !microphoneEnabled) return
         if (partialTurnId < 0) {
             partialTurnId = conversation.open(Speaker.HEARING, now()).id()
         }
@@ -608,8 +665,11 @@ class SessionCoordinator(private val context: Context) {
         ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
 
     private fun submit(gen: Int, block: () -> Unit) {
-        executor.execute {
-            if (gen == generation) block()
+        if (executor.isShutdown) return
+        try {
+            executor.execute { if (gen == generation) block() }
+        } catch (_: java.util.concurrent.RejectedExecutionException) {
+            // Callback de un sensor que terminó durante onCleared.
         }
     }
 
@@ -624,6 +684,8 @@ class SessionCoordinator(private val context: Context) {
             confidenceThreshold = confidenceThreshold,
             lastRecognition = lastRecognition,
             notice = notice,
+            microphoneEnabled = microphoneEnabled,
+            cameraEnabled = cameraEnabled,
         )
     }
 
