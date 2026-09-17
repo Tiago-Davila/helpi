@@ -40,6 +40,8 @@ import com.helpi.conversation.R
 import com.helpi.conversation.chat.Speaker
 import com.helpi.conversation.chat.Turn
 import com.helpi.conversation.chat.TurnState
+import com.helpi.conversation.lsa.sequence.PhraseCaptureState
+import com.helpi.conversation.lsa.sequence.RecognitionMode
 import com.helpi.conversation.session.AudioChannelState
 import com.helpi.conversation.session.SessionCoordinator
 import com.helpi.conversation.session.SessionState
@@ -62,6 +64,12 @@ internal data class ConversationActions(
     val microphone: () -> Unit = {},
     val camera: () -> Unit = {},
     val threshold: (Float) -> Unit = {},
+    val recognitionMode: (RecognitionMode) -> Unit = {},
+    val startPhrase: () -> Unit = {},
+    val finishPhrase: () -> Unit = {},
+    val cancelPhrase: () -> Unit = {},
+    val confirmPhrase: (String?) -> Unit = {},
+    val rejectPhrase: () -> Unit = {},
     val send: (String) -> Unit = {},
     val repeat: (Long) -> Unit = {},
     val incorrect: (Long) -> Unit = {},
@@ -89,6 +97,12 @@ fun ConversationScreen(
             microphone = viewModel::toggleMicrophone,
             camera = viewModel::toggleCamera,
             threshold = viewModel::setConfidenceThreshold,
+            recognitionMode = viewModel::setRecognitionMode,
+            startPhrase = viewModel::startPhraseCapture,
+            finishPhrase = viewModel::finishPhraseCapture,
+            cancelPhrase = viewModel::cancelPhraseCapture,
+            confirmPhrase = viewModel::confirmPhraseCandidate,
+            rejectPhrase = viewModel::rejectPhraseCandidate,
             send = viewModel::submitTyped,
             repeat = viewModel::repeatTurn,
             incorrect = viewModel::markIncorrect,
@@ -355,7 +369,37 @@ private fun SalaDeConversacion(
         Spacer(Modifier.height(8.dp))
     }
 
-    if (ajustes) HojaDeAjustes(state, actions.threshold) { ajustes = false }
+    if (ajustes) {
+        HojaDeAjustes(state, actions.threshold, actions.recognitionMode) { ajustes = false }
+    }
+    state.phraseCandidate?.let { candidate ->
+        var candidateText by remember(candidate) { mutableStateOf(candidate.text) }
+        AlertDialog(
+            onDismissRequest = actions.rejectPhrase,
+            title = { Text("¿Usar esta frase?") },
+            text = {
+                OutlinedTextField(
+                    value = candidateText,
+                    onValueChange = { candidateText = it.take(300) },
+                    label = { Text("Texto de la frase") },
+                    textStyle = HelpiType.BodyM,
+                    minLines = 2,
+                    maxLines = 5,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { actions.confirmPhrase(candidateText.trim()) },
+                    enabled = candidateText.isNotBlank(),
+                ) { Text("Confirmar") }
+            },
+            dismissButton = {
+                TextButton(onClick = actions.rejectPhrase) { Text("Descartar") }
+            },
+            containerColor = HelpiColors.Surface,
+        )
+    }
     if (finalizando) {
         Confirmacion(
             titulo = "¿Finalizar conversación?",
@@ -464,7 +508,17 @@ private fun PanelDeCaptura(
     cameraPreview: @Composable () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val camaraViva = state.cameraEnabled && state.capabilities.vision
+    val visionAvailable = if (state.recognitionMode == RecognitionMode.PHRASE_EXPERIMENTAL) {
+        state.capabilities.phraseVision
+    } else {
+        state.capabilities.vision
+    }
+    val visionDetail = if (state.recognitionMode == RecognitionMode.PHRASE_EXPERIMENTAL) {
+        state.capabilities.phraseVisionDetail
+    } else {
+        state.capabilities.visionDetail
+    }
+    val camaraViva = state.cameraEnabled && visionAvailable
 
     Box(
         modifier
@@ -499,8 +553,8 @@ private fun PanelDeCaptura(
                 Spacer(Modifier.height(12.dp))
                 Text(
                     when {
-                        state.capabilities.vision -> "Activá la cámara para mostrar una seña."
-                        state.capabilities.visionDetail.contains("permiso") ->
+                        visionAvailable -> "Activá la cámara para mostrar una seña."
+                        visionDetail.contains("permiso") ->
                             "Permití el acceso a la cámara en los ajustes del teléfono."
                         else -> "No hay cámara disponible. Podés continuar con voz o texto."
                     },
@@ -534,12 +588,12 @@ private fun PanelDeCaptura(
             BotonDeVidrio(
                 icono = R.drawable.ic_entrada_camara,
                 etiqueta = when {
-                    !state.capabilities.vision -> "Cámara no disponible"
+                    !visionAvailable -> "Cámara no disponible"
                     state.cameraEnabled -> "Apagar cámara"
                     else -> "Activar cámara"
                 },
                 activo = camaraViva,
-                habilitado = state.capabilities.vision,
+                habilitado = visionAvailable,
                 tachado = !camaraViva,
                 onClick = actions.camera,
             )
@@ -549,6 +603,27 @@ private fun PanelDeCaptura(
                 activo = teclado,
                 onClick = onTeclado,
             )
+        }
+
+        if (state.recognitionMode == RecognitionMode.PHRASE_EXPERIMENTAL &&
+            state.capabilities.phraseVision
+        ) {
+            val capturing = state.phraseCapture == PhraseCaptureState.CAPTURING
+            Row(
+                Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Button(
+                    onClick = if (capturing) actions.finishPhrase else actions.startPhrase,
+                    enabled = state.phraseCapture == PhraseCaptureState.READY || capturing,
+                ) {
+                    Text(if (capturing) "Terminar frase" else "Comenzar frase")
+                }
+                if (capturing) {
+                    TextButton(onClick = actions.cancelPhrase) { Text("Cancelar") }
+                }
+            }
         }
 
         Row(
@@ -778,6 +853,7 @@ private fun Redactor(onEnviar: (String) -> Unit) {
 private fun HojaDeAjustes(
     state: SessionCoordinator.UiState,
     onThreshold: (Float) -> Unit,
+    onRecognitionMode: (RecognitionMode) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var ayuda by remember { mutableStateOf(false) }
@@ -798,6 +874,7 @@ private fun HojaDeAjustes(
                 Text("Configuración", style = HelpiType.LabelBoton)
                 TextButton(onClick = onDismiss) { Text("Listo") }
             }
+            SelectorDeModo(state, onRecognitionMode)
             ControlDeUmbral(state, onThreshold)
             AvisosDeCapacidades(state)
             HorizontalDivider(color = HelpiColors.Divider)
@@ -824,16 +901,69 @@ private fun HojaDeAjustes(
     }
 }
 
+@Composable
+private fun SelectorDeModo(
+    state: SessionCoordinator.UiState,
+    onRecognitionMode: (RecognitionMode) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            "Modo de reconocimiento",
+            style = HelpiType.BodyM,
+            color = HelpiColors.LedSoft,
+        )
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            FilterChip(
+                selected = state.recognitionMode == RecognitionMode.SINGLE_SIGN,
+                onClick = { onRecognitionMode(RecognitionMode.SINGLE_SIGN) },
+                label = { Text("Seña individual") },
+                modifier = Modifier.weight(1f),
+            )
+            FilterChip(
+                selected = state.recognitionMode == RecognitionMode.PHRASE_EXPERIMENTAL,
+                onClick = { onRecognitionMode(RecognitionMode.PHRASE_EXPERIMENTAL) },
+                enabled = state.capabilities.phraseVision,
+                label = { Text("Frase experimental") },
+                modifier = Modifier.weight(1f),
+            )
+        }
+        Text(
+            if (state.capabilities.phraseVision) {
+                "La frase se captura manualmente y siempre se confirma antes de publicarse."
+            } else {
+                state.capabilities.phraseVisionDetail.ifBlank {
+                    "El modelo de frases todavía no está instalado. Eva sigue disponible."
+                }
+            },
+            style = HelpiType.BodyS,
+            color = HelpiColors.LedMuted,
+        )
+    }
+}
+
 private fun instruccionDeEncuadre(state: SessionCoordinator.UiState): String? = when (state.framing) {
     FramingEvaluator.Issue.SIN_PERSONA -> "Mostrá los hombros y las manos."
     FramingEvaluator.Issue.SIN_HOMBROS -> "Alejá un poco el teléfono para mostrar los hombros."
     FramingEvaluator.Issue.MANOS_AL_BORDE -> "Mantené las manos dentro del cuadro."
     FramingEvaluator.Issue.MANO_PERDIDA -> "Volvé a mostrar las dos manos."
-    FramingEvaluator.Issue.OK -> when (state.visual) {
-        VisualChannelState.ARMADO -> "Mostrá una seña."
-        VisualChannelState.ESPERANDO_REPOSO -> "Dejá las manos quietas un momento."
-        VisualChannelState.CAPTURANDO_SENA -> "Reconociendo tu seña…"
-        VisualChannelState.REARMANDO -> "Procesando la seña…"
-        else -> null
+    FramingEvaluator.Issue.OK -> if (state.recognitionMode == RecognitionMode.PHRASE_EXPERIMENTAL) {
+        when (state.phraseCapture) {
+            PhraseCaptureState.READY -> "Presioná «Comenzar frase» cuando estés listo."
+            PhraseCaptureState.CAPTURING -> "Hacé la frase y presioná «Terminar frase»."
+            PhraseCaptureState.PROCESSING -> "Procesando la frase…"
+            PhraseCaptureState.CANDIDATE -> "Revisá la frase sugerida."
+            PhraseCaptureState.UNAVAILABLE -> "El modo frase no está disponible."
+        }
+    } else {
+        when (state.visual) {
+            VisualChannelState.ARMADO -> "Mostrá una seña."
+            VisualChannelState.ESPERANDO_REPOSO -> "Dejá las manos quietas un momento."
+            VisualChannelState.CAPTURANDO_SENA -> "Reconociendo tu seña…"
+            VisualChannelState.REARMANDO -> "Procesando la seña…"
+            else -> null
+        }
     }
 }

@@ -237,6 +237,14 @@ internal fun AvisosDeCapacidades(state: SessionCoordinator.UiState) {
             color = HelpiColors.Warning,
         )
     }
+    if (!state.capabilities.phraseVision) {
+        Text(
+            "El modo frase experimental todavía no está disponible: " +
+                state.capabilities.phraseVisionDetail.ifBlank { "falta su paquete de modelo." },
+            style = HelpiType.BodyS,
+            color = HelpiColors.LedMuted,
+        )
+    }
 }
 
 /**

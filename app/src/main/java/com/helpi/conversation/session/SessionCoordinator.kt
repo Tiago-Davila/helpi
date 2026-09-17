@@ -17,6 +17,15 @@ import com.helpi.conversation.lsa.ModelBundle
 import com.helpi.conversation.lsa.ModelBundleResult
 import com.helpi.conversation.lsa.SignAcceptancePolicy
 import com.helpi.conversation.lsa.SignClassifier
+import com.helpi.conversation.lsa.sequence.PhraseCaptureState
+import com.helpi.conversation.lsa.sequence.RecognitionMode
+import com.helpi.conversation.lsa.sequence.SequenceCaptureBuffer
+import com.helpi.conversation.lsa.sequence.SequenceAppendResult
+import com.helpi.conversation.lsa.sequence.SequenceAcceptancePolicy
+import com.helpi.conversation.lsa.sequence.SequenceModelBundle
+import com.helpi.conversation.lsa.sequence.SequenceModelBundleResult
+import com.helpi.conversation.lsa.sequence.SequenceTranslationCandidate
+import com.helpi.conversation.lsa.sequence.SequenceTranslator
 import com.helpi.conversation.vision.FramingEvaluator
 import com.helpi.conversation.vision.LandmarkFrame
 import com.helpi.conversation.vision.ObservationFactory
@@ -46,6 +55,8 @@ class SessionCoordinator(private val context: Context) {
         val keyboard: Boolean = true,
         val vision: Boolean = false,
         val visionDetail: String = "",
+        val phraseVision: Boolean = false,
+        val phraseVisionDetail: String = "",
         val stt: Boolean = false,
         val sttDetail: String = "",
         val tts: Boolean = false,
@@ -68,6 +79,9 @@ class SessionCoordinator(private val context: Context) {
         val capabilities: Capabilities = Capabilities(),
         val confidenceThreshold: Float = DEFAULT_THRESHOLD,
         val lastRecognition: RecognitionFeedback? = null,
+        val recognitionMode: RecognitionMode = RecognitionMode.SINGLE_SIGN,
+        val phraseCapture: PhraseCaptureState = PhraseCaptureState.UNAVAILABLE,
+        val phraseCandidate: SequenceTranslationCandidate? = null,
         val notice: String? = null,
         val microphoneEnabled: Boolean = true,
         val cameraEnabled: Boolean = true,
@@ -75,12 +89,14 @@ class SessionCoordinator(private val context: Context) {
 
     private val executor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
     private val classifierExecutor = Executors.newSingleThreadExecutor()
+    private val sequenceClassifierExecutor = Executors.newSingleThreadExecutor()
 
     private var stateMachine = SessionStateMachine()
     private val conversation = Conversation()
     private var segmenter = SignSegmenter(SegmenterConfig.defaults())
     private val framingEvaluator = FramingEvaluator()
     private val observationFactory = ObservationFactory()
+    private val phraseBuffer = SequenceCaptureBuffer()
 
     /** Buffer de cuadros del segmento en curso (timestamps + 201 coords). */
     private val frameBuffer = ArrayDeque<Pair<Long, FloatArray>>()
@@ -92,9 +108,18 @@ class SessionCoordinator(private val context: Context) {
     private var speech: VoskSpeechSource? = null
     private var speechOutput: OfflineSpeechOutput? = null
     private var classifying = false
+    private var sequenceTranslator: SequenceTranslator? = null
+    private var sequenceBundle: SequenceModelBundle? = null
+    private val sequenceAcceptancePolicy = SequenceAcceptancePolicy()
+    private var sequenceClassifying = false
     private var ticker: ScheduledFuture<*>? = null
     private var confidenceThreshold = DEFAULT_THRESHOLD
     private var lastRecognition: RecognitionFeedback? = null
+    private var recognitionMode = RecognitionMode.SINGLE_SIGN
+    private var phraseCaptureState = PhraseCaptureState.UNAVAILABLE
+    private var phraseCandidate: SequenceTranslationCandidate? = null
+    private var phraseCandidateStartMs: Long = -1L
+    private var lastVisionTimestampMs: Long = 0L
     private var microphoneEnabled = true
     private var cameraEnabled = true
     private var visionRevision = 0
@@ -162,6 +187,11 @@ class SessionCoordinator(private val context: Context) {
             audioState = AudioChannelState.NO_DISPONIBLE
             capabilities = Capabilities()
             lastRecognition = null
+            recognitionMode = RecognitionMode.SINGLE_SIGN
+            phraseCaptureState = PhraseCaptureState.UNAVAILABLE
+            phraseCandidate = null
+            phraseCandidateStartMs = -1L
+            lastVisionTimestampMs = 0L
             notice = null
             microphoneEnabled = true
             cameraEnabled = true
@@ -190,6 +220,33 @@ class SessionCoordinator(private val context: Context) {
             }
             is ModelBundleResult.Missing -> false to "falta ${result.asset}"
             is ModelBundleResult.Invalid -> false to result.cause
+        }
+
+        // Canal experimental de frases: su ausencia nunca inhabilita a Eva.
+        val phraseCap = if (!hasPermission(Manifest.permission.CAMERA)) {
+            false to "permiso de cámara denegado"
+        } else when (val result = SequenceModelBundle.load(context)) {
+            is SequenceModelBundleResult.Ready -> {
+                try {
+                    sequenceBundle = result.bundle
+                    sequenceTranslator = SequenceTranslator(result.bundle)
+                    phraseCaptureState = PhraseCaptureState.READY
+                    true to ""
+                } catch (e: Exception) {
+                    sequenceTranslator = null
+                    sequenceBundle = null
+                    phraseCaptureState = PhraseCaptureState.UNAVAILABLE
+                    false to "paquete de frases incompatible: ${e.message}"
+                }
+            }
+            is SequenceModelBundleResult.Missing -> {
+                phraseCaptureState = PhraseCaptureState.UNAVAILABLE
+                false to "modo frase pendiente: falta ${result.asset}"
+            }
+            is SequenceModelBundleResult.Invalid -> {
+                phraseCaptureState = PhraseCaptureState.UNAVAILABLE
+                false to result.cause
+            }
         }
 
         // Canal A: Vosk
@@ -259,6 +316,7 @@ class SessionCoordinator(private val context: Context) {
 
         capabilities = capabilities.copy(
             vision = visionCap.first, visionDetail = visionCap.second,
+            phraseVision = phraseCap.first, phraseVisionDetail = phraseCap.second,
             stt = sttCap.first, sttDetail = sttCap.second,
         )
         audioState = if (sttCap.first) AudioChannelState.STT_LISTO else AudioChannelState.NO_DISPONIBLE
@@ -277,7 +335,7 @@ class SessionCoordinator(private val context: Context) {
             speech?.start()
             audioState = AudioChannelState.STT_ESCUCHANDO
         }
-        visualState = if (capabilities.vision) {
+        visualState = if (activeVisionAvailable()) {
             VisualChannelState.BUSCANDO_ENCUADRE
         } else {
             VisualChannelState.NO_DISPONIBLE
@@ -307,6 +365,14 @@ class SessionCoordinator(private val context: Context) {
         segmenter = SignSegmenter(SegmenterConfig.defaults())
         frameBuffer.clear()
         preRollBuffer.clear()
+        phraseBuffer.cancel()
+        phraseCandidate = null
+        phraseCandidateStartMs = -1L
+        phraseCaptureState = if (capabilities.phraseVision) {
+            PhraseCaptureState.READY
+        } else {
+            PhraseCaptureState.UNAVAILABLE
+        }
         observationFactory.reset()
         if (partialTurnId >= 0) {
             conversation.markIncomplete(partialTurnId)
@@ -335,7 +401,7 @@ class SessionCoordinator(private val context: Context) {
             speech?.start()
             audioState = AudioChannelState.STT_ESCUCHANDO
         }
-        if (capabilities.vision && cameraEnabled) {
+        if (activeVisionAvailable() && cameraEnabled) {
             visualState = VisualChannelState.BUSCANDO_ENCUADRE
         }
         publish()
@@ -359,6 +425,10 @@ class SessionCoordinator(private val context: Context) {
         classifier?.let { closing -> classifierExecutor.execute { closing.close() } }
         classifier = null
         classifying = false
+        sequenceTranslator?.let { closing -> sequenceClassifierExecutor.execute { closing.close() } }
+        sequenceTranslator = null
+        sequenceBundle = null
+        sequenceClassifying = false
         partialTurnId = -1
         visionRevision++
         segmenter = SignSegmenter(SegmenterConfig.defaults())
@@ -366,6 +436,12 @@ class SessionCoordinator(private val context: Context) {
         acceptancePolicy = null
         bundle = null
         lastRecognition = null
+        recognitionMode = RecognitionMode.SINGLE_SIGN
+        phraseBuffer.cancel()
+        phraseCaptureState = PhraseCaptureState.UNAVAILABLE
+        phraseCandidate = null
+        phraseCandidateStartMs = -1L
+        lastVisionTimestampMs = 0L
         conversation.clear()
         frameBuffer.clear()
         preRollBuffer.clear()
@@ -379,6 +455,7 @@ class SessionCoordinator(private val context: Context) {
         executor.execute {
             doClose()
             classifierExecutor.shutdown()
+            sequenceClassifierExecutor.shutdown()
             executor.shutdown()
         }
     }
@@ -394,10 +471,22 @@ class SessionCoordinator(private val context: Context) {
     }
 
     private fun processLandmarks(frame: LandmarkFrame) {
-        if (!capabilities.vision || !cameraEnabled || !isActive()) return
+        val visualAvailable = when (recognitionMode) {
+            RecognitionMode.SINGLE_SIGN -> capabilities.vision
+            RecognitionMode.PHRASE_EXPERIMENTAL -> capabilities.phraseVision
+        }
+        if (!visualAvailable || !cameraEnabled || !isActive()) return
+
+        lastVisionTimestampMs = frame.timestampMs
 
         val obs = observationFactory.observe(frame)
         framing = framingEvaluator.evaluate(obs)
+
+        if (recognitionMode == RecognitionMode.PHRASE_EXPERIMENTAL) {
+            processPhraseLandmarks(frame)
+            publish()
+            return
+        }
 
         val vector = KeypointContract.flattenFrame(frame.leftHand, frame.rightHand, frame.pose)
 
@@ -443,6 +532,32 @@ class SessionCoordinator(private val context: Context) {
             }
         }
         publish()
+    }
+
+    private fun processPhraseLandmarks(frame: LandmarkFrame) {
+        if (phraseCaptureState != PhraseCaptureState.CAPTURING) {
+            if (visualState == VisualChannelState.BUSCANDO_ENCUADRE &&
+                framing == FramingEvaluator.Issue.OK
+            ) {
+                visualState = VisualChannelState.ESPERANDO_REPOSO
+            }
+            return
+        }
+
+        when (phraseBuffer.append(frame.timestampMs, frame.leftHand, frame.rightHand)) {
+            SequenceAppendResult.ACCEPTED -> {
+                visualState = VisualChannelState.CAPTURANDO_SENA
+            }
+            SequenceAppendResult.TOO_LONG -> {
+                phraseBuffer.cancel()
+                phraseCaptureState = PhraseCaptureState.READY
+                visualState = VisualChannelState.REARMANDO
+                notice = "La captura superó los 12 segundos. Empezá la frase de nuevo."
+            }
+            SequenceAppendResult.NOT_CAPTURING -> {
+                phraseCaptureState = PhraseCaptureState.READY
+            }
+        }
     }
 
     private fun classifySegment(startMs: Long, endMs: Long) {
@@ -518,6 +633,175 @@ class SessionCoordinator(private val context: Context) {
         }
     }
 
+    /** Cambia de motor sin mezclar buffers ni contratos de entrada. */
+    fun setRecognitionMode(mode: RecognitionMode) = submit(generation) {
+        if (mode == recognitionMode) return@submit
+        if (mode == RecognitionMode.PHRASE_EXPERIMENTAL && !capabilities.phraseVision) {
+            notice = capabilities.phraseVisionDetail.ifBlank {
+                "El modo frase todavía no está disponible."
+            }
+            publish()
+            return@submit
+        }
+        visionRevision++
+        phraseBuffer.cancel()
+        phraseCandidate = null
+        phraseCandidateStartMs = -1L
+        phraseCaptureState = if (mode == RecognitionMode.PHRASE_EXPERIMENTAL) {
+            PhraseCaptureState.READY
+        } else {
+            PhraseCaptureState.UNAVAILABLE
+        }
+        frameBuffer.clear()
+        preRollBuffer.clear()
+        segmenter = SignSegmenter(SegmenterConfig.defaults())
+        observationFactory.reset()
+        recognitionMode = mode
+        visualState = if (cameraEnabled) {
+            VisualChannelState.BUSCANDO_ENCUADRE
+        } else {
+            VisualChannelState.NO_DISPONIBLE
+        }
+        publish()
+    }
+
+    /** Inicia una captura de frase; nunca se activa automáticamente. */
+    fun startPhraseCapture() = submit(generation) {
+        if (!isActive() || !cameraEnabled || !capabilities.phraseVision ||
+            recognitionMode != RecognitionMode.PHRASE_EXPERIMENTAL
+        ) return@submit
+        if (phraseCaptureState != PhraseCaptureState.READY) return@submit
+        val start = lastVisionTimestampMs.takeIf { it > 0L } ?: now()
+        phraseCandidate = null
+        phraseCandidateStartMs = -1L
+        phraseBuffer.start(start)
+        phraseCaptureState = PhraseCaptureState.CAPTURING
+        visualState = VisualChannelState.CAPTURANDO_SENA
+        notice = null
+        publish()
+    }
+
+    /** Termina la captura y deja el texto como candidato, sin publicarlo. */
+    fun finishPhraseCapture() = submit(generation) {
+        if (phraseCaptureState != PhraseCaptureState.CAPTURING) return@submit
+        val capture = phraseBuffer.stop(lastVisionTimestampMs.takeIf { it > 0L } ?: now())
+        if (capture == null || capture.frames.size < MIN_PHRASE_FRAMES) {
+            phraseCaptureState = PhraseCaptureState.READY
+            visualState = VisualChannelState.REARMANDO
+            notice = "La frase fue demasiado corta. Volvé a intentarlo."
+            publish()
+            return@submit
+        }
+        if (capture.validFrameRatio < MIN_PHRASE_VALID_RATIO) {
+            phraseCaptureState = PhraseCaptureState.READY
+            visualState = VisualChannelState.CALIDAD_INSUFICIENTE
+            notice = "No vi suficientes manos durante la frase. Volvé a intentarlo."
+            publish()
+            return@submit
+        }
+        val translator = sequenceTranslator
+        if (translator == null || sequenceClassifying) {
+            phraseCaptureState = PhraseCaptureState.READY
+            notice = "La frase anterior todavía se está procesando."
+            publish()
+            return@submit
+        }
+
+        val tensor = runCatching { capture.buildInputTensor() }.getOrElse { error ->
+            phraseCaptureState = PhraseCaptureState.READY
+            notice = "No se pudo preparar la frase: ${error.message ?: "entrada inválida"}"
+            publish()
+            return@submit
+        }
+        val gen = generation
+        val revision = visionRevision
+        sequenceClassifying = true
+        phraseCaptureState = PhraseCaptureState.PROCESSING
+        visualState = VisualChannelState.REARMANDO
+        publish()
+        sequenceClassifierExecutor.execute {
+            val result = runCatching { translator.translate(tensor) }
+            submit(gen) {
+                sequenceClassifying = false
+                if (!isActive() || !cameraEnabled || revision != visionRevision ||
+                    recognitionMode != RecognitionMode.PHRASE_EXPERIMENTAL
+                ) return@submit
+                result.fold(
+                    onSuccess = { candidate ->
+                        val decision = sequenceAcceptancePolicy.evaluate(candidate)
+                        if (!decision.accepted) {
+                            phraseCaptureState = PhraseCaptureState.READY
+                            notice = decision.reason
+                        } else {
+                            phraseCandidate = candidate
+                            phraseCandidateStartMs = capture.startTimestampMs
+                            phraseCaptureState = PhraseCaptureState.CANDIDATE
+                        }
+                    },
+                    onFailure = { error ->
+                        phraseCaptureState = PhraseCaptureState.READY
+                        notice = "No se pudo ejecutar el modelo de frases: " +
+                            (error.message ?: "error desconocido")
+                    },
+                )
+                publish()
+            }
+        }
+    }
+
+    fun cancelPhraseCapture() = submit(generation) {
+        visionRevision++
+        phraseBuffer.cancel()
+        phraseCandidate = null
+        phraseCandidateStartMs = -1L
+        phraseCaptureState = if (capabilities.phraseVision) {
+            PhraseCaptureState.READY
+        } else {
+            PhraseCaptureState.UNAVAILABLE
+        }
+        visualState = if (cameraEnabled) VisualChannelState.BUSCANDO_ENCUADRE else VisualChannelState.NO_DISPONIBLE
+        publish()
+    }
+
+    /** Publica y ofrece a voz un candidato ya confirmado por la persona. */
+    fun confirmPhraseCandidate(editedText: String? = null) = submit(generation) {
+        val candidate = phraseCandidate ?: return@submit
+        val text = editedText?.trim() ?: candidate.text
+        if (text.isBlank()) {
+            notice = "El texto de la frase no puede estar vacío."
+            publish()
+            return@submit
+        }
+        val turn = conversation.open(Speaker.DEAF, phraseCandidateStartMs.takeIf { it >= 0L } ?: now())
+        conversation.publishTyped(turn.id(), text)
+        if (capabilities.tts) {
+            arbiter.enqueue(turn.id(), text, now())
+        } else {
+            conversation.updateVoice(turn.id(), VoiceState.NOT_SPOKEN)
+            notice = "La frase se mostró, pero no hay una voz española sin conexión instalada."
+        }
+        phraseCandidate = null
+        phraseCandidateStartMs = -1L
+        phraseCaptureState = if (capabilities.phraseVision) {
+            PhraseCaptureState.READY
+        } else {
+            PhraseCaptureState.UNAVAILABLE
+        }
+        publish()
+    }
+
+    fun rejectPhraseCandidate() = submit(generation) {
+        phraseCandidate = null
+        phraseCandidateStartMs = -1L
+        phraseCaptureState = if (capabilities.phraseVision) {
+            PhraseCaptureState.READY
+        } else {
+            PhraseCaptureState.UNAVAILABLE
+        }
+        notice = "Frase descartada."
+        publish()
+    }
+
     /** "No quise decir eso". */
     fun markIncorrect(turnId: Long) = submit(generation) {
         val cancelled = arbiter.cancel(turnId)
@@ -568,13 +852,25 @@ class SessionCoordinator(private val context: Context) {
     }
 
     fun toggleCamera() = submit(generation) {
-        if (!isActive() || !capabilities.vision) return@submit
+        if (!isActive() || !activeVisionAvailable()) return@submit
         cameraEnabled = !cameraEnabled
         visionRevision++
         frameBuffer.clear()
         preRollBuffer.clear()
+        phraseBuffer.cancel()
+        phraseCandidate = null
+        phraseCandidateStartMs = -1L
         observationFactory.reset()
         segmenter = SignSegmenter(SegmenterConfig.defaults())
+        phraseCaptureState = if (cameraEnabled && capabilities.phraseVision &&
+            recognitionMode == RecognitionMode.PHRASE_EXPERIMENTAL
+        ) {
+            PhraseCaptureState.READY
+        } else if (capabilities.phraseVision && recognitionMode == RecognitionMode.PHRASE_EXPERIMENTAL) {
+            PhraseCaptureState.READY
+        } else {
+            PhraseCaptureState.UNAVAILABLE
+        }
         framing = FramingEvaluator.Issue.SIN_PERSONA
         visualState = if (cameraEnabled) VisualChannelState.BUSCANDO_ENCUADRE else VisualChannelState.NO_DISPONIBLE
         publish()
@@ -610,7 +906,13 @@ class SessionCoordinator(private val context: Context) {
 
     /** Un fallo real de CameraX/MediaPipe inhabilita el canal con causa. */
     fun reportVisionUnavailable(detail: String) = submit(generation) {
-        capabilities = capabilities.copy(vision = false, visionDetail = detail)
+        capabilities = capabilities.copy(
+            vision = false,
+            visionDetail = detail,
+            phraseVision = false,
+            phraseVisionDetail = detail,
+        )
+        phraseCaptureState = PhraseCaptureState.UNAVAILABLE
         visualState = VisualChannelState.NO_DISPONIBLE
         notice = detail
         publish()
@@ -656,6 +958,11 @@ class SessionCoordinator(private val context: Context) {
         stateMachine.current() == SessionState.ACTIVA ||
             stateMachine.current() == SessionState.ACTIVA_LIMITADA
 
+    private fun activeVisionAvailable(): Boolean = when (recognitionMode) {
+        RecognitionMode.SINGLE_SIGN -> capabilities.vision
+        RecognitionMode.PHRASE_EXPERIMENTAL -> capabilities.phraseVision
+    }
+
     private fun hasTurn(id: Long): Boolean =
         runCatching { conversation.get(id) }.isSuccess
 
@@ -683,6 +990,9 @@ class SessionCoordinator(private val context: Context) {
             capabilities = capabilities,
             confidenceThreshold = confidenceThreshold,
             lastRecognition = lastRecognition,
+            recognitionMode = recognitionMode,
+            phraseCapture = phraseCaptureState,
+            phraseCandidate = phraseCandidate,
             notice = notice,
             microphoneEnabled = microphoneEnabled,
             cameraEnabled = cameraEnabled,
@@ -696,6 +1006,8 @@ class SessionCoordinator(private val context: Context) {
         const val MAX_THRESHOLD = 0.99f
         /** Vigencia de la pausa; pasada, la sesión se invalida (D07). */
         const val PAUSE_TTL_MS = 2L * 60 * 1000
+        private const val MIN_PHRASE_FRAMES = 3
+        private const val MIN_PHRASE_VALID_RATIO = 0.10f
         private const val PRE_ROLL_FRAMES = 8
     }
 }

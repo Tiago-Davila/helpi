@@ -2,6 +2,7 @@ package com.helpi.conversation.ui
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
+import com.helpi.conversation.lsa.sequence.RecognitionMode
 import com.helpi.conversation.session.SessionCoordinator
 import com.helpi.conversation.vision.LandmarkFrame
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,6 +40,12 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
     fun resume() = coordinator.resume()
     fun markIncorrect(turnId: Long) = coordinator.markIncorrect(turnId)
     fun setConfidenceThreshold(value: Float) = coordinator.setConfidenceThreshold(value)
+    fun setRecognitionMode(mode: RecognitionMode) = coordinator.setRecognitionMode(mode)
+    fun startPhraseCapture() = coordinator.startPhraseCapture()
+    fun finishPhraseCapture() = coordinator.finishPhraseCapture()
+    fun cancelPhraseCapture() = coordinator.cancelPhraseCapture()
+    fun confirmPhraseCandidate(text: String? = null) = coordinator.confirmPhraseCandidate(text)
+    fun rejectPhraseCandidate() = coordinator.rejectPhraseCandidate()
     fun submitTyped(text: String) = coordinator.submitTyped(text)
     fun repeatTurn(turnId: Long) = coordinator.repeatTurn(turnId)
 
