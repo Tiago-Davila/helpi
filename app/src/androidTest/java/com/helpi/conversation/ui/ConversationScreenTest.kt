@@ -16,7 +16,9 @@ import com.helpi.conversation.chat.Conversation
 import com.helpi.conversation.chat.Speaker
 import com.helpi.conversation.session.SessionCoordinator
 import com.helpi.conversation.session.SessionState
+import com.helpi.conversation.session.VisualChannelState
 import com.helpi.conversation.ui.theme.HelpiTheme
+import com.helpi.conversation.vision.FramingEvaluator
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -153,6 +155,22 @@ class ConversationScreenTest {
         compose.onNodeWithContentDescription("Tiago: Bien, gracias").assertIsDisplayed()
         compose.onNodeWithContentDescription("Activar cámara").performClick()
         compose.onNodeWithContentDescription("Apagar cámara").assertIsDisplayed()
+    }
+
+    @Test fun muestraCuandoEstaReconociendoYProcesandoUnaSena() {
+        render(active = true)
+        compose.runOnIdle {
+            state.value = state.value.copy(
+                framing = FramingEvaluator.Issue.OK,
+                visual = VisualChannelState.CAPTURANDO_SENA,
+            )
+        }
+        compose.onNodeWithText("Reconociendo tu seña…").assertIsDisplayed()
+
+        compose.runOnIdle {
+            state.value = state.value.copy(visual = VisualChannelState.REARMANDO)
+        }
+        compose.onNodeWithText("Procesando la seña…").assertIsDisplayed()
     }
 
     @Test fun finalizarSolicitaConfirmacionYLimpiaElInicio() {

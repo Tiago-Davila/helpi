@@ -3,6 +3,7 @@ package com.helpi.conversation.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import com.helpi.conversation.session.SessionCoordinator
+import com.helpi.conversation.vision.LandmarkFrame
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,19 +21,39 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
     private val _participantes = MutableStateFlow(Participantes())
     internal val participantes: StateFlow<Participantes> = _participantes.asStateFlow()
 
+    private val _landmarks = MutableStateFlow<LandmarkFrame?>(null)
+    internal val landmarks: StateFlow<LandmarkFrame?> = _landmarks.asStateFlow()
+
     fun prepare() = coordinator.prepare(autoStart = true)
     fun toggleMicrophone() = coordinator.toggleMicrophone()
-    fun toggleCamera() = coordinator.toggleCamera()
+    fun toggleCamera() {
+        if (uiState.value.cameraEnabled) clearLandmarks()
+        coordinator.toggleCamera()
+    }
     fun dismissNotice() = coordinator.dismissNotice()
     fun start() = coordinator.startConversation()
-    fun pause() = coordinator.pause()
+    fun pause() {
+        clearLandmarks()
+        coordinator.pause()
+    }
     fun resume() = coordinator.resume()
     fun markIncorrect(turnId: Long) = coordinator.markIncorrect(turnId)
     fun setConfidenceThreshold(value: Float) = coordinator.setConfidenceThreshold(value)
     fun submitTyped(text: String) = coordinator.submitTyped(text)
     fun repeatTurn(turnId: Long) = coordinator.repeatTurn(turnId)
 
+    /** Publica el mismo resultado crudo tanto al overlay como al pipeline de inferencia. */
+    fun onLandmarks(frame: LandmarkFrame) {
+        _landmarks.value = frame
+        coordinator.onLandmarks(frame)
+    }
+
+    fun clearLandmarks() {
+        _landmarks.value = null
+    }
+
     fun closeSession() {
+        clearLandmarks()
         coordinator.closeSession()
         _participantes.update { it.copy(interlocutor = SIN_NOMBRE, solicitarNombre = false) }
     }
@@ -44,6 +65,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
      * a la conversación es directo.
      */
     fun nuevaConversacion() {
+        clearLandmarks()
         coordinator.closeSession()
         _participantes.update { it.copy(interlocutor = SIN_NOMBRE, solicitarNombre = true) }
     }

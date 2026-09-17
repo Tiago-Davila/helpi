@@ -832,6 +832,8 @@ private fun instruccionDeEncuadre(state: SessionCoordinator.UiState): String? = 
     FramingEvaluator.Issue.OK -> when (state.visual) {
         VisualChannelState.ARMADO -> "Mostrá una seña."
         VisualChannelState.ESPERANDO_REPOSO -> "Dejá las manos quietas un momento."
+        VisualChannelState.CAPTURANDO_SENA -> "Reconociendo tu seña…"
+        VisualChannelState.REARMANDO -> "Procesando la seña…"
         else -> null
     }
 }

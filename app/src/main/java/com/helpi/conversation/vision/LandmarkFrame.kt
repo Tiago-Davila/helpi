@@ -10,6 +10,9 @@ data class LandmarkFrame(
     val rightHand: FloatArray?,
     /** pose 0..32 de MediaPipe (33 landmarks) o null. */
     val pose: FloatArray?,
+    /** Dimensiones del cuadro vertical analizado, para alinear la visualización con la preview. */
+    val imageWidth: Int,
+    val imageHeight: Int,
 ) {
     override fun equals(other: Any?): Boolean = this === other
     override fun hashCode(): Int = timestampMs.hashCode()

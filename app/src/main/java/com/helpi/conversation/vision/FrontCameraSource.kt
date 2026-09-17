@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
+import androidx.camera.core.resolutionselector.AspectRatioStrategy
+import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
@@ -44,11 +46,19 @@ class FrontCameraSource(
                 val cameraProvider = future.get()
                 provider = cameraProvider
 
-                val preview = Preview.Builder().build().also {
+                // Preview y análisis comparten relación de aspecto. Así los landmarks
+                // normalizados se proyectan sobre la misma imagen, incluso con FIT_CENTER.
+                val resolutionSelector = ResolutionSelector.Builder()
+                    .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
+                    .build()
+                val preview = Preview.Builder()
+                    .setResolutionSelector(resolutionSelector)
+                    .build().also {
                     if (surfaceProvider != null) it.surfaceProvider = surfaceProvider
                 }
 
                 val analysis = ImageAnalysis.Builder()
+                    .setResolutionSelector(resolutionSelector)
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
                     .build()

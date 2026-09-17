@@ -17,11 +17,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helpi.conversation.ui.ConversationScreen
 import com.helpi.conversation.ui.ConversationViewModel
+import com.helpi.conversation.ui.components.LandmarkOverlay
 import com.helpi.conversation.ui.theme.HelpiColors
 import com.helpi.conversation.ui.theme.HelpiTheme
 import com.helpi.conversation.vision.FrontCameraSource
@@ -63,18 +66,30 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun CameraPreview() {
-        AndroidView(
-            modifier = Modifier.fillMaxSize(),
-            factory = { context ->
-                PreviewView(context).also { preview ->
-                    // TextureView respeta el recorte y las superposiciones de Compose.
-                    preview.implementationMode = PreviewView.ImplementationMode.COMPATIBLE
-                    preview.scaleType = PreviewView.ScaleType.FIT_CENTER
-                    startVision(preview)
-                }
-            },
-            onRelease = { cameraSource?.stop() },
-        )
+        val landmarks by viewModel.landmarks.collectAsStateWithLifecycle()
+        val state by viewModel.uiState.collectAsStateWithLifecycle()
+        Box(Modifier.fillMaxSize()) {
+            AndroidView(
+                modifier = Modifier.fillMaxSize(),
+                factory = { context ->
+                    PreviewView(context).also { preview ->
+                        // TextureView respeta el recorte y las superposiciones de Compose.
+                        preview.implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+                        preview.scaleType = PreviewView.ScaleType.FIT_CENTER
+                        startVision(preview)
+                    }
+                },
+                onRelease = {
+                    cameraSource?.stop()
+                    viewModel.clearLandmarks()
+                },
+            )
+            LandmarkOverlay(
+                frame = landmarks,
+                visualState = state.visual,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
     }
 
     private fun startVision(previewView: PreviewView) {
@@ -85,7 +100,7 @@ class MainActivity : ComponentActivity() {
         val ext = try {
             extractor ?: HolisticExtractor(
                 context = this,
-                onFrame = { frame -> viewModel.coordinator.onLandmarks(frame) },
+                onFrame = viewModel::onLandmarks,
                 onError = {
                     viewModel.coordinator.reportVisionUnavailable("No se pudo analizar la cámara. Finalizá y volvé a iniciar.")
                 },

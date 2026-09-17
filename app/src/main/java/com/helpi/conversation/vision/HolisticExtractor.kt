@@ -31,7 +31,9 @@ class HolisticExtractor(
         val options = HolisticLandmarkerOptions.builder()
             .setBaseOptions(BaseOptions.builder().setModelAssetPath(modelAssetPath).build())
             .setRunningMode(RunningMode.LIVE_STREAM)
-            .setResultListener { result, _ -> onFrame(toLandmarkFrame(result)) }
+            .setResultListener { result, image ->
+                onFrame(toLandmarkFrame(result, image.width, image.height))
+            }
             .setErrorListener { e -> onError(e) }
             .build()
         landmarker = HolisticLandmarker.createFromOptions(context, options)
@@ -50,13 +52,19 @@ class HolisticExtractor(
         landmarker.close()
     }
 
-    private fun toLandmarkFrame(result: HolisticLandmarkerResult): LandmarkFrame {
+    private fun toLandmarkFrame(
+        result: HolisticLandmarkerResult,
+        imageWidth: Int,
+        imageHeight: Int,
+    ): LandmarkFrame {
         val ts = result.timestampMs()
         return LandmarkFrame(
             timestampMs = ts,
             leftHand = flatten(result.leftHandLandmarks(), 21),
             rightHand = flatten(result.rightHandLandmarks(), 21),
             pose = flatten(result.poseLandmarks(), 33),
+            imageWidth = imageWidth,
+            imageHeight = imageHeight,
         )
     }
 
