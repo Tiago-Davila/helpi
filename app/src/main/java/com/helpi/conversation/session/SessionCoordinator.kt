@@ -26,12 +26,15 @@ import com.helpi.conversation.lsa.sequence.SequenceModelBundle
 import com.helpi.conversation.lsa.sequence.SequenceModelBundleResult
 import com.helpi.conversation.lsa.sequence.SequenceTranslationCandidate
 import com.helpi.conversation.lsa.sequence.SequenceTranslator
+import com.helpi.conversation.vision.CameraCaptureMetrics
 import com.helpi.conversation.vision.FramingEvaluator
+import com.helpi.conversation.vision.LandmarkExtractionMetrics
 import com.helpi.conversation.vision.LandmarkFrame
 import com.helpi.conversation.vision.ObservationFactory
 import com.helpi.conversation.vision.SegmentEvent
 import com.helpi.conversation.vision.SegmenterConfig
 import com.helpi.conversation.vision.SignSegmenter
+import com.helpi.conversation.vision.VisionMetrics
 import java.util.ArrayDeque
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
@@ -79,6 +82,7 @@ class SessionCoordinator(private val context: Context) {
         val capabilities: Capabilities = Capabilities(),
         val confidenceThreshold: Float = DEFAULT_THRESHOLD,
         val lastRecognition: RecognitionFeedback? = null,
+        val visionMetrics: VisionMetrics = VisionMetrics(),
         val recognitionMode: RecognitionMode = RecognitionMode.SINGLE_SIGN,
         val phraseCapture: PhraseCaptureState = PhraseCaptureState.UNAVAILABLE,
         val phraseCandidate: SequenceTranslationCandidate? = null,
@@ -115,6 +119,7 @@ class SessionCoordinator(private val context: Context) {
     private var ticker: ScheduledFuture<*>? = null
     private var confidenceThreshold = DEFAULT_THRESHOLD
     private var lastRecognition: RecognitionFeedback? = null
+    private var visionMetrics = VisionMetrics()
     private var recognitionMode = RecognitionMode.SINGLE_SIGN
     private var phraseCaptureState = PhraseCaptureState.UNAVAILABLE
     private var phraseCandidate: SequenceTranslationCandidate? = null
@@ -196,6 +201,7 @@ class SessionCoordinator(private val context: Context) {
             microphoneEnabled = true
             cameraEnabled = true
         }
+        visionMetrics = VisionMetrics()
         if (!stateMachine.canTransition(SessionState.PREPARANDO)) return@submit
         stateMachine.transition(SessionState.PREPARANDO)
         publish()
@@ -436,6 +442,7 @@ class SessionCoordinator(private val context: Context) {
         acceptancePolicy = null
         bundle = null
         lastRecognition = null
+        visionMetrics = VisionMetrics()
         recognitionMode = RecognitionMode.SINGLE_SIGN
         phraseBuffer.cancel()
         phraseCaptureState = PhraseCaptureState.UNAVAILABLE
@@ -470,6 +477,36 @@ class SessionCoordinator(private val context: Context) {
         submit(gen) { processLandmarks(frame) }
     }
 
+    /** Telemetría agregada de CameraX: no conserva cuadros ni video. */
+    fun onCameraMetrics(metrics: CameraCaptureMetrics) {
+        val gen = generation
+        submit(gen) {
+            visionMetrics = visionMetrics.copy(
+                targetFps = metrics.targetFps,
+                cameraFps = metrics.analyzerFps,
+                analyzedFrames = metrics.analyzedFrames,
+                rateLimitedFrames = metrics.rateLimitedFrames,
+            )
+            publish()
+        }
+    }
+
+    /** Telemetría agregada del extractor: permite separar cámara de MediaPipe. */
+    fun onLandmarkMetrics(metrics: LandmarkExtractionMetrics) {
+        val gen = generation
+        submit(gen) {
+            visionMetrics = visionMetrics.copy(
+                mediaPipeFps = metrics.resultFps,
+                landmarkFrames = metrics.resultFrames,
+                poseFrames = metrics.poseFrames,
+                leftHandFrames = metrics.leftHandFrames,
+                rightHandFrames = metrics.rightHandFrames,
+                lastMediaPipeLatencyMs = metrics.lastLatencyMs,
+            )
+            publish()
+        }
+    }
+
     private fun processLandmarks(frame: LandmarkFrame) {
         val visualAvailable = when (recognitionMode) {
             RecognitionMode.SINGLE_SIGN -> capabilities.vision
@@ -502,6 +539,7 @@ class SessionCoordinator(private val context: Context) {
         when (event.type) {
             SegmentEvent.Type.ARMED -> visualState = VisualChannelState.ARMADO
             SegmentEvent.Type.STARTED -> {
+                visionMetrics = visionMetrics.copy(segmentsStarted = visionMetrics.segmentsStarted + 1)
                 visualState = VisualChannelState.CAPTURANDO_SENA
                 frameBuffer.clear()
                 for ((ts, v) in preRollBuffer) {
@@ -509,10 +547,12 @@ class SessionCoordinator(private val context: Context) {
                 }
             }
             SegmentEvent.Type.ENDED -> {
+                visionMetrics = visionMetrics.copy(segmentsCompleted = visionMetrics.segmentsCompleted + 1)
                 visualState = VisualChannelState.REARMANDO
                 classifySegment(event.segmentStartMs, event.segmentEndMs)
             }
             SegmentEvent.Type.ABORTED -> {
+                visionMetrics = visionMetrics.copy(segmentsAborted = visionMetrics.segmentsAborted + 1)
                 visualState = VisualChannelState.REARMANDO
                 frameBuffer.clear()
                 if (event.abortReason == SegmentEvent.AbortReason.TRACKING_LOST) {
@@ -581,12 +621,17 @@ class SessionCoordinator(private val context: Context) {
         val revision = visionRevision
         classifying = true
         classifierExecutor.execute {
+            val startedAt = now()
             val result = runCatching {
                 val tensor = KeypointContract.buildInputTensor(frames)
                 policy.evaluate(cls.classify(tensor))
             }
             submit(gen) {
                 classifying = false
+                visionMetrics = visionMetrics.copy(
+                    classifierRuns = visionMetrics.classifierRuns + 1,
+                    lastClassifierLatencyMs = (now() - startedAt).coerceAtLeast(0L),
+                )
                 if (!isActive() || !cameraEnabled || revision != visionRevision) {
                     conversation.markRejected(turn.id())
                     publish()
@@ -990,6 +1035,7 @@ class SessionCoordinator(private val context: Context) {
             capabilities = capabilities,
             confidenceThreshold = confidenceThreshold,
             lastRecognition = lastRecognition,
+            visionMetrics = visionMetrics,
             recognitionMode = recognitionMode,
             phraseCapture = phraseCaptureState,
             phraseCandidate = phraseCandidate,

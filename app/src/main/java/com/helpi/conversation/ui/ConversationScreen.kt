@@ -56,6 +56,7 @@ import com.helpi.conversation.ui.theme.HelpiColors
 import com.helpi.conversation.ui.theme.HelpiShapes
 import com.helpi.conversation.ui.theme.HelpiType
 import com.helpi.conversation.vision.FramingEvaluator
+import kotlin.math.roundToInt
 
 internal data class ConversationActions(
     val start: () -> Unit = {},
@@ -876,6 +877,7 @@ private fun HojaDeAjustes(
             }
             SelectorDeModo(state, onRecognitionMode)
             ControlDeUmbral(state, onThreshold)
+            DiagnosticoVisual(state)
             AvisosDeCapacidades(state)
             HorizontalDivider(color = HelpiColors.Divider)
             TextButton(onClick = { ayuda = !ayuda }) {
@@ -897,6 +899,53 @@ private fun HojaDeAjustes(
                 color = HelpiColors.LedMuted,
             )
             Spacer(Modifier.height(24.dp))
+        }
+    }
+}
+
+/** Datos locales para saber si falla cámara, MediaPipe, segmentación o modelo. */
+@Composable
+private fun DiagnosticoVisual(state: SessionCoordinator.UiState) {
+    val metrics = state.visionMetrics
+    fun fps(value: Float): String = "${value.roundToInt()} fps"
+    fun detected(count: Long): String = if (metrics.landmarkFrames == 0L) {
+        "—"
+    } else {
+        "${(count * 100f / metrics.landmarkFrames).roundToInt()} %"
+    }
+
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .testTag("visionDiagnostics"),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text("Diagnóstico de cámara", style = HelpiType.BodyM, color = HelpiColors.LedSoft)
+        Text(
+            "Cámara ${fps(metrics.cameraFps)} de ${metrics.targetFps} objetivo · " +
+                "MediaPipe ${fps(metrics.mediaPipeFps)} · ${metrics.lastMediaPipeLatencyMs} ms",
+            style = HelpiType.BodyS,
+            color = HelpiColors.LedMuted,
+        )
+        Text(
+            "Pose ${detected(metrics.poseFrames)} · mano izquierda ${detected(metrics.leftHandFrames)} · " +
+                "mano derecha ${detected(metrics.rightHandFrames)}",
+            style = HelpiType.BodyS,
+            color = HelpiColors.LedMuted,
+        )
+        Text(
+            "Segmentos: ${metrics.segmentsStarted} iniciados, ${metrics.segmentsCompleted} terminados, " +
+                "${metrics.segmentsAborted} abortados · modelo: ${metrics.classifierRuns} corridas, " +
+                "${metrics.lastClassifierLatencyMs} ms",
+            style = HelpiType.BodyS,
+            color = HelpiColors.LedMuted,
+        )
+        if (metrics.rateLimitedFrames > 0L) {
+            Text(
+                "${metrics.rateLimitedFrames} cuadros se descartaron para conservar baja latencia.",
+                style = HelpiType.CaptionDisclaimer,
+                color = HelpiColors.LedMuted,
+            )
         }
     }
 }

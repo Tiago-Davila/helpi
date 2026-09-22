@@ -4,6 +4,8 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import com.helpi.conversation.lsa.sequence.RecognitionMode
 import com.helpi.conversation.session.SessionCoordinator
+import com.helpi.conversation.vision.CameraCaptureMetrics
+import com.helpi.conversation.vision.LandmarkExtractionMetrics
 import com.helpi.conversation.vision.LandmarkFrame
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -54,6 +56,9 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
         _landmarks.value = frame
         coordinator.onLandmarks(frame)
     }
+
+    fun onCameraMetrics(metrics: CameraCaptureMetrics) = coordinator.onCameraMetrics(metrics)
+    fun onLandmarkMetrics(metrics: LandmarkExtractionMetrics) = coordinator.onLandmarkMetrics(metrics)
 
     fun clearLandmarks() {
         _landmarks.value = null

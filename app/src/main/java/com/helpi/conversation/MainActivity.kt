@@ -104,6 +104,7 @@ class MainActivity : ComponentActivity() {
                 onError = {
                     viewModel.coordinator.reportVisionUnavailable("No se pudo analizar la cámara. Finalizá y volvé a iniciar.")
                 },
+                onMetrics = viewModel::onLandmarkMetrics,
             ).also { extractor = it }
         } catch (_: Throwable) {
             viewModel.coordinator.reportVisionUnavailable("No se pudo iniciar la cámara. Podés continuar escribiendo.")
@@ -111,8 +112,9 @@ class MainActivity : ComponentActivity() {
         }
         cameraSource = FrontCameraSource(
             context = this,
-            onFrame = { bitmap, ts -> ext.analyze(bitmap, ts) },
+            onFrame = { bitmap, rotation, ts -> ext.analyze(bitmap, rotation, ts) },
             onUnavailable = viewModel.coordinator::reportVisionUnavailable,
+            onMetrics = viewModel::onCameraMetrics,
         ).also { it.start(this, previewView.surfaceProvider) }
     }
 
