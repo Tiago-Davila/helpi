@@ -33,9 +33,9 @@ class FrontCameraSource(
     private val analysisExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     private val lastSentMs = AtomicLong(0)
 
-    /** Intervalo mínimo entre cuadros analizados; perfil nominal 24 fps. */
+    /** Perfil inicial: ahorrar recursos hasta que haya una seña candidata. */
     @Volatile
-    var minAnalysisIntervalMs: Long = 42
+    private var samplingProfile = SamplingProfile.IDLE
 
     private var analyzedFrames = 0L
     private var rateLimitedFrames = 0L
@@ -86,7 +86,7 @@ class FrontCameraSource(
                 analysis.setAnalyzer(analysisExecutor) { imageProxy ->
                     val now = android.os.SystemClock.elapsedRealtime()
                     val last = lastSentMs.get()
-                    if (now - last < minAnalysisIntervalMs) {
+                    if (now - last < samplingProfile.minimumIntervalMs) {
                         rateLimitedFrames++
                         reportMetricsIfDue(now)
                         imageProxy.close() // descartar antes que acumular
@@ -140,13 +140,23 @@ class FrontCameraSource(
         analysisExecutor.shutdown()
     }
 
+    /**
+     * Cambia la tasa sin reiniciar CameraX. Se llama desde el estado serial de
+     * la sesión, que conoce si la persona está quieta, iniciando o haciendo una
+     * seña. La fuente sigue usando KEEP_ONLY_LATEST para no acumular demora.
+     */
+    fun setSamplingProfile(profile: SamplingProfile) {
+        samplingProfile = profile
+    }
+
     private fun reportMetricsIfDue(nowMs: Long) {
         if (lastMetricsReportMs != 0L && nowMs - lastMetricsReportMs < METRICS_INTERVAL_MS) return
         val elapsedMs = if (lastMetricsReportMs == 0L) METRICS_INTERVAL_MS else nowMs - lastMetricsReportMs
         val fps = framesSinceReport * 1000f / elapsedMs
         onMetrics(
             CameraCaptureMetrics(
-                targetFps = TARGET_FPS,
+                samplingProfile = samplingProfile,
+                targetFps = samplingProfile.targetFps,
                 analyzerFps = fps,
                 analyzedFrames = analyzedFrames,
                 rateLimitedFrames = rateLimitedFrames,
@@ -157,7 +167,6 @@ class FrontCameraSource(
     }
 
     private companion object {
-        const val TARGET_FPS = 24
         const val METRICS_INTERVAL_MS = 500L
     }
 }

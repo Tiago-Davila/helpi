@@ -33,6 +33,7 @@ import com.helpi.conversation.vision.LandmarkFrame
 import com.helpi.conversation.vision.ObservationFactory
 import com.helpi.conversation.vision.SegmentEvent
 import com.helpi.conversation.vision.SegmenterConfig
+import com.helpi.conversation.vision.SamplingProfile
 import com.helpi.conversation.vision.SignSegmenter
 import com.helpi.conversation.vision.VisionMetrics
 import java.util.ArrayDeque
@@ -83,6 +84,7 @@ class SessionCoordinator(private val context: Context) {
         val confidenceThreshold: Float = DEFAULT_THRESHOLD,
         val lastRecognition: RecognitionFeedback? = null,
         val visionMetrics: VisionMetrics = VisionMetrics(),
+        val samplingProfile: SamplingProfile = SamplingProfile.IDLE,
         val recognitionMode: RecognitionMode = RecognitionMode.SINGLE_SIGN,
         val phraseCapture: PhraseCaptureState = PhraseCaptureState.UNAVAILABLE,
         val phraseCandidate: SequenceTranslationCandidate? = null,
@@ -120,6 +122,7 @@ class SessionCoordinator(private val context: Context) {
     private var confidenceThreshold = DEFAULT_THRESHOLD
     private var lastRecognition: RecognitionFeedback? = null
     private var visionMetrics = VisionMetrics()
+    private var samplingProfile = SamplingProfile.IDLE
     private var recognitionMode = RecognitionMode.SINGLE_SIGN
     private var phraseCaptureState = PhraseCaptureState.UNAVAILABLE
     private var phraseCandidate: SequenceTranslationCandidate? = null
@@ -202,6 +205,7 @@ class SessionCoordinator(private val context: Context) {
             cameraEnabled = true
         }
         visionMetrics = VisionMetrics()
+        samplingProfile = SamplingProfile.IDLE
         if (!stateMachine.canTransition(SessionState.PREPARANDO)) return@submit
         stateMachine.transition(SessionState.PREPARANDO)
         publish()
@@ -372,6 +376,7 @@ class SessionCoordinator(private val context: Context) {
         frameBuffer.clear()
         preRollBuffer.clear()
         phraseBuffer.cancel()
+        samplingProfile = SamplingProfile.IDLE
         phraseCandidate = null
         phraseCandidateStartMs = -1L
         phraseCaptureState = if (capabilities.phraseVision) {
@@ -443,6 +448,7 @@ class SessionCoordinator(private val context: Context) {
         bundle = null
         lastRecognition = null
         visionMetrics = VisionMetrics()
+        samplingProfile = SamplingProfile.IDLE
         recognitionMode = RecognitionMode.SINGLE_SIGN
         phraseBuffer.cancel()
         phraseCaptureState = PhraseCaptureState.UNAVAILABLE
@@ -521,6 +527,7 @@ class SessionCoordinator(private val context: Context) {
 
         if (recognitionMode == RecognitionMode.PHRASE_EXPERIMENTAL) {
             processPhraseLandmarks(frame)
+            updateSamplingProfile()
             publish()
             return
         }
@@ -571,6 +578,7 @@ class SessionCoordinator(private val context: Context) {
                 }
             }
         }
+        updateSamplingProfile()
         publish()
     }
 
@@ -702,6 +710,7 @@ class SessionCoordinator(private val context: Context) {
         segmenter = SignSegmenter(SegmenterConfig.defaults())
         observationFactory.reset()
         recognitionMode = mode
+        samplingProfile = SamplingProfile.IDLE
         visualState = if (cameraEnabled) {
             VisualChannelState.BUSCANDO_ENCUADRE
         } else {
@@ -721,6 +730,7 @@ class SessionCoordinator(private val context: Context) {
         phraseCandidateStartMs = -1L
         phraseBuffer.start(start)
         phraseCaptureState = PhraseCaptureState.CAPTURING
+        samplingProfile = SamplingProfile.ACTIVE
         visualState = VisualChannelState.CAPTURANDO_SENA
         notice = null
         publish()
@@ -730,6 +740,7 @@ class SessionCoordinator(private val context: Context) {
     fun finishPhraseCapture() = submit(generation) {
         if (phraseCaptureState != PhraseCaptureState.CAPTURING) return@submit
         val capture = phraseBuffer.stop(lastVisionTimestampMs.takeIf { it > 0L } ?: now())
+        samplingProfile = SamplingProfile.IDLE
         if (capture == null || capture.frames.size < MIN_PHRASE_FRAMES) {
             phraseCaptureState = PhraseCaptureState.READY
             visualState = VisualChannelState.REARMANDO
@@ -799,6 +810,7 @@ class SessionCoordinator(private val context: Context) {
         phraseBuffer.cancel()
         phraseCandidate = null
         phraseCandidateStartMs = -1L
+        samplingProfile = SamplingProfile.IDLE
         phraseCaptureState = if (capabilities.phraseVision) {
             PhraseCaptureState.READY
         } else {
@@ -1011,6 +1023,22 @@ class SessionCoordinator(private val context: Context) {
     private fun hasTurn(id: Long): Boolean =
         runCatching { conversation.get(id) }.isSuccess
 
+    /** Ajusta la tasa sin tocar la ventana fija de 40 cuadros del modelo. */
+    private fun updateSamplingProfile() {
+        samplingProfile = when (recognitionMode) {
+            RecognitionMode.SINGLE_SIGN -> when {
+                segmenter.isCapturing() || segmenter.isStartCandidate() -> SamplingProfile.ACTIVE
+                segmenter.isArmed() -> SamplingProfile.ARMED
+                else -> SamplingProfile.IDLE
+            }
+            RecognitionMode.PHRASE_EXPERIMENTAL -> if (phraseCaptureState == PhraseCaptureState.CAPTURING) {
+                SamplingProfile.ACTIVE
+            } else {
+                SamplingProfile.IDLE
+            }
+        }
+    }
+
     private fun now(): Long = android.os.SystemClock.elapsedRealtime()
 
     private fun hasPermission(permission: String): Boolean =
@@ -1036,6 +1064,7 @@ class SessionCoordinator(private val context: Context) {
             confidenceThreshold = confidenceThreshold,
             lastRecognition = lastRecognition,
             visionMetrics = visionMetrics,
+            samplingProfile = samplingProfile,
             recognitionMode = recognitionMode,
             phraseCapture = phraseCaptureState,
             phraseCandidate = phraseCandidate,

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
@@ -29,6 +30,7 @@ import com.helpi.conversation.ui.theme.HelpiColors
 import com.helpi.conversation.ui.theme.HelpiTheme
 import com.helpi.conversation.vision.FrontCameraSource
 import com.helpi.conversation.vision.HolisticExtractor
+import com.helpi.conversation.vision.SamplingProfile
 
 class MainActivity : ComponentActivity() {
     private val viewModel: ConversationViewModel by viewModels()
@@ -68,6 +70,9 @@ class MainActivity : ComponentActivity() {
     private fun CameraPreview() {
         val landmarks by viewModel.landmarks.collectAsStateWithLifecycle()
         val state by viewModel.uiState.collectAsStateWithLifecycle()
+        LaunchedEffect(state.samplingProfile) {
+            cameraSource?.setSamplingProfile(state.samplingProfile)
+        }
         Box(Modifier.fillMaxSize()) {
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
@@ -76,7 +81,7 @@ class MainActivity : ComponentActivity() {
                         // TextureView respeta el recorte y las superposiciones de Compose.
                         preview.implementationMode = PreviewView.ImplementationMode.COMPATIBLE
                         preview.scaleType = PreviewView.ScaleType.FIT_CENTER
-                        startVision(preview)
+                        startVision(preview, state.samplingProfile)
                     }
                 },
                 onRelease = {
@@ -92,8 +97,9 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun startVision(previewView: PreviewView) {
+    private fun startVision(previewView: PreviewView, samplingProfile: SamplingProfile) {
         cameraSource?.let { existing ->
+            existing.setSamplingProfile(samplingProfile)
             existing.start(this, previewView.surfaceProvider)
             return
         }
@@ -115,7 +121,10 @@ class MainActivity : ComponentActivity() {
             onFrame = { bitmap, ts -> ext.analyze(bitmap, ts) },
             onUnavailable = viewModel.coordinator::reportVisionUnavailable,
             onMetrics = viewModel::onCameraMetrics,
-        ).also { it.start(this, previewView.surfaceProvider) }
+        ).also {
+            it.setSamplingProfile(samplingProfile)
+            it.start(this, previewView.surfaceProvider)
+        }
     }
 
     private fun requestPermissionsAndPrepare() {

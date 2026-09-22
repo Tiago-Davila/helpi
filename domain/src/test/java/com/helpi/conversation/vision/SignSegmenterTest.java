@@ -1,6 +1,7 @@
 package com.helpi.conversation.vision;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
@@ -75,6 +76,18 @@ public class SignSegmenterTest {
         assertTrue(ended.segmentEndMs > ended.segmentStartMs);
         // duración plausible del segmento
         assertTrue(ended.segmentEndMs - ended.segmentStartMs >= 300);
+    }
+
+    @Test
+    public void exponeCandidatoAlEmpezarMovimientoAntesDeConfirmarLaSena() {
+        SignSegmenter s = new SignSegmenter(SegmenterConfig.defaults());
+        feed(s, this::rest, 20);
+        assertTrue(s.isArmed());
+        assertFalse(s.isStartCandidate());
+
+        s.process(signing());
+        assertTrue(s.isStartCandidate());
+        assertFalse(s.isCapturing());
     }
 
     @Test

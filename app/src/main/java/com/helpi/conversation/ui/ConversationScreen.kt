@@ -922,7 +922,7 @@ private fun DiagnosticoVisual(state: SessionCoordinator.UiState) {
     ) {
         Text("Diagnóstico de cámara", style = HelpiType.BodyM, color = HelpiColors.LedSoft)
         Text(
-            "Cámara ${fps(metrics.cameraFps)} de ${metrics.targetFps} objetivo · " +
+            "Muestreo ${state.samplingProfile.displayName}: cámara ${fps(metrics.cameraFps)} de ${metrics.targetFps} objetivo · " +
                 "MediaPipe ${fps(metrics.mediaPipeFps)} · ${metrics.lastMediaPipeLatencyMs} ms",
             style = HelpiType.BodyS,
             color = HelpiColors.LedMuted,

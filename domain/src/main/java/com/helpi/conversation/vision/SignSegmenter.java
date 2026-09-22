@@ -50,6 +50,14 @@ public final class SignSegmenter {
         return state == State.CAPTURING || state == State.CONFIRMING_END;
     }
 
+    /**
+     * Hay movimiento inicial todavía no confirmado como seña. La cámara puede
+     * aumentar su muestreo para no perder el comienzo de un gesto rápido.
+     */
+    public boolean isStartCandidate() {
+        return state == State.ARMED && motionObservations > 0;
+    }
+
     /** Procesa una observación; los timestamps deben ser monotónicos. */
     public SegmentEvent process(FrameObservation obs) {
         long dt = lastTimestampMs == Long.MIN_VALUE ? 0 : obs.timestampMs - lastTimestampMs;
