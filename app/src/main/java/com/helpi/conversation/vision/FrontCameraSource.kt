@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicLong
  */
 class FrontCameraSource(
     private val context: Context,
-    private val onFrame: (android.graphics.Bitmap, Int, Long) -> Unit,
+    private val onFrame: (android.graphics.Bitmap, Long) -> Unit,
     private val onUnavailable: (String) -> Unit,
     private val onMetrics: (CameraCaptureMetrics) -> Unit = {},
 ) {
@@ -95,12 +95,21 @@ class FrontCameraSource(
                     lastSentMs.set(now)
                     try {
                         val bitmap = imageProxy.toBitmap()
-                        // La rotación se aplica dentro de MediaPipe. Evita crear una
-                        // segunda imagen por cuadro solo para girarla.
+                        // La task devuelve coordenadas sobre esta imagen. Rotarla antes
+                        // de enviarla preserva la misma geometría que usa la preview y
+                        // el overlay, incluso en teléfonos en vertical.
                         val rotation = imageProxy.imageInfo.rotationDegrees
+                        val upright = if (rotation != 0) {
+                            val matrix = android.graphics.Matrix().apply { postRotate(rotation.toFloat()) }
+                            android.graphics.Bitmap.createBitmap(
+                                bitmap, 0, 0, bitmap.width, bitmap.height, matrix, false,
+                            )
+                        } else {
+                            bitmap
+                        }
                         analyzedFrames++
                         framesSinceReport++
-                        onFrame(bitmap, rotation, now)
+                        onFrame(upright, now)
                         reportMetricsIfDue(now)
                     } finally {
                         imageProxy.close()

@@ -3,13 +3,11 @@ package com.helpi.conversation.vision
 import android.content.Context
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.core.BaseOptions
-import com.google.mediapipe.tasks.vision.core.ImageProcessingOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.holisticlandmarker.HolisticLandmarker
 import com.google.mediapipe.tasks.vision.holisticlandmarker.HolisticLandmarker.HolisticLandmarkerOptions
 import com.google.mediapipe.tasks.vision.holisticlandmarker.HolisticLandmarkerResult
 import java.io.Closeable
-import java.util.ArrayDeque
 
 /**
  * Envuelve MediaPipe Tasks HolisticLandmarker en modo LIVE_STREAM: la misma
@@ -37,7 +35,6 @@ class HolisticExtractor(
     private var resultsSinceReport = 0L
     private var lastMetricsReportMs = 0L
     private val metricsLock = Any()
-    private val geometryByTimestamp = ArrayDeque<FrameGeometry>()
 
     init {
         val options = HolisticLandmarkerOptions.builder()
@@ -45,12 +42,7 @@ class HolisticExtractor(
             .setRunningMode(RunningMode.LIVE_STREAM)
             .setResultListener { result, image ->
                 val nowMs = android.os.SystemClock.elapsedRealtime()
-                val geometry = takeGeometry(result.timestampMs()) ?: FrameGeometry(
-                    timestampMs = result.timestampMs(),
-                    width = image.width,
-                    height = image.height,
-                )
-                val frame = toLandmarkFrame(result, geometry.width, geometry.height)
+                val frame = toLandmarkFrame(result, image.width, image.height)
                 recordResult(frame, nowMs, nowMs - result.timestampMs())?.let(onMetrics)
                 onFrame(frame)
             }
@@ -64,42 +56,13 @@ class HolisticExtractor(
      * La imagen NO debe espejarse: la preview puede verse espejada, pero la
      * entrada al extractor conserva la orientación de captura.
      */
-    fun analyze(bitmap: android.graphics.Bitmap, rotationDegrees: Int, timestampMs: Long) {
-        val upright = if (rotationDegrees == 90 || rotationDegrees == 270) {
-            bitmap.height to bitmap.width
-        } else {
-            bitmap.width to bitmap.height
-        }
-        rememberGeometry(FrameGeometry(timestampMs, upright.first, upright.second))
+    fun analyze(bitmap: android.graphics.Bitmap, timestampMs: Long) {
         synchronized(metricsLock) { submittedFrames++ }
-        landmarker.detectAsync(
-            BitmapImageBuilder(bitmap).build(),
-            ImageProcessingOptions.builder().setRotationDegrees(rotationDegrees).build(),
-            timestampMs,
-        )
+        landmarker.detectAsync(BitmapImageBuilder(bitmap).build(), timestampMs)
     }
 
     override fun close() {
         landmarker.close()
-    }
-
-    private fun rememberGeometry(geometry: FrameGeometry) {
-        synchronized(geometryByTimestamp) {
-            while (geometryByTimestamp.size >= MAX_PENDING_GEOMETRIES) geometryByTimestamp.removeFirst()
-            geometryByTimestamp.addLast(geometry)
-        }
-    }
-
-    private fun takeGeometry(timestampMs: Long): FrameGeometry? = synchronized(geometryByTimestamp) {
-        val iterator = geometryByTimestamp.iterator()
-        while (iterator.hasNext()) {
-            val geometry = iterator.next()
-            if (geometry.timestampMs == timestampMs) {
-                iterator.remove()
-                return@synchronized geometry
-            }
-        }
-        null
     }
 
     private fun recordResult(
@@ -131,11 +94,8 @@ class HolisticExtractor(
         snapshot
     }
 
-    private data class FrameGeometry(val timestampMs: Long, val width: Int, val height: Int)
-
     private companion object {
         const val METRICS_INTERVAL_MS = 500L
-        const val MAX_PENDING_GEOMETRIES = 32
     }
 
     private fun toLandmarkFrame(

@@ -112,7 +112,7 @@ class MainActivity : ComponentActivity() {
         }
         cameraSource = FrontCameraSource(
             context = this,
-            onFrame = { bitmap, rotation, ts -> ext.analyze(bitmap, rotation, ts) },
+            onFrame = { bitmap, ts -> ext.analyze(bitmap, ts) },
             onUnavailable = viewModel.coordinator::reportVisionUnavailable,
             onMetrics = viewModel::onCameraMetrics,
         ).also { it.start(this, previewView.surfaceProvider) }
