@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Exportado de Figma (Hotbar / Item · icono Cuenta). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="28dp"
+    android:height="28dp"
+    android:viewportWidth="28"
+    android:viewportHeight="28">
+    <path
+        android:pathData="M14 14.5C16.4853 14.5 18.5 12.4853 18.5 10C18.5 7.51472 16.4853 5.5 14 5.5C11.5147 5.5 9.5 7.51472 9.5 10C9.5 12.4853 11.5147 14.5 14 14.5Z"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2" />
+    <path
+        android:pathData="M5.5 24C5.5 21.7457 6.39553 19.5837 7.98959 17.9896C9.58365 16.3955 11.7457 15.5 14 15.5C16.2543 15.5 18.4163 16.3955 20.0104 17.9896C21.6045 19.5837 22.5 21.7457 22.5 24"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round" />
+</vector>
