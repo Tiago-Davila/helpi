@@ -17,7 +17,7 @@ texto y voz. **Todo el reconocimiento ocurre en el dispositivo, sin red.**
 Cadena de inferencia:
 
 ```
-CameraX → MediaPipe Tasks HolisticLandmarker → vector de 201 coords
+CameraX → MediaPipe Tasks HolisticLandmarker → vector de 168 coords
         → ventana → LiteRT (.tflite) → índice de clase + confianza
         → catálogo local → glosa → texto y voz
 ```
@@ -35,17 +35,17 @@ reflejarse en la interfaz, no solo en la documentación.
 Es la única definición que este repo comparte con `helpi-ml`. Una divergencia
 **no produce ninguna excepción**: produce traducciones incorrectas.
 
-### Vector de 201 coordenadas por cuadro
+### Vector de 168 coordenadas por cuadro
 
 | Rango | Contenido | Landmarks |
 |---|---|---|
 | `[0, 63)` | mano izquierda | 21 × (x, y, z) |
 | `[63, 126)` | mano derecha | 21 × (x, y, z) |
-| `[126, 201)` | pose 0..24 | 25 × (x, y, z) |
+| `[126, 168)` | pose 11..24 | 14 × (x, y, z) |
 
 - **Orden de aplanado**: agrupado por landmark, ejes intercalados.
   `[x₀, y₀, z₀, x₁, y₁, z₁, …]` — NO todos los x, después todos los y.
-- Se descartan los landmarks de pose 25..32 (piernas).
+- Se descartan pose 0..10 (cara) y pose 25..32 (piernas).
 - **No detectado → ceros.** Cualquier otro relleno rompe el contrato.
 - `HolisticLandmarker` entrega `leftHandLandmarks` / `rightHandLandmarks`
   explícitos: no hay que resolver la mano por handedness.
@@ -56,8 +56,8 @@ Se resta el punto medio de los hombros (pose 11 y 12) a **x e y**.
 **z NO se centra.**
 
 ```
-offset hombro izquierdo = 126 + 11*3 = 159
-offset hombro derecho   = 126 + 12*3 = 162
+offset hombro izquierdo = 126
+offset hombro derecho   = 129
 ```
 
 ### Muestreo temporal — aritmética entera EXACTA
@@ -76,7 +76,7 @@ Si `T < N`, se repite el último cuadro (padding).
 
 ### Ventana
 
-40 cuadros. `FRAMES = 40`, `COORDS = 201`.
+40 cuadros. `FRAMES = 40`, `COORDS = 168`.
 
 ### Regla de implementación
 
@@ -152,10 +152,17 @@ El sistema **nunca presenta una traducción como certeza cuando no la tiene**.
 - Umbral de confianza configurable.
 - Por debajo del umbral: comunicar que no se entendió. Nunca mostrar la
   adivinanza como resultado.
+- La interfaz puede mostrar las tres probabilidades más altas únicamente como
+  predicciones no confirmadas. Solo la primera, si supera el umbral, se publica
+  en la conversación y se ofrece a voz.
 - Preferimos silencio a traducción incorrecta: una traducción errada puede
   dañar la comunicación de una persona sorda más que la ausencia de traducción.
 - Vocabulario cerrado: una seña fuera de las 64 se resuelve como
   no-reconocida, nunca se fuerza a la clase más cercana.
+
+La guía de distancia usa la separación normalizada entre hombros como escala,
+no como medición en metros. El rango orientativo `0.18..0.225` proviene de los
+percentiles 5 y 95 de LSA64 y no bloquea la captura.
 
 ---
 
@@ -180,7 +187,7 @@ normal—. Ningún test tradicional lo habría detectado.
 
 ### Etapa 2 — Keypoints sin modelo
 
-Construir el vector de 201 desde la cámara y verificar su distribución contra
+Construir el vector de 168 desde la cámara y verificar su distribución contra
 la del dataset de entrenamiento: proporción de ceros por bloque, rangos y
 movimiento entre cuadros. **Comparar distribuciones, no solo revisar que no
 haya excepciones.**

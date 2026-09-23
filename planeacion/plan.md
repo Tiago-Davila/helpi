@@ -373,7 +373,7 @@ sustituto del fixture del modelo.
 
 - [ ] Reutilizar `FrontCameraSource`, `HolisticExtractor` y `LandmarkFrame`.
 - [x] Mantener el overlay de landmarks para ambos modos.
-- [x] En modo Eva, conservar el flujo actual `40×201` y su segmentador.
+- [x] En modo Eva, usar el contrato v2 `40×168` y conservar su segmentador.
 - [x] En modo frase, construir por cuadro el vector de 126 coordenadas desde
   `leftHand` y `rightHand`.
 - [x] Mantener un buffer secuencial separado del buffer de Eva.

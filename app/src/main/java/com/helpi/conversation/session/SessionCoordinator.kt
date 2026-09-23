@@ -35,6 +35,7 @@ import com.helpi.conversation.vision.SegmentEvent
 import com.helpi.conversation.vision.SegmenterConfig
 import com.helpi.conversation.vision.SamplingProfile
 import com.helpi.conversation.vision.SignSegmenter
+import com.helpi.conversation.vision.SigningDistanceGuide
 import com.helpi.conversation.vision.VisionMetrics
 import java.util.ArrayDeque
 import java.util.concurrent.Executors
@@ -72,6 +73,12 @@ class SessionCoordinator(private val context: Context) {
         val threshold: Float,
         val accepted: Boolean,
         val gloss: String? = null,
+        val predictions: List<RecognitionPrediction> = emptyList(),
+    )
+
+    data class RecognitionPrediction(
+        val label: String,
+        val confidence: Float,
     )
 
     data class UiState(
@@ -79,6 +86,7 @@ class SessionCoordinator(private val context: Context) {
         val visual: VisualChannelState = VisualChannelState.NO_DISPONIBLE,
         val audio: AudioChannelState = AudioChannelState.NO_DISPONIBLE,
         val framing: FramingEvaluator.Issue = FramingEvaluator.Issue.SIN_PERSONA,
+        val signingDistance: SigningDistanceGuide.State = SigningDistanceGuide.State.UNKNOWN,
         val turns: List<Turn> = emptyList(),
         val capabilities: Capabilities = Capabilities(),
         val confidenceThreshold: Float = DEFAULT_THRESHOLD,
@@ -101,10 +109,11 @@ class SessionCoordinator(private val context: Context) {
     private val conversation = Conversation()
     private var segmenter = SignSegmenter(SegmenterConfig.defaults())
     private val framingEvaluator = FramingEvaluator()
+    private val signingDistanceGuide = SigningDistanceGuide()
     private val observationFactory = ObservationFactory()
     private val phraseBuffer = SequenceCaptureBuffer()
 
-    /** Buffer de cuadros del segmento en curso (timestamps + 201 coords). */
+    /** Buffer de cuadros del segmento en curso (timestamps + 168 coords). */
     private val frameBuffer = ArrayDeque<Pair<Long, FloatArray>>()
     private val preRollBuffer = ArrayDeque<Pair<Long, FloatArray>>()
 
@@ -141,6 +150,7 @@ class SessionCoordinator(private val context: Context) {
     private var visualState = VisualChannelState.NO_DISPONIBLE
     private var audioState = AudioChannelState.NO_DISPONIBLE
     private var framing = FramingEvaluator.Issue.SIN_PERSONA
+    private var signingDistance = SigningDistanceGuide.State.UNKNOWN
     private var capabilities = Capabilities()
     private var notice: String? = null
 
@@ -385,6 +395,8 @@ class SessionCoordinator(private val context: Context) {
             PhraseCaptureState.UNAVAILABLE
         }
         observationFactory.reset()
+        signingDistanceGuide.reset()
+        signingDistance = SigningDistanceGuide.State.UNKNOWN
         if (partialTurnId >= 0) {
             conversation.markIncomplete(partialTurnId)
             partialTurnId = -1
@@ -444,6 +456,8 @@ class SessionCoordinator(private val context: Context) {
         visionRevision++
         segmenter = SignSegmenter(SegmenterConfig.defaults())
         observationFactory.reset()
+        signingDistanceGuide.reset()
+        signingDistance = SigningDistanceGuide.State.UNKNOWN
         acceptancePolicy = null
         bundle = null
         lastRecognition = null
@@ -524,6 +538,7 @@ class SessionCoordinator(private val context: Context) {
 
         val obs = observationFactory.observe(frame)
         framing = framingEvaluator.evaluate(obs)
+        signingDistance = signingDistanceGuide.evaluate(frame.pose)
 
         if (recognitionMode == RecognitionMode.PHRASE_EXPERIMENTAL) {
             processPhraseLandmarks(frame)
@@ -652,11 +667,17 @@ class SessionCoordinator(private val context: Context) {
                         } else {
                             null
                         }
+                        val predictions = decision.predictions.mapNotNull { prediction ->
+                            val label = catalog.gloss(prediction.classIndex)
+                                ?: return@mapNotNull null
+                            RecognitionPrediction(label, prediction.confidence)
+                        }
                         lastRecognition = RecognitionFeedback(
                             confidence = decision.confidence,
                             threshold = thresholdUsed,
                             accepted = decision.accepted,
                             gloss = acceptedGloss,
+                            predictions = predictions,
                         )
                         if (decision.accepted) {
                             val text = catalog.displayText(decision.classIndex)
@@ -700,6 +721,7 @@ class SessionCoordinator(private val context: Context) {
         phraseBuffer.cancel()
         phraseCandidate = null
         phraseCandidateStartMs = -1L
+        lastRecognition = null
         phraseCaptureState = if (mode == RecognitionMode.PHRASE_EXPERIMENTAL) {
             PhraseCaptureState.READY
         } else {
@@ -709,6 +731,8 @@ class SessionCoordinator(private val context: Context) {
         preRollBuffer.clear()
         segmenter = SignSegmenter(SegmenterConfig.defaults())
         observationFactory.reset()
+        signingDistanceGuide.reset()
+        signingDistance = SigningDistanceGuide.State.UNKNOWN
         recognitionMode = mode
         samplingProfile = SamplingProfile.IDLE
         visualState = if (cameraEnabled) {
@@ -917,7 +941,10 @@ class SessionCoordinator(private val context: Context) {
         phraseBuffer.cancel()
         phraseCandidate = null
         phraseCandidateStartMs = -1L
+        lastRecognition = null
         observationFactory.reset()
+        signingDistanceGuide.reset()
+        signingDistance = SigningDistanceGuide.State.UNKNOWN
         segmenter = SignSegmenter(SegmenterConfig.defaults())
         phraseCaptureState = if (cameraEnabled && capabilities.phraseVision &&
             recognitionMode == RecognitionMode.PHRASE_EXPERIMENTAL
@@ -1059,6 +1086,7 @@ class SessionCoordinator(private val context: Context) {
             visual = visualState,
             audio = audioState,
             framing = framing,
+            signingDistance = signingDistance,
             turns = conversation.ordered().toList(),
             capabilities = capabilities,
             confidenceThreshold = confidenceThreshold,

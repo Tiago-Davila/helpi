@@ -19,6 +19,7 @@ import com.helpi.conversation.session.SessionState
 import com.helpi.conversation.session.VisualChannelState
 import com.helpi.conversation.ui.theme.HelpiTheme
 import com.helpi.conversation.vision.FramingEvaluator
+import com.helpi.conversation.vision.SigningDistanceGuide
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -171,6 +172,35 @@ class ConversationScreenTest {
             state.value = state.value.copy(visual = VisualChannelState.REARMANDO)
         }
         compose.onNodeWithText("Procesando la seña…").assertIsDisplayed()
+    }
+
+    @Test fun muestraGuiaDeDistanciaYTresPrediccionesConPorcentaje() {
+        render(active = true)
+        compose.runOnIdle {
+            state.value = state.value.copy(
+                signingDistance = SigningDistanceGuide.State.OPTIMAL,
+                lastRecognition = SessionCoordinator.RecognitionFeedback(
+                    confidence = 0.74f,
+                    threshold = 0.90f,
+                    accepted = false,
+                    predictions = listOf(
+                        SessionCoordinator.RecognitionPrediction("Gracias", 0.74f),
+                        SessionCoordinator.RecognitionPrediction("Ayuda", 0.18f),
+                        SessionCoordinator.RecognitionPrediction("Aceptar", 0.06f),
+                    ),
+                ),
+            )
+        }
+
+        compose.onNodeWithTag("distanceGuideOverlay").assertIsDisplayed()
+        compose.onNodeWithText("Distancia adecuada").assertIsDisplayed()
+        compose.onNodeWithText("Predicciones sin confirmar").assertIsDisplayed()
+        compose.onNodeWithText("1. Gracias").assertIsDisplayed()
+        compose.onNodeWithText("74%").assertIsDisplayed()
+        compose.onNodeWithText("2. Ayuda").assertIsDisplayed()
+        compose.onNodeWithText("18%").assertIsDisplayed()
+        compose.onNodeWithText("3. Aceptar").assertIsDisplayed()
+        compose.onNodeWithText("6%").assertIsDisplayed()
     }
 
     @Test fun finalizarSolicitaConfirmacionYLimpiaElInicio() {

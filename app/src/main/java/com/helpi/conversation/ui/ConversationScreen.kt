@@ -56,6 +56,7 @@ import com.helpi.conversation.ui.theme.HelpiColors
 import com.helpi.conversation.ui.theme.HelpiShapes
 import com.helpi.conversation.ui.theme.HelpiType
 import com.helpi.conversation.vision.FramingEvaluator
+import com.helpi.conversation.vision.SigningDistanceGuide
 import kotlin.math.roundToInt
 
 internal data class ConversationActions(
@@ -540,6 +541,10 @@ private fun PanelDeCaptura(
                     ),
                 ),
             )
+            GuiaDeDistancia(
+                state = state.signingDistance,
+                modifier = Modifier.matchParentSize(),
+            )
         } else {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -606,6 +611,23 @@ private fun PanelDeCaptura(
             )
         }
 
+        if (camaraViva) {
+            Column(
+                Modifier
+                    .align(Alignment.TopStart)
+                    .padding(10.dp)
+                    .widthIn(max = 220.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                EstadoDeDistancia(state.signingDistance)
+                if (state.recognitionMode == RecognitionMode.SINGLE_SIGN) {
+                    state.lastRecognition?.takeIf { it.predictions.isNotEmpty() }?.let {
+                        PrediccionesDeEva(it)
+                    }
+                }
+            }
+        }
+
         if (state.recognitionMode == RecognitionMode.PHRASE_EXPERIMENTAL &&
             state.capabilities.phraseVision
         ) {
@@ -660,6 +682,109 @@ private fun PanelDeCaptura(
                             .semantics { liveRegion = LiveRegionMode.Polite },
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GuiaDeDistancia(
+    state: SigningDistanceGuide.State,
+    modifier: Modifier = Modifier,
+) {
+    val color = when (state) {
+        SigningDistanceGuide.State.OPTIMAL -> HelpiColors.Success
+        SigningDistanceGuide.State.MOVE_CLOSER,
+        SigningDistanceGuide.State.MOVE_FARTHER -> HelpiColors.Warning
+        SigningDistanceGuide.State.UNKNOWN -> Color.White.copy(alpha = 0.55f)
+    }
+    Canvas(modifier.clearAndSetSemantics { }.testTag("distanceGuideOverlay")) {
+        val centerX = size.width / 2f
+        val shoulderHalfSpan = size.width * 0.10f
+        val top = size.height * 0.30f
+        val bottom = size.height * 0.58f
+        val tick = size.width * 0.035f
+        val stroke = 2.dp.toPx()
+        val left = centerX - shoulderHalfSpan
+        val right = centerX + shoulderHalfSpan
+
+        drawLine(
+            color.copy(alpha = 0.78f),
+            Offset(left, top),
+            Offset(left, bottom),
+            stroke,
+            StrokeCap.Round,
+        )
+        drawLine(
+            color.copy(alpha = 0.78f),
+            Offset(right, top),
+            Offset(right, bottom),
+            stroke,
+            StrokeCap.Round,
+        )
+        drawLine(color, Offset(left, top), Offset(left + tick, top), stroke, StrokeCap.Round)
+        drawLine(color, Offset(left, bottom), Offset(left + tick, bottom), stroke, StrokeCap.Round)
+        drawLine(color, Offset(right - tick, top), Offset(right, top), stroke, StrokeCap.Round)
+        drawLine(color, Offset(right - tick, bottom), Offset(right, bottom), stroke, StrokeCap.Round)
+    }
+}
+
+@Composable
+private fun EstadoDeDistancia(state: SigningDistanceGuide.State) {
+    val (text, color) = when (state) {
+        SigningDistanceGuide.State.UNKNOWN -> "Alineá los hombros con la guía" to Color.White
+        SigningDistanceGuide.State.MOVE_CLOSER -> "Acercate un poco" to HelpiColors.Warning
+        SigningDistanceGuide.State.OPTIMAL -> "Distancia adecuada" to HelpiColors.Success
+        SigningDistanceGuide.State.MOVE_FARTHER -> "Alejate un poco" to HelpiColors.Warning
+    }
+    Text(
+        text,
+        style = HelpiType.BodyS,
+        color = color,
+        modifier = Modifier
+            .background(HelpiColors.VeloCamara, HelpiShapes.Chip)
+            .border(1.dp, color.copy(alpha = 0.65f), HelpiShapes.Chip)
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .semantics { liveRegion = LiveRegionMode.Polite }
+            .testTag("distanceStatus"),
+    )
+}
+
+@Composable
+private fun PrediccionesDeEva(feedback: SessionCoordinator.RecognitionFeedback) {
+    Column(
+        Modifier
+            .background(HelpiColors.VeloCamara, HelpiShapes.Panel)
+            .border(1.dp, HelpiColors.VidrioBorde, HelpiShapes.Panel)
+            .padding(horizontal = 12.dp, vertical = 10.dp)
+            .testTag("predictionPanel"),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            if (feedback.accepted) "Predicciones" else "Predicciones sin confirmar",
+            style = HelpiType.LabelBoton,
+            color = Color.White,
+        )
+        feedback.predictions.take(3).forEachIndexed { index, prediction ->
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "${index + 1}. ${prediction.label}",
+                    style = HelpiType.BodyS,
+                    color = if (index == 0 && feedback.accepted) HelpiColors.Success else Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "${(prediction.confidence * 100).roundToInt()}%",
+                    style = HelpiType.BodyS,
+                    color = Color.White,
+                )
             }
         }
     }

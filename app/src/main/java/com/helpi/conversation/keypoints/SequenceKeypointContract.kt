@@ -3,7 +3,7 @@ package com.helpi.conversation.keypoints
 /**
  * Contrato de entrada del modelo secuencial LSA-T.
  *
- * Es independiente de [KeypointContract], que pertenece a Eva y usa 40x201.
+ * Es independiente de [KeypointContract], que pertenece a Eva y usa 40x168.
  * El productor Python equivalente está en entrenamiento-modelo/lsa/
  * sequence_contract.py.
  *

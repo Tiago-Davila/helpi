@@ -19,15 +19,15 @@ class KeypointContractTest {
     fun `aplanado ubica cada bloque en su rango`() {
         val left = FloatArray(63) { 1f }
         val right = FloatArray(63) { 2f }
-        val pose = FloatArray(75) { 3f }
+        val pose = FloatArray(99) { 3f }
         val frame = KeypointContract.flattenFrame(left, right, pose)
-        assertEquals(201, frame.size)
+        assertEquals(168, frame.size)
         assertEquals(1f, frame[0], 0f)
         assertEquals(1f, frame[62], 0f)
         assertEquals(2f, frame[63], 0f)
         assertEquals(2f, frame[125], 0f)
         assertEquals(3f, frame[126], 0f)
-        assertEquals(3f, frame[200], 0f)
+        assertEquals(3f, frame[167], 0f)
     }
 
     @Test
@@ -51,17 +51,20 @@ class KeypointContractTest {
     }
 
     @Test
-    fun `pose de 33 landmarks descarta piernas`() {
-        val pose = FloatArray(99) { i -> if (i >= 75) 99f else 5f }
+    fun `pose de 33 landmarks conserva 11 a 24 y descarta cara y piernas`() {
+        val pose = FloatArray(99) { coordinate -> (coordinate / 3).toFloat() }
         val frame = KeypointContract.flattenFrame(null, null, pose)
-        assertEquals(5f, frame[200], 0f)
-        assertFalse(frame.any { it == 99f })
+        val reducedPose = frame.copyOfRange(KeypointContract.POSE_OFFSET, KeypointContract.COORDS)
+        assertEquals(11f, frame[126], 0f)
+        assertEquals(24f, frame[167], 0f)
+        assertFalse(reducedPose.any { it in 0f..10f })
+        assertFalse(reducedPose.any { it >= 25f })
     }
 
     // ---- centrado ----
 
     private fun frameWithShoulders(lx: Float, ly: Float, rx: Float, ry: Float): FloatArray {
-        val f = FloatArray(201)
+        val f = FloatArray(KeypointContract.COORDS)
         f[KeypointContract.LEFT_SHOULDER_OFFSET] = lx
         f[KeypointContract.LEFT_SHOULDER_OFFSET + 1] = ly
         f[KeypointContract.LEFT_SHOULDER_OFFSET + 2] = 0.5f
@@ -72,9 +75,9 @@ class KeypointContractTest {
     }
 
     @Test
-    fun `offsets de hombros son 159 y 162`() {
-        assertEquals(159, KeypointContract.LEFT_SHOULDER_OFFSET)
-        assertEquals(162, KeypointContract.RIGHT_SHOULDER_OFFSET)
+    fun `offsets de hombros son 126 y 129`() {
+        assertEquals(126, KeypointContract.LEFT_SHOULDER_OFFSET)
+        assertEquals(129, KeypointContract.RIGHT_SHOULDER_OFFSET)
     }
 
     @Test
@@ -86,9 +89,9 @@ class KeypointContractTest {
         assertEquals(0.9f - 0.4f, out[1], 1e-6f)
         assertEquals(0.25f, out[2], 0f) // z intacta
         // hombro izquierdo también centrado en x/y, z intacta
-        assertEquals(0.4f - 0.5f, out[159], 1e-6f)
-        assertEquals(0.3f - 0.4f, out[160], 1e-6f)
-        assertEquals(0.5f, out[161], 0f)
+        assertEquals(0.4f - 0.5f, out[126], 1e-6f)
+        assertEquals(0.3f - 0.4f, out[127], 1e-6f)
+        assertEquals(0.5f, out[128], 0f)
     }
 
     @Test
@@ -107,9 +110,12 @@ class KeypointContractTest {
         assertArrayEquals(copy, f, 0f)
     }
 
-    @Test(expected = IllegalArgumentException::class)
-    fun `hombros ausentes no permiten centrar`() {
-        KeypointContract.centerFrame(FloatArray(201))
+    @Test
+    fun `hombros ausentes conservan el cuadro sin centrar`() {
+        val frame = FloatArray(KeypointContract.COORDS)
+        frame[0] = 0.25f
+        frame[1] = 0.5f
+        assertArrayEquals(frame, KeypointContract.centerFrame(frame), 0f)
     }
 
     // ---- muestreo temporal ----
@@ -135,10 +141,11 @@ class KeypointContractTest {
         assertEquals(40, idx41.last())
 
         val idx1 = KeypointContract.sampleIndices(1)
-        assertArrayEquals(intArrayOf(0), idx1)
+        assertArrayEquals(IntArray(40), idx1)
 
         val idx39 = KeypointContract.sampleIndices(39)
-        assertEquals(39, idx39.size) // T<N: identidad, el padding lo hace sampleFrames
+        assertEquals(40, idx39.size)
+        assertEquals(38, idx39.last())
     }
 
     @Test
@@ -158,7 +165,7 @@ class KeypointContractTest {
 
     @Test
     fun `T menor que 40 repite el ultimo cuadro`() {
-        val frames = (0 until 10).map { v -> FloatArray(201) { v.toFloat() } }
+        val frames = (0 until 10).map { v -> FloatArray(KeypointContract.COORDS) { v.toFloat() } }
         val out = KeypointContract.sampleFrames(frames)
         assertEquals(40, out.size)
         assertEquals(0f, out[0][0], 0f)
@@ -174,16 +181,16 @@ class KeypointContractTest {
     // ---- tensor completo ----
 
     @Test
-    fun `tensor completo tiene 40x201 y esta centrado`() {
+    fun `tensor completo tiene 40x168 y esta centrado`() {
         val frames = (0 until 46).map {
-            val f = FloatArray(201)
-            f[159] = 0.4f; f[160] = 0.3f; f[161] = 0.5f
-            f[162] = 0.6f; f[163] = 0.5f; f[164] = 0.6f
+            val f = FloatArray(KeypointContract.COORDS)
+            f[126] = 0.4f; f[127] = 0.3f; f[128] = 0.5f
+            f[129] = 0.6f; f[130] = 0.5f; f[131] = 0.6f
             f[0] = 0.7f; f[1] = 0.9f; f[2] = 0.25f
             f
         }
         val tensor = KeypointContract.buildInputTensor(frames)
-        assertEquals(40 * 201, tensor.size)
+        assertEquals(40 * 168, tensor.size)
         assertEquals(0.2f, tensor[0], 1e-6f)     // x centrada
         assertEquals(0.5f, tensor[1], 1e-6f)     // y centrada
         assertEquals(0.25f, tensor[2], 0f)       // z intacta
@@ -191,9 +198,9 @@ class KeypointContractTest {
 
     @Test(expected = IllegalArgumentException::class)
     fun `valores no finitos invalidan el tensor`() {
-        val f = FloatArray(201)
-        f[159] = 0.4f; f[160] = 0.3f; f[161] = 0.5f
-        f[162] = 0.6f; f[163] = 0.5f; f[164] = 0.6f
+        val f = FloatArray(KeypointContract.COORDS)
+        f[126] = 0.4f; f[127] = 0.3f; f[128] = 0.5f
+        f[129] = 0.6f; f[130] = 0.5f; f[131] = 0.6f
         f[0] = Float.NaN; f[1] = 1f; f[2] = 1f
         KeypointContract.buildInputTensor(listOf(f))
     }

@@ -43,7 +43,7 @@ class SignClassifier(bundle: ModelBundle) : Closeable {
     }
 
     /**
-     * @param inputTensor tensor 40×201 aplanado producido por KeypointContract.
+     * @param inputTensor tensor 40×168 aplanado producido por KeypointContract.
      * @return scores crudos (logits o probabilidades según el manifiesto).
      */
     fun classify(inputTensor: FloatArray): FloatArray {

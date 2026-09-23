@@ -12,7 +12,7 @@ import java.security.MessageDigest
  * Artefactos del traductor experimental LSA-T.
  *
  * Este bundle es deliberadamente independiente de [com.helpi.conversation.lsa.ModelBundle]:
- * Eva sigue usando sus assets y contrato 40x201. Ningún asset de este paquete se
+ * Eva sigue usando sus assets y contrato 40x168. Ningún asset de este paquete se
  * carga como fallback del modelo estable.
  */
 sealed class SequenceModelBundleResult {

@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
+import com.helpi.conversation.keypoints.KeypointContract
 import com.helpi.conversation.session.VisualChannelState
 import com.helpi.conversation.ui.theme.HelpiColors
 import com.helpi.conversation.vision.LandmarkFrame
@@ -16,11 +17,11 @@ import kotlin.math.min
 
 /**
  * Dibuja los landmarks que realmente consume Eva: 21 puntos por mano y pose
- * 0..24. La preview frontal está espejada para la persona usuaria; el cuadro
+ * 11..24. La preview frontal está espejada para la persona usuaria; el cuadro
  * que analiza MediaPipe no, por eso la proyección invierte únicamente x.
  *
  * El overlay es sólo una vista del resultado crudo. No transforma ni vuelve a
- * alimentar el contrato de 201 coordenadas.
+ * alimentar el contrato de 168 coordenadas.
  */
 @Composable
 internal fun LandmarkOverlay(
@@ -49,13 +50,15 @@ internal fun LandmarkOverlay(
 
         drawLandmarkGroup(
             landmarks = current.pose,
-            landmarkCount = POSE_LANDMARKS,
+            firstLandmarkIndex = KeypointContract.POSE_SOURCE_START,
+            landmarkCount = KeypointContract.POSE_LANDMARKS,
             connections = POSE_CONNECTIONS,
             transform = transform,
             color = HelpiColors.BrandCore,
         )
         drawLandmarkGroup(
             landmarks = current.leftHand,
+            firstLandmarkIndex = 0,
             landmarkCount = HAND_LANDMARKS,
             connections = HAND_CONNECTIONS,
             transform = transform,
@@ -63,6 +66,7 @@ internal fun LandmarkOverlay(
         )
         drawLandmarkGroup(
             landmarks = current.rightHand,
+            firstLandmarkIndex = 0,
             landmarkCount = HAND_LANDMARKS,
             connections = HAND_CONNECTIONS,
             transform = transform,
@@ -108,12 +112,14 @@ internal fun overlayTransform(
 
 private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawLandmarkGroup(
     landmarks: FloatArray?,
+    firstLandmarkIndex: Int,
     landmarkCount: Int,
     connections: Array<IntArray>,
     transform: OverlayTransform,
     color: Color,
 ) {
-    if (landmarks == null || landmarks.size < landmarkCount * 3) return
+    val endLandmarkIndex = firstLandmarkIndex + landmarkCount
+    if (landmarks == null || landmarks.size < endLandmarkIndex * 3) return
 
     fun normalized(index: Int): Pair<Float, Float>? {
         val x = landmarks[index * 3]
@@ -136,7 +142,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawLandmarkGroup(
         drawLine(color.copy(alpha = 0.92f), start, end, 2.dp.toPx(), StrokeCap.Round)
     }
 
-    for (index in 0 until landmarkCount) {
+    for (index in firstLandmarkIndex until endLandmarkIndex) {
         val point = normalized(index) ?: continue
         val center = transform.project(point.first, point.second)
         drawCircle(Color.Black.copy(alpha = 0.78f), radius = 4.dp.toPx(), center = center)
@@ -145,7 +151,6 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawLandmarkGroup(
 }
 
 private const val HAND_LANDMARKS = 21
-private const val POSE_LANDMARKS = 25
 
 private val HAND_CONNECTIONS = arrayOf(
     intArrayOf(0, 1), intArrayOf(1, 2), intArrayOf(2, 3), intArrayOf(3, 4),
@@ -157,9 +162,7 @@ private val HAND_CONNECTIONS = arrayOf(
 )
 
 private val POSE_CONNECTIONS = arrayOf(
-    intArrayOf(0, 1), intArrayOf(1, 2), intArrayOf(2, 3), intArrayOf(3, 7),
-    intArrayOf(0, 4), intArrayOf(4, 5), intArrayOf(5, 6), intArrayOf(6, 8),
-    intArrayOf(9, 10), intArrayOf(11, 12),
+    intArrayOf(11, 12),
     intArrayOf(11, 13), intArrayOf(13, 15), intArrayOf(15, 17), intArrayOf(17, 19),
     intArrayOf(19, 15), intArrayOf(15, 21),
     intArrayOf(12, 14), intArrayOf(14, 16), intArrayOf(16, 18), intArrayOf(18, 20),

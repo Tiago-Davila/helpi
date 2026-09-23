@@ -1,6 +1,7 @@
 package com.helpi.conversation.lsa
 
 import android.content.Context
+import com.helpi.conversation.keypoints.KeypointContract
 import org.json.JSONObject
 import java.io.IOException
 import java.nio.ByteBuffer
@@ -32,6 +33,7 @@ class ModelBundle private constructor(
         val modelVersion: String,
         val catalogVersion: String,
         val modelSha256: String,
+        val catalogSha256: String,
         val numClasses: Int,
         /** true si la salida ya son probabilidades; false si son logits. */
         val outputsProbabilities: Boolean,
@@ -54,9 +56,10 @@ class ModelBundle private constructor(
                 return ModelBundleResult.Invalid("manifiesto ilegible: ${e.message}")
             }
 
-            if (manifest.frames != 40 || manifest.coords != 201) {
+            if (manifest.frames != KeypointContract.FRAMES || manifest.coords != KeypointContract.COORDS) {
                 return ModelBundleResult.Invalid(
-                    "contrato incompatible: ${manifest.frames}x${manifest.coords}, se esperaba 40x201",
+                    "contrato incompatible: ${manifest.frames}x${manifest.coords}, " +
+                        "se esperaba ${KeypointContract.FRAMES}x${KeypointContract.COORDS}",
                 )
             }
 
@@ -69,6 +72,10 @@ class ModelBundle private constructor(
 
             val catalogJson = readAsset(context, CATALOG_ASSET)
                 ?: return ModelBundleResult.Missing(CATALOG_ASSET)
+            val actualCatalogHash = sha256(catalogJson)
+            if (!actualCatalogHash.equals(manifest.catalogSha256, ignoreCase = true)) {
+                return ModelBundleResult.Invalid("hash del catálogo no coincide con el manifiesto")
+            }
             val catalog = try {
                 SignCatalog.parse(String(catalogJson, Charsets.UTF_8))
             } catch (e: Exception) {
@@ -99,6 +106,7 @@ class ModelBundle private constructor(
                 modelVersion = o.getString("modelVersion"),
                 catalogVersion = o.getString("catalogVersion"),
                 modelSha256 = o.getString("modelSha256"),
+                catalogSha256 = o.getString("catalogSha256"),
                 numClasses = o.getInt("numClasses"),
                 outputsProbabilities = o.getBoolean("outputsProbabilities"),
                 frames = o.getInt("frames"),

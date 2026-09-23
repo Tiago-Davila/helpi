@@ -47,7 +47,7 @@ El APK de desarrollo queda en
 ## Arquitectura de reconocimiento
 
 ```text
-CameraX → MediaPipe HolisticLandmarker → 201 coordenadas por cuadro
+CameraX → MediaPipe HolisticLandmarker → 168 coordenadas por cuadro
         → ventana de 40 cuadros → modelo modelo_lsa.tflite
         → clase + confianza → umbral → catálogo → texto/TTS
 ```

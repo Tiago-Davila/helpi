@@ -6,14 +6,14 @@ package com.helpi.conversation.keypoints
  * Este archivo espeja al productor de Python en helpi-ml. Una divergencia acá
  * no produce ninguna excepción: produce traducciones incorrectas.
  *
- * Vector de 201 coordenadas por cuadro:
+ * Vector de 168 coordenadas por cuadro:
  *   [0, 63)    mano izquierda, 21 landmarks × (x, y, z)
  *   [63, 126)  mano derecha,   21 landmarks × (x, y, z)
- *   [126, 201) pose 0..24,     25 landmarks × (x, y, z)
+ *   [126, 168) pose 11..24,    14 landmarks × (x, y, z)
  *
  * - Orden de aplanado agrupado por landmark, ejes intercalados:
  *   [x0, y0, z0, x1, y1, z1, ...]
- * - Pose 25..32 (piernas) se descarta.
+ * - Pose 0..10 (cara) y 25..32 (piernas) se descartan.
  * - No detectado -> ceros.
  * - Centrado: se resta el punto medio de los hombros (pose 11 y 12) a x e y.
  *   z NO se centra. Los landmarks ausentes conservan sus ceros.
@@ -22,26 +22,29 @@ package com.helpi.conversation.keypoints
 object KeypointContract {
 
     const val FRAMES: Int = 40
-    const val COORDS: Int = 201
+    const val COORDS: Int = 168
 
     const val HAND_LANDMARKS: Int = 21
-    const val POSE_LANDMARKS: Int = 25
+    const val POSE_SOURCE_START: Int = 11
+    const val POSE_SOURCE_END_EXCLUSIVE: Int = 25
+    const val POSE_LANDMARKS: Int = POSE_SOURCE_END_EXCLUSIVE - POSE_SOURCE_START
 
     const val LEFT_HAND_OFFSET: Int = 0
     const val RIGHT_HAND_OFFSET: Int = 63
     const val POSE_OFFSET: Int = 126
 
-    /** offset hombro izquierdo = 126 + 11*3 */
-    const val LEFT_SHOULDER_OFFSET: Int = POSE_OFFSET + 11 * 3
-    /** offset hombro derecho = 126 + 12*3 */
-    const val RIGHT_SHOULDER_OFFSET: Int = POSE_OFFSET + 12 * 3
+    /** Pose 11 pasa a ser el primer landmark del bloque reducido. */
+    const val LEFT_SHOULDER_OFFSET: Int = POSE_OFFSET
+    /** Pose 12 pasa a ser el segundo landmark del bloque reducido. */
+    const val RIGHT_SHOULDER_OFFSET: Int = POSE_OFFSET + 3
 
     /**
-     * Aplana los landmarks de un cuadro al vector de 201 coordenadas.
+     * Aplana los landmarks de un cuadro al vector de 168 coordenadas.
      *
      * Cada lista viene como floats [x0, y0, z0, x1, ...] del propio landmark
      * o `null` si el componente no fue detectado (se rellena con ceros).
-     * La pose puede traer 33 landmarks (se descartan 25..32) o 25 exactos.
+     * La pose puede traer 33 landmarks o los primeros 25. Se copian solamente
+     * los índices de origen 11..24.
      */
     fun flattenFrame(
         leftHand: FloatArray?,
@@ -55,8 +58,13 @@ object KeypointContract {
             require(pose.size == 25 * 3 || pose.size == 33 * 3) {
                 "pose debe tener 25 o 33 landmarks, llegaron ${pose.size / 3}"
             }
-            // Se copian solo pose 0..24; 25..32 (piernas) se descarta.
-            System.arraycopy(pose, 0, frame, POSE_OFFSET, POSE_LANDMARKS * 3)
+            System.arraycopy(
+                pose,
+                POSE_SOURCE_START * 3,
+                frame,
+                POSE_OFFSET,
+                POSE_LANDMARKS * 3,
+            )
         }
         return frame
     }
@@ -73,12 +81,12 @@ object KeypointContract {
      *
      * Devuelve un cuadro nuevo; no modifica la entrada.
      *
-     * @throws IllegalArgumentException si algún hombro está ausente (en cero):
-     *         no se inventa un centro.
+     * Si algún hombro está ausente, devuelve una copia sin centrar: no inventa
+     * un centro y mantiene el mismo comportamiento que el productor Python.
      */
     fun centerFrame(frame: FloatArray): FloatArray {
         require(frame.size == COORDS) { "cuadro de ${frame.size} coords, se esperaban $COORDS" }
-        require(hasShoulders(frame)) { "hombros ausentes: no se puede centrar" }
+        if (!hasShoulders(frame)) return frame.copyOf()
 
         val cx = (frame[LEFT_SHOULDER_OFFSET] + frame[RIGHT_SHOULDER_OFFSET]) / 2f
         val cy = (frame[LEFT_SHOULDER_OFFSET + 1] + frame[RIGHT_SHOULDER_OFFSET + 1]) / 2f
@@ -116,13 +124,12 @@ object KeypointContract {
      * flotante: linspace en float difiere del entero en ~3% de los largos
      * (ej. T=46, i=13: float da 14, entero da 15).
      *
-     * Si T < N se devuelven los T índices y el llamador repite el último
-     * cuadro (ver [sampleFrames]).
+     * Si T < N se repite el último índice hasta completar [FRAMES].
      */
     fun sampleIndices(totalFrames: Int): IntArray {
         require(totalFrames > 0) { "T debe ser > 0" }
         if (totalFrames < FRAMES) {
-            return IntArray(totalFrames) { it }
+            return IntArray(FRAMES) { i -> minOf(i, totalFrames - 1) }
         }
         return IntArray(FRAMES) { i -> (i * (totalFrames - 1)) / (FRAMES - 1) }
     }
@@ -140,7 +147,6 @@ object KeypointContract {
         val idx = sampleIndices(frames.size)
         val out = ArrayList<FloatArray>(FRAMES)
         for (j in idx) out.add(frames[j])
-        while (out.size < FRAMES) out.add(frames.last())
         return out
     }
 

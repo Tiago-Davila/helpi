@@ -3,6 +3,7 @@ package com.helpi.conversation.lsa
 import android.content.Context
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.helpi.conversation.keypoints.KeypointContract
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -21,8 +22,10 @@ import kotlin.math.abs
  *
  * Formato del fixture:
  * {
- *   "tolerance": 1e-3,
- *   "cases": [ { "name": "...", "input": [40*201 floats], "expected": [numClasses floats] } ]
+ *   "frames": 40,
+ *   "coordenadas": 168,
+ *   "toleranciaLogits": 1e-3,
+ *   "casos": [ { "secuencia": [[168 floats] × 40], "logitsEsperados": [...] } ]
  * }
  *
  * Sin artefactos reales (los provee helpi-ml) el test queda en "assumption
@@ -55,24 +58,34 @@ class ModelReferenceTest {
         assumeTrue("fixture_android.json ausente: etapa 1 pendiente", fixtureJson != null)
 
         val fixture = JSONObject(fixtureJson!!)
-        val tolerance = fixture.getDouble("tolerance").toFloat()
+        assertEquals("frames del fixture", KeypointContract.FRAMES, fixture.getInt("frames"))
+        assertEquals("coordenadas del fixture", KeypointContract.COORDS, fixture.getInt("coordenadas"))
+        val tolerance = fixture.getDouble("toleranciaLogits").toFloat()
         assertTrue("tolerancia esperada 1e-3", abs(tolerance - 1e-3f) < 1e-9f)
-        val cases = fixture.getJSONArray("cases")
+        val cases = fixture.getJSONArray("casos")
         assertTrue("fixture sin casos", cases.length() > 0)
 
         SignClassifier(bundle).use { classifier ->
             for (c in 0 until cases.length()) {
                 val case = cases.getJSONObject(c)
-                val name = case.getString("name")
-                val inputArr = case.getJSONArray("input")
-                assertEquals("$name: tamaño de entrada", 40 * 201, inputArr.length())
-                val input = FloatArray(inputArr.length()) { inputArr.getDouble(it).toFloat() }
+                val name = case.optString("senaEsperada", "caso $c")
+                val sequence = case.getJSONArray("secuencia")
+                assertEquals("$name: cantidad de cuadros", KeypointContract.FRAMES, sequence.length())
+                val input = FloatArray(KeypointContract.FRAMES * KeypointContract.COORDS)
+                for (frameIndex in 0 until sequence.length()) {
+                    val frame = sequence.getJSONArray(frameIndex)
+                    assertEquals("$name: coords cuadro $frameIndex", KeypointContract.COORDS, frame.length())
+                    for (coordIndex in 0 until frame.length()) {
+                        input[frameIndex * KeypointContract.COORDS + coordIndex] =
+                            frame.getDouble(coordIndex).toFloat()
+                    }
+                }
 
                 // el fixture debe tener valores reales, no ceros con forma correcta
                 assertTrue("$name: entrada sin variación (¿buffer en ceros?)",
                     input.distinct().size > 10)
 
-                val expectedArr = case.getJSONArray("expected")
+                val expectedArr = case.getJSONArray("logitsEsperados")
                 val expected = FloatArray(expectedArr.length()) { expectedArr.getDouble(it).toFloat() }
                 assertEquals("$name: clases", bundle.manifest.numClasses, expected.size)
 
