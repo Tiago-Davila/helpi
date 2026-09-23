@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Espeja `bg/base` de Figma. Lo necesita el tema de la ventana, que se
+         resuelve antes de que Compose exista: sin esto el arranque muestra un
+         destello blanco antes de la primera composición. -->
+    <color name="bg_base">#05070A</color>
+</resources>

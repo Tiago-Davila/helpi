@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Tema de ventana. La aplicación es oscura y no tiene variante clara, así
+      que la ventana también: con un tema claro la barra de estado pinta sus
+      iconos en gris oscuro y quedan invisibles sobre `bg/base`.
+
+      Las barras van transparentes porque la actividad dibuja de borde a borde
+      (targetSdk 35); el contenido se aparta con `safeDrawingPadding()`.
+    -->
+    <style name="Theme.Helpi" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/bg_base</item>
+        <item name="android:colorBackground">@color/bg_base</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <!-- false = iconos claros, que es lo que contrasta con el fondo. -->
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>
