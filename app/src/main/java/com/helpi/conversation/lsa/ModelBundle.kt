@@ -39,6 +39,8 @@ class ModelBundle private constructor(
         val outputsProbabilities: Boolean,
         val frames: Int,
         val coords: Int,
+        /** Versión del contrato de keypoints con el que se entrenó el modelo. */
+        val contractVersion: Int,
     )
 
     companion object {
@@ -56,6 +58,14 @@ class ModelBundle private constructor(
                 return ModelBundleResult.Invalid("manifiesto ilegible: ${e.message}")
             }
 
+            // v2 y v3 comparten forma 40x168: sin esta verificación un modelo
+            // v2 pasaría en silencio y recibiría valores en otra escala.
+            if (manifest.contractVersion != KeypointContract.CONTRACT_VERSION) {
+                return ModelBundleResult.Invalid(
+                    "contrato de keypoints v${manifest.contractVersion}, " +
+                        "la app implementa v${KeypointContract.CONTRACT_VERSION}",
+                )
+            }
             if (manifest.frames != KeypointContract.FRAMES || manifest.coords != KeypointContract.COORDS) {
                 return ModelBundleResult.Invalid(
                     "contrato incompatible: ${manifest.frames}x${manifest.coords}, " +
@@ -111,6 +121,8 @@ class ModelBundle private constructor(
                 outputsProbabilities = o.getBoolean("outputsProbabilities"),
                 frames = o.getInt("frames"),
                 coords = o.getInt("coords"),
+                // Los manifiestos anteriores a v3 no declaraban versión: eran v2.
+                contractVersion = o.optInt("contractVersion", 2),
             )
         }
 

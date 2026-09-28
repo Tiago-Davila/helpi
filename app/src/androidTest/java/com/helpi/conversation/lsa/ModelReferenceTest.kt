@@ -58,6 +58,11 @@ class ModelReferenceTest {
         assumeTrue("fixture_android.json ausente: etapa 1 pendiente", fixtureJson != null)
 
         val fixture = JSONObject(fixtureJson!!)
+        assertEquals(
+            "contrato del fixture",
+            KeypointContract.CONTRACT_VERSION,
+            fixture.optInt("contractVersion", 2),
+        )
         assertEquals("frames del fixture", KeypointContract.FRAMES, fixture.getInt("frames"))
         assertEquals("coordenadas del fixture", KeypointContract.COORDS, fixture.getInt("coordenadas"))
         val tolerance = fixture.getDouble("toleranciaLogits").toFloat()

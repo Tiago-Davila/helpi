@@ -54,10 +54,12 @@ class FrontCameraSource(
                 val cameraProvider = future.get()
                 provider = cameraProvider
 
-                // Preview y análisis comparten relación de aspecto. Así los landmarks
-                // normalizados se proyectan sobre la misma imagen, incluso con FIT_CENTER.
+                // Preview y análisis comparten relación de aspecto 16:9. Así los
+                // landmarks normalizados se proyectan sobre la misma imagen, incluso
+                // con FIT_CENTER. 16:9 horizontal es el formato de LSA64 y deja
+                // lugar a los brazos a los costados.
                 val previewResolutionSelector = ResolutionSelector.Builder()
-                    .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
+                    .setAspectRatioStrategy(AspectRatioStrategy.RATIO_16_9_FALLBACK_AUTO_STRATEGY)
                     .build()
                 val preview = Preview.Builder()
                     .setResolutionSelector(previewResolutionSelector)
@@ -66,14 +68,16 @@ class FrontCameraSource(
                 }
 
                 val analysis = ImageAnalysis.Builder()
-                    // El extractor trabaja con landmarks normalizados: 640×480 conserva
-                    // detalle suficiente de manos y evita pedir una resolución nativa que
-                    // reduzca la frecuencia efectiva en teléfonos modestos.
+                    // 960×540 (16:9) conserva detalle suficiente de manos y evita pedir
+                    // una resolución nativa que reduzca la frecuencia efectiva en
+                    // teléfonos modestos. El contrato v3 no depende de la resolución:
+                    // usa el tamaño real de cada cuadro.
                     .setResolutionSelector(
                         ResolutionSelector.Builder()
+                            .setAspectRatioStrategy(AspectRatioStrategy.RATIO_16_9_FALLBACK_AUTO_STRATEGY)
                             .setResolutionStrategy(
                                 ResolutionStrategy(
-                                    Size(640, 480),
+                                    Size(960, 540),
                                     ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER,
                                 ),
                             )

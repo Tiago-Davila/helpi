@@ -1,10 +1,14 @@
 package com.helpi.conversation.keypoints
 
+import kotlin.math.abs
+import kotlin.math.sqrt
+
 /**
- * CONTRATO DE KEYPOINTS — única fuente de verdad en este repositorio.
+ * CONTRATO DE KEYPOINTS Eva v3 — única fuente de verdad en este repositorio.
  *
- * Este archivo espeja al productor de Python en helpi-ml. Una divergencia acá
- * no produce ninguna excepción: produce traducciones incorrectas.
+ * Este archivo espeja al productor de Python (eva_contract.py en
+ * entrenamiento-modelo/lsa64). Una divergencia acá no produce ninguna
+ * excepción: produce traducciones incorrectas.
  *
  * Vector de 168 coordenadas por cuadro:
  *   [0, 63)    mano izquierda, 21 landmarks × (x, y, z)
@@ -15,11 +19,24 @@ package com.helpi.conversation.keypoints
  *   [x0, y0, z0, x1, y1, z1, ...]
  * - Pose 0..10 (cara) y 25..32 (piernas) se descartan.
  * - No detectado -> ceros.
- * - Centrado: se resta el punto medio de los hombros (pose 11 y 12) a x e y.
- *   z NO se centra. Los landmarks ausentes conservan sus ceros.
- * - Muestreo temporal con aritmética ENTERA exacta.
+ * - Muestreo temporal con aritmética ENTERA exacta (ver [sampleIndices]).
+ *
+ * Normalización v3 (sobre los 40 cuadros ya muestreados), en este orden y en
+ * float32, igual que Python:
+ *   1. Landmarks presentes a píxeles: X = x·W, Y = y·H, Z = z·W.
+ *   2. Centro por cuadro: punto medio de los hombros (pose 11 y 12) restado a
+ *      X e Y; Z no se centra. Un cuadro sin ambos hombros usa el centro del
+ *      cuadro válido más cercano (el anterior si hay empate).
+ *   3. Escala s: mediana del ancho de hombros (distancia X/Y) sobre los cuadros
+ *      con ambos hombros; con cantidad par, promedio de los dos centrales.
+ *      Todo landmark presente se divide por s (X, Y y Z).
+ *   4. Sin hombros en ningún cuadro: secuencia inválida.
+ * Así la entrada queda en "anchos de hombro" y no depende de la cámara, la
+ * orientación ni la distancia.
  */
 object KeypointContract {
+
+    const val CONTRACT_VERSION: Int = 3
 
     const val FRAMES: Int = 40
     const val COORDS: Int = 168
@@ -37,6 +54,8 @@ object KeypointContract {
     const val LEFT_SHOULDER_OFFSET: Int = POSE_OFFSET
     /** Pose 12 pasa a ser el segundo landmark del bloque reducido. */
     const val RIGHT_SHOULDER_OFFSET: Int = POSE_OFFSET + 3
+
+    private const val MIN_SCALE = 1e-6f
 
     /**
      * Aplana los landmarks de un cuadro al vector de 168 coordenadas.
@@ -75,39 +94,6 @@ object KeypointContract {
         System.arraycopy(src, 0, dst, offset, size)
     }
 
-    /**
-     * Centra x e y restando el punto medio de los hombros. z no se toca.
-     * Los landmarks ausentes (todo en cero) conservan sus ceros.
-     *
-     * Devuelve un cuadro nuevo; no modifica la entrada.
-     *
-     * Si algún hombro está ausente, devuelve una copia sin centrar: no inventa
-     * un centro y mantiene el mismo comportamiento que el productor Python.
-     */
-    fun centerFrame(frame: FloatArray): FloatArray {
-        require(frame.size == COORDS) { "cuadro de ${frame.size} coords, se esperaban $COORDS" }
-        if (!hasShoulders(frame)) return frame.copyOf()
-
-        val cx = (frame[LEFT_SHOULDER_OFFSET] + frame[RIGHT_SHOULDER_OFFSET]) / 2f
-        val cy = (frame[LEFT_SHOULDER_OFFSET + 1] + frame[RIGHT_SHOULDER_OFFSET + 1]) / 2f
-
-        val out = frame.copyOf()
-        var i = 0
-        while (i < COORDS) {
-            val x = out[i]
-            val y = out[i + 1]
-            val z = out[i + 2]
-            // landmark ausente = (0,0,0) exacto: conserva sus ceros
-            if (x != 0f || y != 0f || z != 0f) {
-                out[i] = x - cx
-                out[i + 1] = y - cy
-                // z NO se centra
-            }
-            i += 3
-        }
-        return out
-    }
-
     /** Verdadero si ambos hombros (pose 11 y 12) tienen algún valor no nulo. */
     fun hasShoulders(frame: FloatArray): Boolean {
         require(frame.size == COORDS) { "cuadro de ${frame.size} coords, se esperaban $COORDS" }
@@ -118,25 +104,27 @@ object KeypointContract {
         frame[offset] == 0f && frame[offset + 1] == 0f && frame[offset + 2] == 0f
 
     /**
-     * Índices de muestreo temporal para T cuadros disponibles.
+     * Índices de muestreo temporal para T cuadros disponibles, con división
+     * ENTERA. Nunca punto flotante: linspace en float difiere del entero en
+     * ~3% de los largos (ej. T=46, i=13: float da 14, entero da 15).
      *
-     * idx[i] = (i * (T - 1)) / (N - 1) con división ENTERA. Nunca punto
-     * flotante: linspace en float difiere del entero en ~3% de los largos
-     * (ej. T=46, i=13: float da 14, entero da 15).
-     *
-     * Si T < N se repite el último índice hasta completar [FRAMES].
+     * - T >= N: idx[i] = (i * (T - 1)) / (N - 1), submuestrea incluyendo el último.
+     * - T <  N: idx[i] = (i * T) / N, estira la seña repitiendo cada cuadro
+     *   N/T o N/T+1 veces. Con el teléfono a 12-24 fps un segmento suele
+     *   tener menos de 40 cuadros; repetir solo el último (v2) dejaba la seña
+     *   comprimida al principio, algo que el modelo nunca vio en LSA64.
      */
     fun sampleIndices(totalFrames: Int): IntArray {
         require(totalFrames > 0) { "T debe ser > 0" }
         if (totalFrames < FRAMES) {
-            return IntArray(FRAMES) { i -> minOf(i, totalFrames - 1) }
+            return IntArray(FRAMES) { i -> (i * totalFrames) / FRAMES }
         }
         return IntArray(FRAMES) { i -> (i * (totalFrames - 1)) / (FRAMES - 1) }
     }
 
     /**
      * Selecciona exactamente [FRAMES] cuadros de la secuencia.
-     * Si T < N se repite el último cuadro (padding final).
+     * Si T < N los cuadros se repiten de forma pareja (ver [sampleIndices]).
      * No modifica los cuadros originales.
      */
     fun sampleFrames(frames: List<FloatArray>): List<FloatArray> {
@@ -151,18 +139,107 @@ object KeypointContract {
     }
 
     /**
-     * Cadena completa: centra cada cuadro y arma el tensor [FRAMES]×[COORDS]
-     * aplanado (row-major) listo para LiteRT.
+     * Normalización v3 sobre cuadros ya muestreados, crudos de MediaPipe
+     * (x, y en [0, 1] relativos a la imagen de [imageWidth]×[imageHeight]).
+     * Devuelve cuadros nuevos; no modifica la entrada.
+     *
+     * @throws IllegalArgumentException si ningún cuadro tiene ambos hombros.
      */
-    fun buildInputTensor(frames: List<FloatArray>): FloatArray {
-        val sampled = sampleFrames(frames)
-        val tensor = FloatArray(FRAMES * COORDS)
-        sampled.forEachIndexed { row, frame ->
-            val centered = centerFrame(frame)
-            centered.forEach { v ->
-                require(v.isFinite()) { "valor no finito en el cuadro $row" }
+    fun normalizeSequence(frames: List<FloatArray>, imageWidth: Int, imageHeight: Int): List<FloatArray> {
+        require(imageWidth > 0 && imageHeight > 0) { "imagen inválida: ${imageWidth}x$imageHeight" }
+        require(frames.isNotEmpty()) { "secuencia vacía" }
+        val w = imageWidth.toFloat()
+        val h = imageHeight.toFloat()
+
+        // 1. a píxeles
+        val px = frames.map { f ->
+            require(f.size == COORDS) { "cuadro de ${f.size} coords, se esperaban $COORDS" }
+            val out = f.copyOf()
+            var i = 0
+            while (i < COORDS) {
+                out[i] *= w
+                out[i + 1] *= h
+                out[i + 2] *= w
+                i += 3
             }
-            System.arraycopy(centered, 0, tensor, row * COORDS, COORDS)
+            out
+        }
+
+        // 3. escala: mediana del ancho de hombros en los cuadros válidos
+        val valid = BooleanArray(px.size) { t -> hasShoulders(frames[t]) }
+        val widths = ArrayList<Float>(px.size)
+        val cx = FloatArray(px.size)
+        val cy = FloatArray(px.size)
+        for (t in px.indices) {
+            val f = px[t]
+            val lx = f[LEFT_SHOULDER_OFFSET]
+            val ly = f[LEFT_SHOULDER_OFFSET + 1]
+            val rx = f[RIGHT_SHOULDER_OFFSET]
+            val ry = f[RIGHT_SHOULDER_OFFSET + 1]
+            cx[t] = (lx + rx) / 2f
+            cy[t] = (ly + ry) / 2f
+            if (valid[t]) {
+                val dx = lx - rx
+                val dy = ly - ry
+                widths.add(sqrt(dx * dx + dy * dy))
+            }
+        }
+        require(widths.isNotEmpty()) { "secuencia sin hombros en ningún cuadro: no se puede normalizar" }
+        val scale = median(widths)
+        require(scale.isFinite() && scale > MIN_SCALE) { "ancho de hombros inválido: $scale" }
+
+        // 2. centro del cuadro válido más cercano (el anterior si empata)
+        val validIdx = valid.indices.filter { valid[it] }
+        return px.indices.map { t ->
+            val src = nearest(validIdx, t)
+            val ox = cx[src]
+            val oy = cy[src]
+            val original = frames[t]
+            val out = px[t]
+            var i = 0
+            while (i < COORDS) {
+                // landmark ausente = (0,0,0) exacto en el cuadro crudo: conserva sus ceros
+                if (original[i] != 0f || original[i + 1] != 0f || original[i + 2] != 0f) {
+                    out[i] = (out[i] - ox) / scale
+                    out[i + 1] = (out[i + 1] - oy) / scale
+                    out[i + 2] = out[i + 2] / scale
+                }
+                i += 3
+            }
+            out
+        }
+    }
+
+    private fun median(values: List<Float>): Float {
+        val v = values.sorted()
+        val n = v.size
+        return if (n % 2 == 1) v[n / 2] else (v[n / 2 - 1] + v[n / 2]) / 2f
+    }
+
+    private fun nearest(validIdx: List<Int>, t: Int): Int {
+        var best = validIdx[0]
+        for (i in validIdx) {
+            if (abs(i - t) < abs(best - t)) best = i
+        }
+        return best
+    }
+
+    /**
+     * Cadena completa: muestrea 40 cuadros, normaliza con el contrato v3 y
+     * arma el tensor [FRAMES]×[COORDS] aplanado (row-major) listo para LiteRT.
+     *
+     * [imageWidth]×[imageHeight] es el tamaño del cuadro que analizó
+     * MediaPipe (ya rotado), el mismo para todos los cuadros del segmento.
+     */
+    fun buildInputTensor(frames: List<FloatArray>, imageWidth: Int, imageHeight: Int): FloatArray {
+        val sampled = sampleFrames(frames)
+        sampled.forEachIndexed { row, frame ->
+            frame.forEach { v -> require(v.isFinite()) { "valor no finito en el cuadro $row" } }
+        }
+        val normalized = normalizeSequence(sampled, imageWidth, imageHeight)
+        val tensor = FloatArray(FRAMES * COORDS)
+        normalized.forEachIndexed { row, frame ->
+            System.arraycopy(frame, 0, tensor, row * COORDS, COORDS)
         }
         return tensor
     }

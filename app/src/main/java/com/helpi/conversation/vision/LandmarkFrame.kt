@@ -10,7 +10,10 @@ data class LandmarkFrame(
     val rightHand: FloatArray?,
     /** pose 0..32 de MediaPipe (33 landmarks) o null. */
     val pose: FloatArray?,
-    /** Dimensiones del cuadro vertical analizado, para alinear la visualización con la preview. */
+    /**
+     * Dimensiones del cuadro analizado (ya rotado). Alinean la visualización con
+     * la preview y el contrato v3 las usa para pasar los landmarks a píxeles.
+     */
     val imageWidth: Int,
     val imageHeight: Int,
 ) {
