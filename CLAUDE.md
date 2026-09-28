@@ -50,10 +50,27 @@ Es la única definición que este repo comparte con `helpi-ml`. Una divergencia
 - `HolisticLandmarker` entrega `leftHandLandmarks` / `rightHandLandmarks`
   explícitos: no hay que resolver la mano por handedness.
 
-### Centrado espacial
+### Normalización espacial — contrato v3
 
-Se resta el punto medio de los hombros (pose 11 y 12) a **x e y**.
-**z NO se centra.**
+Sobre los 40 cuadros ya muestreados, en este orden y en float32:
+
+1. Landmarks presentes a píxeles: `X = x·W`, `Y = y·H`, `Z = z·W`, con W×H el
+   tamaño del cuadro que analizó MediaPipe (ya rotado).
+2. Se resta el punto medio de los hombros (pose 11 y 12) a **X e Y**.
+   **Z NO se centra.** Un cuadro sin ambos hombros usa el centro del cuadro
+   válido más cercano (el anterior si hay empate).
+3. Todo landmark presente se divide por la **mediana del ancho de hombros**
+   (distancia X/Y) de los cuadros válidos; con cantidad par, promedio de los
+   dos centrales.
+4. Sin hombros en ningún cuadro: secuencia inválida, no se clasifica.
+
+La entrada queda en "anchos de hombro": no depende de la cámara, la
+orientación ni la distancia. El contrato v2 (solo centrado en coordenadas
+normalizadas) hacía que el modelo, entrenado con video 1920×1080, recibiera
+en el teléfono valores ~3 veces más grandes y deformados.
+
+`lsa-manifest.json` declara `contractVersion`; la app rechaza un modelo cuya
+versión no coincide con `KeypointContract.CONTRACT_VERSION`.
 
 ```
 offset hombro izquierdo = 126
@@ -63,8 +80,9 @@ offset hombro derecho   = 129
 ### Muestreo temporal — aritmética entera EXACTA
 
 ```kotlin
-// T = frames disponibles, N = 40
-idx[i] = (i * (T - 1)) / (N - 1)   // división entera
+// T = frames disponibles, N = 40, división entera
+idx[i] = (i * (T - 1)) / (N - 1)   // T >= N
+idx[i] = (i * T) / N               // T <  N: estira repitiendo cuadros parejo
 ```
 
 **Nunca usar punto flotante acá.** `linspace` en float difiere del entero en
@@ -72,7 +90,9 @@ idx[i] = (i * (T - 1)) / (N - 1)   // división entera
 13*45/39 = 14.999999999999998). El entero es reproducible bit a bit entre
 Python y Kotlin, que es lo que hace verificable el contrato.
 
-Si `T < N`, se repite el último cuadro (padding).
+Si `T < N` (lo habitual en el teléfono a 12–24 fps), cada cuadro se repite
+N/T o N/T+1 veces en orden. Repetir solo el último (v2) dejaba la seña
+comprimida al principio, algo que el modelo nunca vio en LSA64.
 
 ### Ventana
 
@@ -160,9 +180,15 @@ El sistema **nunca presenta una traducción como certeza cuando no la tiene**.
 - Vocabulario cerrado: una seña fuera de las 64 se resuelve como
   no-reconocida, nunca se fuerza a la clase más cercana.
 
-La guía de distancia usa la separación normalizada entre hombros como escala,
-no como medición en metros. El rango orientativo `0.18..0.225` proviene de los
-percentiles 5 y 95 de LSA64 y no bloquea la captura.
+La guía de distancia usa el ancho de hombros en píxeles como escala, no como
+medición en metros. Con el contrato v3 el modelo no depende de la distancia:
+la guía solo cuida que el espacio de señado entre en el cuadro. Ese espacio
+(3,1 × 2,31 anchos de hombro) sale de los percentiles 1 y 99 de las manos en
+LSA64; en 16:9 horizontal el rango queda en ~0,13..0,24 del ancho de la
+imagen. No bloquea la captura.
+
+La app está fija en horizontal (`sensorLandscape`) y la cámara analiza en
+16:9 (960×540), el mismo formato que LSA64.
 
 ---
 
@@ -198,8 +224,10 @@ Recién cuando 1 y 2 pasan.
 
 ### Test de contrato (bloqueante de CI)
 
-Verifica el muestreo entero y el centrado contra los mismos valores de
-referencia que usa `helpi-ml`. Es la prueba más barata del proyecto y cubre un
+Verifica el muestreo entero y la normalización v3 contra
+`app/src/test/resources/contract_v3_fixture.json`, generado por
+`write_contract_fixture.py` en `helpi-ml` con el mismo `eva_contract.py` que
+produce el dataset. Es la prueba más barata del proyecto y cubre un
 error que ya se manifestó una vez.
 
 ---
