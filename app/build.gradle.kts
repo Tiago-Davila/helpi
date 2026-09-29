@@ -39,7 +39,14 @@ android {
         abortOnError = true
         warningsAsErrors = true
         // Dependabot handles version availability; keep lint deterministic/offline.
-        disable += setOf("GradleDependency", "AndroidGradlePluginVersion", "NewerVersionAvailable")
+        disable += setOf(
+            "GradleDependency",
+            "AndroidGradlePluginVersion",
+            "NewerVersionAvailable",
+            // The runner may have a newer SDK installed than compileSdk. API 35
+            // remains intentional until the API 36 behavior migration is tested.
+            "OldTargetApi"
+        )
         checkDependencies = true
     }
 
@@ -93,11 +100,15 @@ dependencies {
 
     implementation(libs.mediapipe.tasks.vision) {
         // tasks-core 0.10.32 fue compilado contra el retorno concreto de
-        // Any.Builder.build(); protobuf-javalite 4.26.1 sólo expone el retorno
+        // Any.Builder.build(); protobuf-javalite 4.x sólo expone el retorno
         // genérico y falla en runtime. El runtime completo conserva esa firma.
         exclude(group = "com.google.protobuf", module = "protobuf-javalite")
+        // El backend CCT solo envía telemetría. La aplicación no usa red.
+        exclude(group = "com.google.android.datatransport", module = "transport-backend-cct")
     }
     implementation(libs.protobuf.java)
+    // MediaPipe 0.10.32 requests Guava 27; use the patched Android runtime.
+    implementation(libs.guava)
     implementation(libs.litert)
     implementation(libs.vosk.android)
 

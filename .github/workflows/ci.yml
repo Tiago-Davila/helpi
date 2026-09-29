@@ -184,16 +184,16 @@ jobs:
       - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/.gradle/dependency-check-data
-          key: nvd-v12-${{ runner.os }}-${{ github.run_id }}
-          restore-keys: nvd-v12-${{ runner.os }}-
+          key: nvd-v13-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: nvd-v13-${{ runner.os }}-
       - run: ./gradlew dependencyCheckAggregate --stacktrace
-        # No secrets passed to PR builds. NVD works anonymously, more slowly.
+        # No secrets are passed to PR builds; the public OWASP mirror is used.
       - name: Preserve updated NVD data even when vulnerabilities block CI
         if: always() && github.event_name != 'pull_request'
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/.gradle/dependency-check-data
-          key: nvd-v12-${{ runner.os }}-${{ github.run_id }}
+          key: nvd-v13-${{ runner.os }}-${{ github.run_id }}
       - uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4
         if: github.event_name == 'pull_request'
         with:

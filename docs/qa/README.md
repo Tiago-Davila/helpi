@@ -25,8 +25,8 @@ bash scripts/ci/gitleaks.sh
 bash scripts/ci/android-tests.sh
 ```
 
-La clave NVD_API_KEY es opcional para ejecución local; acelera las consultas.
-Sin clave el primer análisis puede ser lento o sufrir límites de NVD. Un error
+La clave NVD_API_KEY es opcional para ejecución local. El análisis usa el
+mirror público diario de OWASP para evitar los límites de la API de NVD. Un error
 al actualizar la base hace fallar el control; no se trata como ausencia de CVEs.
 CI no expone secretos a compilaciones de PR. No ejecutar código de PR mediante
 pull_request_target ni workflow_run.

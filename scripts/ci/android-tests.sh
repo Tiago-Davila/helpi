@@ -3,9 +3,11 @@ set -euo pipefail
 results=app/build/outputs/androidTest-results/connected
 reports=app/build/reports/qa-stages
 mkdir -p "$reports"
+rm -rf "$results"
 ./gradlew :app:connectedDebugAndroidTest '-Pandroid.testInstrumentationRunnerArguments.class=com.helpi.conversation.lsa.ModelReferenceTest' --stacktrace
 python3 scripts/ci/verify.py junit "$results" com.helpi.conversation.lsa.ModelReferenceTest
 cp -r "$results" "$reports/model"
+rm -rf "$results"
 ./gradlew :app:connectedDebugAndroidTest '-Pandroid.testInstrumentationRunnerArguments.package=com.helpi.conversation.ui' --rerun-tasks --stacktrace
 python3 scripts/ci/verify.py junit "$results" com.helpi.conversation.ui.ConversationScreenTest
 cp -r "$results" "$reports/ui"

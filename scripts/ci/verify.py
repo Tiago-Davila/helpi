@@ -138,13 +138,18 @@ def ratchet(base):
 def exceptions():
     from datetime import date
     root = ET.parse(ROOT / 'config/quality/dependency-suppressions.xml').getroot()
-    ns = {'s': 'https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd'}
+    namespace = root.tag.split('}')[0].lstrip('{')
+    ns = {'s': namespace}
     for item in root:
         require(item.tag.endswith('suppress'), 'Unknown suppression element')
         require(date.fromisoformat(item.attrib['until'].split('Z')[0]) > date.today(), 'Expired exception')
         notes = item.findtext('s:notes', default='', namespaces=ns)
-        require('owner:' in notes and 'reason:' in notes, 'Exception needs owner and reason')
-        require(item.find('s:cve', ns) is not None and item.find('s:packageUrl', ns) is not None, 'Exception needs CVE and exact package URL')
+        require(all(key in notes for key in ('finding:', 'owner:', 'reason:')),
+                'Exception needs finding, owner and reason')
+        require(item.find('s:packageUrl', ns) is not None,
+                'Exception needs an exact package URL')
+        require(item.find('s:cve', ns) is not None or item.find('s:cpe', ns) is not None,
+                'Exception needs an exact CVE or false-positive CPE')
         require(not any(c.get('regex') == 'true' for c in item), 'Regex suppressions are forbidden')
 
 
