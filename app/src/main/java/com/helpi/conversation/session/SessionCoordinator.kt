@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import com.helpi.conversation.audio.AudioArbiter
+import com.helpi.conversation.audio.AudioArbiterListener
+import com.helpi.conversation.audio.AudioArbiterState
 import com.helpi.conversation.audio.OfflineSpeechOutput
 import com.helpi.conversation.audio.VoskModelStore
 import com.helpi.conversation.audio.VoskSpeechSource
@@ -169,14 +171,14 @@ class SessionCoordinator(private val context: Context) {
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
     private val arbiter: AudioArbiter by lazy {
-        AudioArbiter(object : AudioArbiter.Listener {
+        AudioArbiter(object : AudioArbiterListener {
         override fun requestCloseSttGate() {
             val gen = generation
             audioState = AudioChannelState.CERRANDO_ENTRADA_STT
             speech?.closeGate()
             // confirmación explícita: la compuerta quedó cerrada
             submit(gen) {
-                if (!isActive() || arbiter.state() != AudioArbiter.State.WAITING_GATE) return@submit
+                if (!isActive() || arbiter.state() != AudioArbiterState.WAITING_GATE) return@submit
                 audioState = AudioChannelState.TTS_HABLANDO
                 arbiter.sttGateClosed(now())
                 publish()
@@ -945,7 +947,7 @@ class SessionCoordinator(private val context: Context) {
         microphoneEnabled = !microphoneEnabled
         if (microphoneEnabled) {
             speech?.start()
-            if (arbiter.state() != AudioArbiter.State.IDLE) speech?.closeGate()
+            if (arbiter.state() != AudioArbiterState.IDLE) speech?.closeGate()
         } else {
             speech?.stop()
             if (partialTurnId >= 0) {
@@ -954,7 +956,7 @@ class SessionCoordinator(private val context: Context) {
             }
             arbiter.hearingSpeechActive(false, now())
         }
-        if (arbiter.state() == AudioArbiter.State.IDLE) {
+        if (arbiter.state() == AudioArbiterState.IDLE) {
             audioState = if (microphoneEnabled) AudioChannelState.STT_ESCUCHANDO else AudioChannelState.STT_LISTO
         }
         publish()

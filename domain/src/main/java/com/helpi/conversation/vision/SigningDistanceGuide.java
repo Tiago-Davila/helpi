@@ -43,11 +43,7 @@ public final class SigningDistanceGuide {
     /** Ancho de hombros suavizado, en fracción del ancho de la imagen. */
     private float smoothedSpan = Float.NaN;
 
-    /**
-     * @param pose        33 landmarks de Pose normalizados (x, y en [0, 1]).
-     * @param imageWidth  ancho en píxeles del cuadro analizado (ya rotado).
-     * @param imageHeight alto en píxeles del cuadro analizado.
-     */
+    /** Evalúa la distancia de encuadre a partir de hombros y tamaño del cuadro. */
     public State evaluate(float[] pose, int imageWidth, int imageHeight) {
         if (pose == null || pose.length < 33 * 3 || imageWidth <= 0 || imageHeight <= 0
                 || isZero(pose, LEFT_SHOULDER) || isZero(pose, RIGHT_SHOULDER)) {
@@ -77,11 +73,7 @@ public final class SigningDistanceGuide {
         return State.OPTIMAL;
     }
 
-    /**
-     * Ancho de hombros máximo, en fracción del ancho de la imagen, para que el
-     * espacio de señado entre completo. En 16:9 horizontal limita el alto y da
-     * ~0,24; en 3:4 vertical limita el ancho y da ~0,32.
-     */
+    /** Calcula el ancho de hombros máximo para que el espacio de señado entre en el cuadro. */
     public static float maxShoulderSpan(int imageWidth, int imageHeight) {
         float byWidth = 1f / REQUIRED_WIDTH_SHOULDERS;
         float byHeight = ((float) imageHeight / imageWidth) / REQUIRED_HEIGHT_SHOULDERS;

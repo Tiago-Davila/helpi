@@ -262,6 +262,18 @@ emergencias: son otras funcionalidades de Helpi, con su propia documentación.
 - No implementar código durante las fases de especificación, planificación y
   generación de tareas.
 
+### Legibilidad de `domain`
+
+- Escribir un comentario de una sola línea sobre cada método para explicar su
+  propósito. Preferir una frase concreta y evitar repetir literalmente el
+  nombre o el cuerpo del método.
+- Mantener juntas las reglas que cambian por el mismo motivo. Extraer los tipos
+  públicos con identidad propia a archivos dedicados; dejar los auxiliares
+  privados junto a la clase que los usa.
+- Al reorganizar clases, preservar el comportamiento y actualizar todas las
+  referencias afectadas. No dividir una clase solo para reducir su cantidad de
+  líneas.
+
 ---
 
 ## 9. Licencia

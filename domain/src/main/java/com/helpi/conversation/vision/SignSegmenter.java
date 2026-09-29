@@ -38,27 +38,27 @@ public final class SignSegmenter {
     private int validFrames;
     private boolean handsWereDown = true;
 
+    /** Crea el segmentador con sus umbrales de movimiento y reposo. */
     public SignSegmenter(SegmenterConfig config) {
         this.cfg = config;
     }
 
+    /** Indica si la compuerta está lista para detectar una seña. */
     public boolean isArmed() {
         return state == State.ARMED;
     }
 
+    /** Indica si hay un segmento de seña en curso o cerrándose. */
     public boolean isCapturing() {
         return state == State.CAPTURING || state == State.CONFIRMING_END;
     }
 
-    /**
-     * Hay movimiento inicial todavía no confirmado como seña. La cámara puede
-     * aumentar su muestreo para no perder el comienzo de un gesto rápido.
-     */
+    /** Indica si apareció movimiento inicial antes de confirmar una seña. */
     public boolean isStartCandidate() {
         return state == State.ARMED && motionObservations > 0;
     }
 
-    /** Procesa una observación; los timestamps deben ser monotónicos. */
+    /** Procesa un cuadro y actualiza la detección; el timestamp debe avanzar. */
     public SegmentEvent process(FrameObservation obs) {
         long dt = lastTimestampMs == Long.MIN_VALUE ? 0 : obs.timestampMs - lastTimestampMs;
         if (dt < 0) {

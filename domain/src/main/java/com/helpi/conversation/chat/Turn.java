@@ -21,6 +21,7 @@ public final class Turn {
     private final int revision;
     private final boolean markedIncorrect;
 
+    /** Crea una revisión inmutable de un turno de conversación. */
     public Turn(
             long id,
             Speaker speaker,
@@ -42,22 +43,27 @@ public final class Turn {
         this.markedIncorrect = markedIncorrect;
     }
 
+    /** Devuelve el identificador estable del turno. */
     public long id() {
         return id;
     }
 
+    /** Devuelve quién produjo el turno. */
     public Speaker speaker() {
         return speaker;
     }
 
+    /** Devuelve el texto visible del turno. */
     public String text() {
         return text;
     }
 
+    /** Devuelve el estado textual del turno. */
     public TurnState state() {
         return state;
     }
 
+    /** Devuelve el estado de salida de voz del turno. */
     public VoiceState voiceState() {
         return voiceState;
     }
@@ -72,10 +78,12 @@ public final class Turn {
         return sequence;
     }
 
+    /** Devuelve cuántas revisiones se hicieron al turno. */
     public int revision() {
         return revision;
     }
 
+    /** Indica si la persona marcó el turno como incorrecto. */
     public boolean markedIncorrect() {
         return markedIncorrect;
     }

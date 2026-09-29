@@ -21,6 +21,7 @@ public final class FramingEvaluator {
     private boolean leftWasPresent;
     private boolean rightWasPresent;
 
+    /** Evalúa qué problema de encuadre debe comunicarse para el cuadro. */
     public Issue evaluate(FrameObservation obs) {
         if (!obs.shouldersVisible && !obs.left.present && !obs.right.present) {
             leftWasPresent = false;

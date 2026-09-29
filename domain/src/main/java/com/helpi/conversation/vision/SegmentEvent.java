@@ -40,14 +40,17 @@ public final class SegmentEvent {
     static final SegmentEvent NONE = new SegmentEvent(Type.NONE, AbortReason.NONE, -1, -1);
     static final SegmentEvent ARMED = new SegmentEvent(Type.ARMED, AbortReason.NONE, -1, -1);
 
+    /** Crea el evento de inicio con el tiempo de comienzo del segmento. */
     static SegmentEvent started(long startMs) {
         return new SegmentEvent(Type.STARTED, AbortReason.NONE, startMs, -1);
     }
 
+    /** Crea el evento de cierre con los límites del segmento válido. */
     static SegmentEvent ended(long startMs, long endMs) {
         return new SegmentEvent(Type.ENDED, AbortReason.NONE, startMs, endMs);
     }
 
+    /** Crea el evento de aborto con el motivo correspondiente. */
     static SegmentEvent aborted(AbortReason reason) {
         return new SegmentEvent(Type.ABORTED, reason, -1, -1);
     }
