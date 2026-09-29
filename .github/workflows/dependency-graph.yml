@@ -1,0 +1,64 @@
+name: Dependency graph
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  generate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        revision: [base, head]
+    env:
+      GITHUB_DEPENDENCY_GRAPH_JOB_CORRELATOR: gradle-resolved
+      GITHUB_DEPENDENCY_GRAPH_SHA: ${{ matrix.revision == 'base' && github.event.pull_request.base.sha || github.event.pull_request.head.sha || github.sha }}
+      GITHUB_DEPENDENCY_GRAPH_REF: ${{ matrix.revision == 'base' && format('refs/heads/{0}', github.base_ref || github.ref_name) || github.ref }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ env.GITHUB_DEPENDENCY_GRAPH_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+      - uses: gradle/actions/dependency-submission@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+        with:
+          dependency-graph: generate-and-upload
+          artifact-retention-days: 2
+      - name: Require resolved snapshots and unique artifact filenames
+        env:
+          REVISION: ${{ matrix.revision }}
+        run: |
+          python3 - <<'CHECK'
+          import json, os
+          from pathlib import Path
+          paths = list(Path('dependency-graph-reports').rglob('*.json'))
+          assert paths, 'No dependency graph was generated'
+          for path in paths:
+              data = json.loads(path.read_text())
+              assert data['sha'] == os.environ['GITHUB_DEPENDENCY_GRAPH_SHA']
+              assert any(m.get('resolved') for m in data['manifests'].values())
+              path.rename(path.with_name(os.environ['REVISION'] + '-' + path.name))
+          CHECK
+  submit:
+    needs: generate
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      # Separate runner: write token never coexists with Gradle or PR code.
+      - uses: gradle/actions/dependency-submission@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+        with:
+          dependency-graph: download-and-submit

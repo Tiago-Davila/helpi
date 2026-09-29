@@ -1,4 +1,6 @@
 [versions]
+robolectric = "4.14.1"
+protobuf = "4.26.1"
 agp = "8.7.3"
 kotlin = "2.0.21"
 coroutines = "1.9.0"
@@ -15,6 +17,8 @@ androidxTestRunner = "1.6.2"
 espresso = "3.7.0"
 
 [libraries]
+robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
+protobuf-java = { module = "com.google.protobuf:protobuf-java", version.ref = "protobuf" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
 compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }

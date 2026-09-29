@@ -1,0 +1,10 @@
+{
+  "domain": {
+    "covered": 466,
+    "total": 504
+  },
+  "app": {
+    "covered": 671,
+    "total": 3519
+  }
+}
