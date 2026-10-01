@@ -93,8 +93,15 @@ ese contrato, los pesos del modelo ni las referencias compartidas.
 
 ## Activación y verificación de GitHub
 
-Primero integrar workflows en develop y main y obtener runs correctos. Solo
-entonces ejecutar `python3 scripts/ci/configure_rulesets.py --apply`.
+La protección inicial de develop y main ya está activa: PR obligatorio, sin
+bypass, conversaciones resueltas, rama actualizada y checks obligatorios de
+calidad, tests, build, seguridad, ci-gate y ambos jobs de CodeQL. Esto bloquea
+el primer PR de instalación mientras los controles estén pendientes o fallen.
+Todavía no se exige branch-policy: su workflow pull_request_target necesita
+estar integrado en las ramas de destino para poder emitir el check.
+
+Para completar la protección, integrar workflows en develop y main y obtener
+runs correctos. Solo entonces ejecutar `python3 scripts/ci/configure_rulesets.py --apply`.
 El script comprueba la presencia de workflows y el éxito del último CI sobre el
 HEAD de ambas ramas. Sin `--apply` solo muestra los payloads previstos.
 

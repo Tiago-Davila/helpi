@@ -6,7 +6,8 @@ import subprocess
 from pathlib import Path
 
 REPO = 'Tiago-Davila/helpi'
-CHECKS = ['branch-policy', 'quality', 'unit-contract', 'android-tests', 'build', 'security', 'ci-gate']
+CHECKS = ['branch-policy', 'quality', 'unit-contract', 'android-tests', 'build', 'security', 'ci-gate',
+          'codeql (java-kotlin)', 'codeql (actions)']
 
 
 def api(path, method='GET', data=None):

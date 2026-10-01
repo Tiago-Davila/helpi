@@ -65,10 +65,13 @@ Etapas 2 y 3 de la cadena de cámara siguen pendientes de clips y referencias
 de helpi-ml con licencia y procedencia. Tampoco se realizó QA en dispositivos
 físicos. Los tests experimentales LSA-T no se cuentan como validación de Eva.
 
-GitHub todavía requiere habilitar Dependency graph para que Dependency Review
-y la publicación de snapshots puedan funcionar. La activación de rulesets y las
-pruebas reales de bloqueo de merge siguen pendientes de integrar los workflows
-y aprobar CI en develop/main.
+Actualización de GitHub: Dependency graph fue habilitado y la publicación de
+snapshots aprobó. Se activaron rulesets iniciales en develop y main con checks
+obligatorios, ambos jobs de CodeQL y sin bypass. El PR #187 pasó a estado
+BLOCKED mientras los tests seguían ejecutándose, comprobado mediante la API.
+La activación final de branch-policy sigue pendiente de integrar su workflow
+confiable en las ramas de destino y aprobar CI en develop/main. Las pruebas
+negativas reales de origen de ramas todavía no se realizaron.
 
 Los reportes locales separados por API se guardan en
 `app/build/reports/qa-validation-2026-10-01/`; CI conserva los reportes de cada
