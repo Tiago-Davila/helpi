@@ -39,6 +39,8 @@ class ModelBundle private constructor(
         val outputsProbabilities: Boolean,
         val frames: Int,
         val coords: Int,
+        /** Versión del contrato de keypoints con el que se entrenó el modelo. */
+        val contractVersion: Int,
     )
 
     companion object {
@@ -47,8 +49,10 @@ class ModelBundle private constructor(
         private const val CATALOG_ASSET = "$DIR/catalogo_senas.json"
         private const val MANIFEST_ASSET = "$DIR/lsa-manifest.json"
 
-        fun load(context: Context): ModelBundleResult {
-            val manifestJson = readAsset(context, MANIFEST_ASSET)
+        fun load(context: Context): ModelBundleResult = load { path -> readAsset(context, path) }
+
+        internal fun load(read: (String) -> ByteArray?): ModelBundleResult {
+            val manifestJson = read(MANIFEST_ASSET)
                 ?: return ModelBundleResult.Missing(MANIFEST_ASSET)
             val manifest = try {
                 parseManifest(String(manifestJson, Charsets.UTF_8))
@@ -56,6 +60,14 @@ class ModelBundle private constructor(
                 return ModelBundleResult.Invalid("manifiesto ilegible: ${e.message}")
             }
 
+            // v2 y v3 comparten forma 40x168: sin esta verificación un modelo
+            // v2 pasaría en silencio y recibiría valores en otra escala.
+            if (manifest.contractVersion != KeypointContract.CONTRACT_VERSION) {
+                return ModelBundleResult.Invalid(
+                    "contrato de keypoints v${manifest.contractVersion}, " +
+                        "la app implementa v${KeypointContract.CONTRACT_VERSION}",
+                )
+            }
             if (manifest.frames != KeypointContract.FRAMES || manifest.coords != KeypointContract.COORDS) {
                 return ModelBundleResult.Invalid(
                     "contrato incompatible: ${manifest.frames}x${manifest.coords}, " +
@@ -63,14 +75,14 @@ class ModelBundle private constructor(
                 )
             }
 
-            val modelBytes = readAsset(context, MODEL_ASSET)
+            val modelBytes = read(MODEL_ASSET)
                 ?: return ModelBundleResult.Missing(MODEL_ASSET)
             val actualHash = sha256(modelBytes)
             if (!actualHash.equals(manifest.modelSha256, ignoreCase = true)) {
                 return ModelBundleResult.Invalid("hash del modelo no coincide con el manifiesto")
             }
 
-            val catalogJson = readAsset(context, CATALOG_ASSET)
+            val catalogJson = read(CATALOG_ASSET)
                 ?: return ModelBundleResult.Missing(CATALOG_ASSET)
             val actualCatalogHash = sha256(catalogJson)
             if (!actualCatalogHash.equals(manifest.catalogSha256, ignoreCase = true)) {
@@ -111,6 +123,8 @@ class ModelBundle private constructor(
                 outputsProbabilities = o.getBoolean("outputsProbabilities"),
                 frames = o.getInt("frames"),
                 coords = o.getInt("coords"),
+                // Los manifiestos anteriores a v3 no declaraban versión: eran v2.
+                contractVersion = o.optInt("contractVersion", 2),
             )
         }
 

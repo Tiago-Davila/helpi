@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import com.helpi.conversation.audio.AudioArbiter
+import com.helpi.conversation.audio.AudioArbiterListener
+import com.helpi.conversation.audio.AudioArbiterState
 import com.helpi.conversation.audio.OfflineSpeechOutput
 import com.helpi.conversation.audio.VoskModelStore
 import com.helpi.conversation.audio.VoskSpeechSource
@@ -113,9 +115,20 @@ class SessionCoordinator(private val context: Context) {
     private val observationFactory = ObservationFactory()
     private val phraseBuffer = SequenceCaptureBuffer()
 
-    /** Buffer de cuadros del segmento en curso (timestamps + 168 coords). */
-    private val frameBuffer = ArrayDeque<Pair<Long, FloatArray>>()
-    private val preRollBuffer = ArrayDeque<Pair<Long, FloatArray>>()
+    /**
+     * Cuadro del segmento en curso: 168 coords crudas más el tamaño de la
+     * imagen analizada, que el contrato v3 necesita para pasar a píxeles.
+     */
+    private class CapturedFrame(
+        val timestampMs: Long,
+        val vector: FloatArray,
+        val imageWidth: Int,
+        val imageHeight: Int,
+    )
+
+    /** Buffer de cuadros del segmento en curso. */
+    private val frameBuffer = ArrayDeque<CapturedFrame>()
+    private val preRollBuffer = ArrayDeque<CapturedFrame>()
 
     private var classifier: SignClassifier? = null
     private var acceptancePolicy: SignAcceptancePolicy? = null
@@ -158,14 +171,14 @@ class SessionCoordinator(private val context: Context) {
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
     private val arbiter: AudioArbiter by lazy {
-        AudioArbiter(object : AudioArbiter.Listener {
+        AudioArbiter(object : AudioArbiterListener {
         override fun requestCloseSttGate() {
             val gen = generation
             audioState = AudioChannelState.CERRANDO_ENTRADA_STT
             speech?.closeGate()
             // confirmación explícita: la compuerta quedó cerrada
             submit(gen) {
-                if (!isActive() || arbiter.state() != AudioArbiter.State.WAITING_GATE) return@submit
+                if (!isActive() || arbiter.state() != AudioArbiterState.WAITING_GATE) return@submit
                 audioState = AudioChannelState.TTS_HABLANDO
                 arbiter.sttGateClosed(now())
                 publish()
@@ -538,7 +551,7 @@ class SessionCoordinator(private val context: Context) {
 
         val obs = observationFactory.observe(frame)
         framing = framingEvaluator.evaluate(obs)
-        signingDistance = signingDistanceGuide.evaluate(frame.pose)
+        signingDistance = signingDistanceGuide.evaluate(frame.pose, frame.imageWidth, frame.imageHeight)
 
         if (recognitionMode == RecognitionMode.PHRASE_EXPERIMENTAL) {
             processPhraseLandmarks(frame)
@@ -550,11 +563,12 @@ class SessionCoordinator(private val context: Context) {
         val vector = KeypointContract.flattenFrame(frame.leftHand, frame.rightHand, frame.pose)
 
         // pre-roll: cuadros previos al inicio detectado
-        preRollBuffer.addLast(frame.timestampMs to vector)
+        val captured = CapturedFrame(frame.timestampMs, vector, frame.imageWidth, frame.imageHeight)
+        preRollBuffer.addLast(captured)
         while (preRollBuffer.size > PRE_ROLL_FRAMES) preRollBuffer.removeFirst()
 
         if (segmenter.isCapturing()) {
-            frameBuffer.addLast(frame.timestampMs to vector)
+            frameBuffer.addLast(captured)
         }
 
         val event = segmenter.process(obs)
@@ -564,8 +578,8 @@ class SessionCoordinator(private val context: Context) {
                 visionMetrics = visionMetrics.copy(segmentsStarted = visionMetrics.segmentsStarted + 1)
                 visualState = VisualChannelState.CAPTURANDO_SENA
                 frameBuffer.clear()
-                for ((ts, v) in preRollBuffer) {
-                    if (ts >= event.segmentStartMs) frameBuffer.addLast(ts to v)
+                for (previous in preRollBuffer) {
+                    if (previous.timestampMs >= event.segmentStartMs) frameBuffer.addLast(previous)
                 }
             }
             SegmentEvent.Type.ENDED -> {
@@ -634,9 +648,25 @@ class SessionCoordinator(private val context: Context) {
             frameBuffer.clear()
             return
         }
-        val frames = frameBuffer.filter { it.first in startMs..endMs }.map { it.second }
+        val segment = frameBuffer.filter { it.timestampMs in startMs..endMs }
         frameBuffer.clear()
-        if (frames.isEmpty()) return
+        if (segment.isEmpty()) return
+        // El contrato v3 usa un único tamaño de imagen por segmento. Con la
+        // orientación fija no cambia; si cambiara (rotación a mitad de seña),
+        // el intento se descarta en vez de mezclar geometrías.
+        val imageWidth = segment.first().imageWidth
+        val imageHeight = segment.first().imageHeight
+        if (segment.any { it.imageWidth != imageWidth || it.imageHeight != imageHeight }) {
+            conversation.systemNote("Ese intento no se procesó: cambió la orientación de la cámara.", now())
+            return
+        }
+        val frames = segment.map { it.vector }
+        // Sin hombros el contrato v3 no tiene escala: se avisa en lugar de
+        // reportarlo como una falla del modelo.
+        if (frames.none { KeypointContract.hasShoulders(it) }) {
+            conversation.systemNote("No vi tus hombros. Encuadrate con el torso visible y volvé a intentar.", now())
+            return
+        }
 
         val turn = conversation.open(Speaker.DEAF, startMs)
         val gen = generation
@@ -646,7 +676,7 @@ class SessionCoordinator(private val context: Context) {
         classifierExecutor.execute {
             val startedAt = now()
             val result = runCatching {
-                val tensor = KeypointContract.buildInputTensor(frames)
+                val tensor = KeypointContract.buildInputTensor(frames, imageWidth, imageHeight)
                 policy.evaluate(cls.classify(tensor))
             }
             submit(gen) {
@@ -917,7 +947,7 @@ class SessionCoordinator(private val context: Context) {
         microphoneEnabled = !microphoneEnabled
         if (microphoneEnabled) {
             speech?.start()
-            if (arbiter.state() != AudioArbiter.State.IDLE) speech?.closeGate()
+            if (arbiter.state() != AudioArbiterState.IDLE) speech?.closeGate()
         } else {
             speech?.stop()
             if (partialTurnId >= 0) {
@@ -926,7 +956,7 @@ class SessionCoordinator(private val context: Context) {
             }
             arbiter.hearingSpeechActive(false, now())
         }
-        if (arbiter.state() == AudioArbiter.State.IDLE) {
+        if (arbiter.state() == AudioArbiterState.IDLE) {
             audioState = if (microphoneEnabled) AudioChannelState.STT_ESCUCHANDO else AudioChannelState.STT_LISTO
         }
         publish()

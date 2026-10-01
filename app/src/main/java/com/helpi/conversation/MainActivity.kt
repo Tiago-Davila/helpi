@@ -14,7 +14,6 @@ import androidx.activity.viewModels
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -54,7 +53,10 @@ class MainActivity : ComponentActivity() {
         setContent {
             HelpiTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = HelpiColors.BgBase) {
-                    Box(Modifier.fillMaxSize().safeDrawingPadding()) {
+                    // Cada pantalla aplica sus propios márgenes seguros: en la
+                    // conversación horizontal la cámara llega hasta el borde
+                    // físico y solo sus controles esquivan barras y recortes.
+                    Box(Modifier.fillMaxSize()) {
                         ConversationScreen(
                             viewModel = viewModel,
                             onStart = ::requestPermissionsAndPrepare,

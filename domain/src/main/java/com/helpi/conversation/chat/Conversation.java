@@ -23,7 +23,7 @@ public final class Conversation {
     private long nextId = 1;
     private long nextSequence = 1;
 
-    /** Crea una reserva de turno (inicio de voz o de seña detectado). */
+    /** Crea una reserva para el inicio detectado de voz o de seña. */
     public Turn open(Speaker speaker, long startTimestampMs) {
         requireCapacity();
         Turn turn = new Turn(nextId++, speaker, "", TurnState.PENDING,
@@ -32,19 +32,17 @@ public final class Conversation {
         return turn;
     }
 
-    /** Reemplaza el texto provisional de un turno del oyente. */
+    /** Actualiza el texto provisional de un turno del oyente. */
     public Turn updatePartial(long turnId, String partialText) {
         return replace(get(turnId).withText(partialText, TurnState.PARTIAL));
     }
 
-    /** Fija el texto definitivo de un turno. */
+    /** Guarda el texto definitivo de un turno. */
     public Turn finalize(long turnId, String finalText) {
         return replace(get(turnId).withText(finalText, TurnState.FINAL));
     }
 
-    /**
-     * Publica una seña aceptada: texto final y voz pendiente de arbitraje.
-     */
+    /** Publica una seña aceptada y deja su voz pendiente de arbitraje. */
     public Turn publishSign(long turnId, String recognizedText) {
         Turn t = get(turnId).withText(recognizedText, TurnState.FINAL)
                 .withVoiceState(VoiceState.PENDING);
@@ -61,24 +59,22 @@ public final class Conversation {
         return replace(t);
     }
 
-    /** El canal se interrumpió: el parcial queda marcado, no consolidado. */
+    /** Marca como incompleto el turno cuyo canal se interrumpió. */
     public Turn markIncomplete(long turnId) {
         return replace(get(turnId).withState(TurnState.INCOMPLETE));
     }
 
-    /** Segmento rechazado o intento no procesado. */
+    /** Marca el turno de un segmento rechazado o no procesado. */
     public Turn markRejected(long turnId) {
         return replace(get(turnId).withState(TurnState.REJECTED));
     }
 
+    /** Actualiza el estado de voz asociado a un turno. */
     public Turn updateVoice(long turnId, VoiceState voiceState) {
         return replace(get(turnId).withVoiceState(voiceState));
     }
 
-    /**
-     * "No quise decir eso": el turno queda visible como incorrecto y se
-     * agrega una corrección del sistema. No se sustituye por otra clase.
-     */
+    /** Marca una traducción como incorrecta y agrega una nota del sistema. */
     public Turn markIncorrect(long turnId, long nowMs) {
         Turn marked = replace(get(turnId).asIncorrect());
         requireCapacity();
@@ -98,6 +94,7 @@ public final class Conversation {
         return note;
     }
 
+    /** Busca un turno por su identificador o falla si no existe. */
     public Turn get(long turnId) {
         Turn t = turns.get(turnId);
         if (t == null) {
@@ -106,10 +103,7 @@ public final class Conversation {
         return t;
     }
 
-    /**
-     * Turnos ordenados por inicio de la intervención (no por llegada del
-     * resultado), con desempate estable por secuencia.
-     */
+    /** Devuelve los turnos ordenados por inicio y luego por secuencia. */
     public List<Turn> ordered() {
         List<Turn> list = new ArrayList<>(turns.values());
         list.sort(Comparator.comparingLong(Turn::startTimestampMs)
@@ -117,15 +111,17 @@ public final class Conversation {
         return Collections.unmodifiableList(list);
     }
 
+    /** Devuelve la cantidad de turnos almacenados. */
     public int size() {
         return turns.size();
     }
 
+    /** Indica si la conversación alcanzó el límite de turnos. */
     public boolean atCapacity() {
         return turns.size() >= MAX_TURNS;
     }
 
-    /** Descarta todo el historial. Única forma de terminar la sesión. */
+    /** Descarta el historial al terminar la sesión. */
     public void clear() {
         turns.clear();
     }

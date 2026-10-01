@@ -1,5 +1,8 @@
 package com.helpi.conversation.ui
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import androidx.activity.compose.BackHandler
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.core.animateFloatAsState
@@ -26,15 +29,22 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helpi.conversation.R
 import com.helpi.conversation.chat.Speaker
@@ -158,7 +168,7 @@ private fun Inicio(
         }
     }
 
-    Column(Modifier.fillMaxSize().testTag("welcome")) {
+    Column(Modifier.fillMaxSize().safeDrawingPadding().testTag("welcome")) {
         Box(Modifier.weight(1f)) {
             when (seccion) {
                 SeccionHotbar.TRADUCTOR -> Bienvenida(
@@ -214,16 +224,13 @@ private fun Bienvenida(
         state.session == SessionState.LISTA ||
         state.session == SessionState.CERRANDO
 
-    Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 28.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Spacer(Modifier.weight(1f))
+    val orbe = @Composable { tamano: Dp ->
         EvaOrb(
             if (preparando) EvaEstado.PENSANDO else EvaEstado.REPOSO,
-            Modifier.size(200.dp).semantics { contentDescription = "Helpi" },
+            Modifier.size(tamano).semantics { contentDescription = "Helpi" },
         )
-        Spacer(Modifier.height(12.dp))
+    }
+    val textos = @Composable {
         Text("Helpi", style = HelpiType.Display, color = HelpiColors.LedSoft)
         Spacer(Modifier.height(10.dp))
         Text(
@@ -237,7 +244,8 @@ private fun Bienvenida(
             color = HelpiColors.LedMuted,
             textAlign = TextAlign.Center,
         )
-        Spacer(Modifier.weight(1f))
+    }
+    val accion = @Composable {
         Button(
             onClick = if (pausada) onReanudar else onIniciar,
             enabled = !preparando,
@@ -268,7 +276,42 @@ private fun Bienvenida(
             color = HelpiColors.LedMuted,
             textAlign = TextAlign.Center,
         )
-        Spacer(Modifier.height(20.dp))
+    }
+
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val orbeApaisado = (maxHeight * 0.6f).coerceAtMost(200.dp)
+        if (maxWidth > maxHeight) {
+            // Horizontal (la app está fija así): el orbe a la izquierda y el
+            // texto con la acción a la derecha, para que todo entre en ~300 dp.
+            Row(
+                Modifier.fillMaxSize().padding(horizontal = 28.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(32.dp),
+            ) {
+                orbe(orbeApaisado)
+                Column(
+                    Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    textos()
+                    Spacer(Modifier.height(20.dp))
+                    accion()
+                }
+            }
+        } else {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 28.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Spacer(Modifier.weight(1f))
+                orbe(200.dp)
+                Spacer(Modifier.height(12.dp))
+                textos()
+                Spacer(Modifier.weight(1f))
+                accion()
+                Spacer(Modifier.height(20.dp))
+            }
+        }
     }
 }
 
@@ -298,58 +341,24 @@ private fun SalaDeConversacion(
         }
     }
 
-    Column(Modifier.fillMaxSize().imePadding().testTag("conversation")) {
-        Encabezado(
-            interlocutor = participantes.interlocutor,
-            onNueva = { empezandoDeNuevo = true },
-            onAjustes = { ajustes = true },
-            onCerrar = { finalizando = true },
+    val panel = @Composable { modificador: Modifier, forma: Shape ->
+        PanelDeCaptura(
+            state = state,
+            actions = actions,
+            teclado = teclado,
+            onTeclado = {
+                teclado = !teclado
+                if (!teclado) controlTeclado?.hide()
+            },
+            cameraPreview = cameraPreview,
+            modifier = modificador,
+            forma = forma,
         )
-        BoxWithConstraints(Modifier.weight(1f).padding(horizontal = 14.dp)) {
-            val apaisado = maxWidth > maxHeight && maxWidth >= 600.dp
-            // La cámara cede altura cuando se abre el teclado: escribir es una
-            // actividad de lectura, y con el teclado arriba la conversación
-            // necesita el espacio más que la imagen.
-            val fraccion by animateFloatAsState(if (teclado) 0.36f else 0.58f, label = "camara")
-            val alturaCamara = (maxHeight * fraccion).coerceIn(180.dp, 520.dp)
-            val panel = @Composable { modificador: Modifier ->
-                PanelDeCaptura(
-                    state = state,
-                    actions = actions,
-                    teclado = teclado,
-                    onTeclado = {
-                        teclado = !teclado
-                        if (!teclado) controlTeclado?.hide()
-                    },
-                    cameraPreview = cameraPreview,
-                    modifier = modificador,
-                )
-            }
-            if (apaisado) {
-                Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    panel(Modifier.weight(0.46f).fillMaxHeight())
-                    ListaDeMensajes(
-                        state,
-                        actions,
-                        participantes,
-                        Modifier.weight(0.54f).fillMaxHeight(),
-                    )
-                }
-            } else {
-                Column(Modifier.fillMaxSize()) {
-                    panel(Modifier.fillMaxWidth().height(alturaCamara))
-                    ListaDeMensajes(
-                        state,
-                        actions,
-                        participantes,
-                        Modifier.weight(1f).fillMaxWidth(),
-                    )
-                }
-            }
-        }
+    }
+    val aviso = @Composable {
         state.notice?.let {
             Row(
-                Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp),
+                Modifier.fillMaxWidth().padding(start = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
@@ -367,8 +376,73 @@ private fun SalaDeConversacion(
                 }
             }
         }
-        if (teclado) Redactor(actions.send)
-        Spacer(Modifier.height(8.dp))
+    }
+
+    BoxWithConstraints(Modifier.fillMaxSize().testTag("conversation")) {
+        if (maxWidth > maxHeight) {
+            // Horizontal (la app está fija así): la cámara ocupa todo el alto y
+            // llega a los bordes; la conversación es una columna angosta a la
+            // derecha con sus propios controles. La imagen es lo que la persona
+            // que hace señas necesita ver para saber si entra en el cuadro.
+            PantallaInmersiva()
+            val anchoChat = (maxWidth * 0.3f).coerceIn(240.dp, 340.dp)
+            Row(Modifier.fillMaxSize()) {
+                panel(Modifier.weight(1f).fillMaxHeight(), RectangleShape)
+                Column(
+                    Modifier
+                        .width(anchoChat)
+                        .fillMaxHeight()
+                        .windowInsetsPadding(
+                            WindowInsets.safeDrawing.only(WindowInsetsSides.End + WindowInsetsSides.Vertical),
+                        )
+                        .imePadding()
+                        .padding(start = 8.dp, end = 4.dp, bottom = 6.dp),
+                ) {
+                    EncabezadoCompacto(
+                        interlocutor = participantes.interlocutor,
+                        onNueva = { empezandoDeNuevo = true },
+                        onAjustes = { ajustes = true },
+                        onCerrar = { finalizando = true },
+                    )
+                    ListaDeMensajes(
+                        state,
+                        actions,
+                        participantes,
+                        Modifier.weight(1f).fillMaxWidth(),
+                    )
+                    aviso()
+                    if (teclado) Redactor(actions.send, compacto = true)
+                }
+            }
+        } else {
+            Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
+                Encabezado(
+                    interlocutor = participantes.interlocutor,
+                    onNueva = { empezandoDeNuevo = true },
+                    onAjustes = { ajustes = true },
+                    onCerrar = { finalizando = true },
+                )
+                BoxWithConstraints(Modifier.weight(1f).padding(horizontal = 14.dp)) {
+                    // La cámara cede altura cuando se abre el teclado: escribir es una
+                    // actividad de lectura, y con el teclado arriba la conversación
+                    // necesita el espacio más que la imagen.
+                    val fraccion by animateFloatAsState(if (teclado) 0.36f else 0.58f, label = "camara")
+                    val alturaCamara = (maxHeight * fraccion).coerceIn(180.dp, 520.dp)
+                    Column(Modifier.fillMaxSize()) {
+                        panel(Modifier.fillMaxWidth().height(alturaCamara), HelpiShapes.Panel)
+                        ListaDeMensajes(
+                            state,
+                            actions,
+                            participantes,
+                            Modifier.weight(1f).fillMaxWidth(),
+                        )
+                    }
+                }
+                Box(Modifier.padding(start = 12.dp)) { aviso() }
+                if (teclado) Redactor(actions.send)
+                Spacer(Modifier.height(8.dp))
+            }
+        }
     }
 
     if (ajustes) {
@@ -476,6 +550,60 @@ private fun Encabezado(
     }
 }
 
+/**
+ * Encabezado de la columna de conversación en horizontal: el nombre del
+ * interlocutor y las acciones, sin el título de la app, para dejarle el
+ * espacio a la cámara.
+ */
+@Composable
+private fun EncabezadoCompacto(
+    interlocutor: String,
+    onNueva: () -> Unit,
+    onAjustes: () -> Unit,
+    onCerrar: () -> Unit,
+) {
+    Row(
+        Modifier.fillMaxWidth().height(48.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            interlocutor,
+            style = HelpiType.BodyS,
+            color = HelpiColors.LedMuted,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f).padding(start = 8.dp),
+        )
+        AccionDeEncabezado(R.drawable.ic_nueva_conversacion, "Nueva conversación", onNueva)
+        AccionDeEncabezado(R.drawable.ic_settings, "Configuración", onAjustes, tamano = 21.dp)
+        AccionDeEncabezado(R.drawable.ic_close, "Finalizar conversación", onCerrar)
+    }
+}
+
+/**
+ * Oculta las barras del sistema mientras dura la conversación en horizontal,
+ * para que la cámara use toda la pantalla. Se ven un momento deslizando desde
+ * el borde y vuelven al salir de la conversación.
+ */
+@Composable
+private fun PantallaInmersiva() {
+    val view = LocalView.current
+    DisposableEffect(view) {
+        val window = view.context.buscarActivity()?.window
+        val controller = window?.let { WindowCompat.getInsetsController(it, view) }
+        controller?.systemBarsBehavior =
+            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        controller?.hide(WindowInsetsCompat.Type.systemBars())
+        onDispose { controller?.show(WindowInsetsCompat.Type.systemBars()) }
+    }
+}
+
+private tailrec fun Context.buscarActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.buscarActivity()
+    else -> null
+}
+
 @Composable
 private fun AccionDeEncabezado(
     @DrawableRes icono: Int,
@@ -509,6 +637,7 @@ private fun PanelDeCaptura(
     onTeclado: () -> Unit,
     cameraPreview: @Composable () -> Unit,
     modifier: Modifier = Modifier,
+    forma: Shape = HelpiShapes.Panel,
 ) {
     val visionAvailable = if (state.recognitionMode == RecognitionMode.PHRASE_EXPERIMENTAL) {
         state.capabilities.phraseVision
@@ -521,10 +650,13 @@ private fun PanelDeCaptura(
         state.capabilities.visionDetail
     }
     val camaraViva = state.cameraEnabled && visionAvailable
+    // La imagen llega al borde físico; los controles que flotan encima no deben
+    // quedar debajo de las barras del sistema ni del recorte de la cámara.
+    val seguro = WindowInsets.safeDrawing
 
     Box(
         modifier
-            .clip(HelpiShapes.Panel)
+            .clip(forma)
             .background(Color.Black)
             .testTag("camera"),
         contentAlignment = Alignment.Center,
@@ -574,6 +706,7 @@ private fun PanelDeCaptura(
         Column(
             Modifier
                 .align(Alignment.TopEnd)
+                .windowInsetsPadding(seguro)
                 .padding(10.dp)
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -615,6 +748,7 @@ private fun PanelDeCaptura(
             Column(
                 Modifier
                     .align(Alignment.TopStart)
+                    .windowInsetsPadding(seguro)
                     .padding(10.dp)
                     .widthIn(max = 220.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -633,7 +767,7 @@ private fun PanelDeCaptura(
         ) {
             val capturing = state.phraseCapture == PhraseCaptureState.CAPTURING
             Row(
-                Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp),
+                Modifier.align(Alignment.BottomCenter).windowInsetsPadding(seguro).padding(bottom = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -652,6 +786,7 @@ private fun PanelDeCaptura(
         Row(
             Modifier
                 .align(Alignment.BottomStart)
+                .windowInsetsPadding(seguro)
                 .fillMaxWidth()
                 .padding(start = 10.dp, end = 68.dp, bottom = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -698,9 +833,13 @@ private fun GuiaDeDistancia(
         SigningDistanceGuide.State.MOVE_FARTHER -> HelpiColors.Warning
         SigningDistanceGuide.State.UNKNOWN -> Color.White.copy(alpha = 0.55f)
     }
-    Canvas(modifier.clearAndSetSemantics { }.testTag("distanceGuideOverlay")) {
+    Canvas(modifier.clearAndSetSemantics { testTag = "distanceGuideOverlay" }) {
         val centerX = size.width / 2f
-        val shoulderHalfSpan = size.width * 0.10f
+        // Marcas en el centro del rango óptimo de la guía. Se aproxima el
+        // aspecto de la imagen con el del panel (la preview usa FIT_CENTER).
+        val maxSpan = SigningDistanceGuide.maxShoulderSpan(size.width.toInt(), size.height.toInt())
+        val targetSpan = maxSpan * (1f + SigningDistanceGuide.MIN_FRACTION_OF_MAX) / 2f
+        val shoulderHalfSpan = size.width * targetSpan / 2f
         val top = size.height * 0.30f
         val bottom = size.height * 0.58f
         val tick = size.width * 0.035f
@@ -928,7 +1067,7 @@ private fun marcarIncorrectoDe(
     }
 
 @Composable
-private fun Redactor(onEnviar: (String) -> Unit) {
+private fun Redactor(onEnviar: (String) -> Unit, compacto: Boolean = false) {
     // El borrador vive únicamente durante esta conversación, no se guarda en el Bundle.
     var texto by remember { mutableStateOf("") }
     val foco = remember { FocusRequester() }
@@ -940,9 +1079,9 @@ private fun Redactor(onEnviar: (String) -> Unit) {
         }
     }
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp),
+        Modifier.fillMaxWidth().padding(horizontal = if (compacto) 4.dp else 14.dp, vertical = 6.dp),
         verticalAlignment = Alignment.Bottom,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(if (compacto) 6.dp else 8.dp),
     ) {
         OutlinedTextField(
             value = texto,

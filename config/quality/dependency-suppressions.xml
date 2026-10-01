@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.4.xsd">
+    <!-- Exact false-positive mappings. Real findings for these packages remain visible. -->
+    <suppress until="2027-03-31Z">
+        <notes><![CDATA[
+        finding: cpe:/a:google:tensorflow
+        owner: @Tiago-Davila
+        reason: LiteRT 1.1.2 was mistaken for TensorFlow 1.1.2 because its Maven metadata mentions TensorFlow. The version numbers are from different products.
+        ]]></notes>
+        <packageUrl>pkg:maven/com.google.ai.edge.litert/litert@1.1.2</packageUrl>
+        <cpe>cpe:/a:google:tensorflow</cpe>
+    </suppress>
+    <suppress until="2027-03-31Z">
+        <notes><![CDATA[
+        finding: cpe:/a:google:tensorflow
+        owner: @Tiago-Davila
+        reason: LiteRT API 1.1.2 was mistaken for TensorFlow 1.1.2; the reported TensorFlow version range does not identify this artifact.
+        ]]></notes>
+        <packageUrl>pkg:maven/com.google.ai.edge.litert/litert-api@1.1.2</packageUrl>
+        <cpe>cpe:/a:google:tensorflow</cpe>
+    </suppress>
+    <suppress until="2027-03-31Z">
+        <notes><![CDATA[
+        finding: cpe:/a:tasks:tasks
+        owner: @Tiago-Davila
+        reason: MediaPipe Tasks Core was mistaken for the unrelated Tasks.org Android application.
+        ]]></notes>
+        <packageUrl>pkg:maven/com.google.mediapipe/tasks-core@0.10.32</packageUrl>
+        <cpe>cpe:/a:tasks:tasks</cpe>
+    </suppress>
+    <suppress until="2027-03-31Z">
+        <notes><![CDATA[
+        finding: cpe:/a:tasks:tasks
+        owner: @Tiago-Davila
+        reason: MediaPipe Tasks Vision was mistaken for the unrelated Tasks.org Android application.
+        ]]></notes>
+        <packageUrl>pkg:maven/com.google.mediapipe/tasks-vision@0.10.32</packageUrl>
+        <cpe>cpe:/a:tasks:tasks</cpe>
+    </suppress>
+    <suppress until="2027-03-31Z">
+        <notes><![CDATA[
+        finding: cpe:/a:sun:java
+        owner: @Tiago-Davila
+        reason: Java Native Access 5.13.0 was mistaken for the Sun Java runtime; the listed applet and JDK findings do not apply to JNA.
+        ]]></notes>
+        <packageUrl>pkg:maven/net.java.dev.jna/jna@5.13.0</packageUrl>
+        <cpe>cpe:/a:sun:java</cpe>
+    </suppress>
+    <suppress until="2027-03-31Z">
+        <notes><![CDATA[
+        finding: CVE-2026-53914
+        owner: @Tiago-Davila
+        reason: The advisory affects Kotlin Gradle build-cache deserialization, not the kotlin-stdlib runtime artifact matched by Dependency-Check.
+        ]]></notes>
+        <packageUrl>pkg:maven/org.jetbrains.kotlin/kotlin-stdlib@2.0.21</packageUrl>
+        <cve>CVE-2026-53914</cve>
+    </suppress>
+    <suppress until="2027-03-31Z">
+        <notes><![CDATA[
+        finding: CVE-2020-29582
+        owner: @Tiago-Davila
+        reason: The advisory affects Kotlin through 1.4.20; Dependency-Check matched kotlin-stdlib 2.0.21 through an unbounded CPE.
+        ]]></notes>
+        <packageUrl>pkg:maven/org.jetbrains.kotlin/kotlin-stdlib@2.0.21</packageUrl>
+        <cve>CVE-2020-29582</cve>
+    </suppress>
+</suppressions>

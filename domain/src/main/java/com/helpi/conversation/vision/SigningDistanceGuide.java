@@ -1,13 +1,24 @@
 package com.helpi.conversation.vision;
 
 /**
- * Estima si la escala de la persona se parece a LSA64 usando la separación
- * normalizada entre Pose 11 y 12 como aproximación. No calcula metros: la
- * distancia física también depende de la cámara y del ancho de hombros.
+ * Guía de encuadre: estima si el espacio de señado entra en la imagen, usando
+ * el ancho de hombros (Pose 11 y 12) medido en píxeles como escala.
  *
- * El rango 0.18..0.225 corresponde aproximadamente a los percentiles 5 y 95
- * observados en los 128 000 cuadros de entrenamiento. Un promedio móvil evita
- * que la guía visual cambie por el ruido de un único cuadro.
+ * Con el contrato de keypoints v3 el modelo ya no depende de la distancia: la
+ * entrada se normaliza por el ancho de hombros. Lo que sí importa es que las
+ * manos no salgan del cuadro (se perderían como ceros) y que no queden tan
+ * chicas que el extractor pierda los dedos.
+ *
+ * El espacio de señado se midió en LSA64 normalizado v3 (percentiles 1 y 99
+ * de las manos, en anchos de hombro): x entre -1,55 y +0,97 respecto del
+ * centro de los hombros e y entre -0,95 y +1,36. Tomando la mano más alejada
+ * de cada lado (una persona zurda espeja x), el cuadro necesita
+ * REQUIRED_WIDTH_SHOULDERS anchos de hombro de ancho y
+ * REQUIRED_HEIGHT_SHOULDERS de alto. De ahí sale el ancho de hombros máximo
+ * en píxeles; el mínimo es una fracción de ese máximo.
+ *
+ * No calcula metros. Un promedio móvil evita que la guía cambie por el ruido
+ * de un único cuadro. No bloquea la captura: solo orienta.
  */
 public final class SigningDistanceGuide {
 
@@ -18,26 +29,32 @@ public final class SigningDistanceGuide {
         MOVE_FARTHER
     }
 
-    public static final float TRAINING_MIN_SHOULDER_SPAN = 0.18f;
-    public static final float TRAINING_MAX_SHOULDER_SPAN = 0.225f;
+    /** Ancho del espacio de señado, en anchos de hombro (2 × 1,55). */
+    public static final float REQUIRED_WIDTH_SHOULDERS = 3.1f;
+    /** Alto del espacio de señado, en anchos de hombro (0,95 + 1,36). */
+    public static final float REQUIRED_HEIGHT_SHOULDERS = 2.31f;
+    /** Por debajo de esta fracción del máximo la persona está demasiado lejos. */
+    public static final float MIN_FRACTION_OF_MAX = 0.55f;
 
     private static final int LEFT_SHOULDER = 11;
     private static final int RIGHT_SHOULDER = 12;
     private static final float SMOOTHING = 0.25f;
 
+    /** Ancho de hombros suavizado, en fracción del ancho de la imagen. */
     private float smoothedSpan = Float.NaN;
 
-    public State evaluate(float[] pose) {
-        if (pose == null || pose.length < 33 * 3
+    /** Evalúa la distancia de encuadre a partir de hombros y tamaño del cuadro. */
+    public State evaluate(float[] pose, int imageWidth, int imageHeight) {
+        if (pose == null || pose.length < 33 * 3 || imageWidth <= 0 || imageHeight <= 0
                 || isZero(pose, LEFT_SHOULDER) || isZero(pose, RIGHT_SHOULDER)) {
             return State.UNKNOWN;
         }
 
         int left = LEFT_SHOULDER * 3;
         int right = RIGHT_SHOULDER * 3;
-        float dx = pose[left] - pose[right];
-        float dy = pose[left + 1] - pose[right + 1];
-        float span = (float) Math.sqrt(dx * dx + dy * dy);
+        float dx = (pose[left] - pose[right]) * imageWidth;
+        float dy = (pose[left + 1] - pose[right + 1]) * imageHeight;
+        float span = (float) Math.sqrt(dx * dx + dy * dy) / imageWidth;
         if (!Float.isFinite(span) || span <= 0f) {
             return State.UNKNOWN;
         }
@@ -46,15 +63,24 @@ public final class SigningDistanceGuide {
                 ? span
                 : smoothedSpan + SMOOTHING * (span - smoothedSpan);
 
-        if (smoothedSpan < TRAINING_MIN_SHOULDER_SPAN) {
+        float max = maxShoulderSpan(imageWidth, imageHeight);
+        if (smoothedSpan < max * MIN_FRACTION_OF_MAX) {
             return State.MOVE_CLOSER;
         }
-        if (smoothedSpan > TRAINING_MAX_SHOULDER_SPAN) {
+        if (smoothedSpan > max) {
             return State.MOVE_FARTHER;
         }
         return State.OPTIMAL;
     }
 
+    /** Calcula el ancho de hombros máximo para que el espacio de señado entre en el cuadro. */
+    public static float maxShoulderSpan(int imageWidth, int imageHeight) {
+        float byWidth = 1f / REQUIRED_WIDTH_SHOULDERS;
+        float byHeight = ((float) imageHeight / imageWidth) / REQUIRED_HEIGHT_SHOULDERS;
+        return Math.min(byWidth, byHeight);
+    }
+
+    /** Ancho de hombros suavizado, en fracción del ancho de la imagen. */
     public float smoothedShoulderSpan() {
         return smoothedSpan;
     }

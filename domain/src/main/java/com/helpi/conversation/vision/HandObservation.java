@@ -18,6 +18,7 @@ public final class HandObservation {
     public final float belowShoulders;
     public final boolean nearEdge;
 
+    /** Crea una observación normalizada de una mano. */
     public HandObservation(boolean present, float speed, float belowShoulders, boolean nearEdge) {
         this.present = present;
         this.speed = speed;

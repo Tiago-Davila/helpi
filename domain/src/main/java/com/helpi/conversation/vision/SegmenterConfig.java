@@ -37,6 +37,7 @@ public final class SegmenterConfig {
     /** Pérdida de seguimiento tolerada, ms. */
     public final long trackingLossToleranceMs;
 
+    /** Crea la configuración de umbrales y duraciones del segmentador. */
     public SegmenterConfig(
             float vOn, float vOff, long startPersistenceMs, int startMinObservations,
             float handsDownEnter, float handsDownExit, long restToArmMs,
@@ -60,7 +61,7 @@ public final class SegmenterConfig {
         this.trackingLossToleranceMs = trackingLossToleranceMs;
     }
 
-    /** Valores iniciales del plan (documento de decisiones D02). */
+    /** Devuelve los valores iniciales de segmentación definidos para D02. */
     public static SegmenterConfig defaults() {
         return new SegmenterConfig(
                 0.7f, 0.2f, 150, 3,

@@ -11,7 +11,7 @@ import org.junit.Test;
 
 public class AudioArbiterTest {
 
-    private static final class Recorder implements AudioArbiter.Listener {
+    private static final class Recorder implements AudioArbiterListener {
         final List<String> events = new ArrayList<>();
 
         @Override
@@ -51,7 +51,7 @@ public class AudioArbiterTest {
         assertTrue(rec.events.isEmpty());
         arbiter.tick(600);
         assertEquals(List.of("close"), rec.events);
-        assertEquals(AudioArbiter.State.WAITING_GATE, arbiter.state());
+        assertEquals(AudioArbiterState.WAITING_GATE, arbiter.state());
         // habla recién tras la confirmación
         arbiter.sttGateClosed(650);
         assertEquals(List.of("close", "speak:1"), rec.events);
@@ -63,12 +63,12 @@ public class AudioArbiterTest {
         arbiter.tick(600);
         arbiter.sttGateClosed(600);
         arbiter.ttsFinished(1, 1000);
-        assertEquals(AudioArbiter.State.GUARD, arbiter.state());
+        assertEquals(AudioArbiterState.GUARD, arbiter.state());
         arbiter.tick(1200); // guarda incompleta
         assertFalse(rec.events.contains("open"));
         arbiter.tick(1400);
         assertTrue(rec.events.contains("open"));
-        assertEquals(AudioArbiter.State.IDLE, arbiter.state());
+        assertEquals(AudioArbiterState.IDLE, arbiter.state());
     }
 
     @Test
@@ -116,7 +116,7 @@ public class AudioArbiterTest {
         arbiter.sttGateClosed(600);
         // el TTS nunca llama onDone
         arbiter.tick(15600);
-        assertEquals(AudioArbiter.State.GUARD, arbiter.state());
+        assertEquals(AudioArbiterState.GUARD, arbiter.state());
         arbiter.tick(16000);
         assertTrue(rec.events.contains("open")); // el STT no queda mudo
     }
@@ -140,22 +140,22 @@ public class AudioArbiterTest {
         arbiter.tick(600);
         arbiter.sttGateClosed(600);
         arbiter.ttsFinished(99, 700); // id ajeno
-        assertEquals(AudioArbiter.State.SPEAKING, arbiter.state());
+        assertEquals(AudioArbiterState.SPEAKING, arbiter.state());
         arbiter.sttGateClosed(800); // confirmación duplicada
-        assertEquals(AudioArbiter.State.SPEAKING, arbiter.state());
+        assertEquals(AudioArbiterState.SPEAKING, arbiter.state());
     }
 
     @Test
     public void resetDescartaAudioDeLaSesionAnterior() {
         arbiter.enqueue(1, "mensaje viejo", 0);
         arbiter.tick(600);
-        assertEquals(AudioArbiter.State.WAITING_GATE, arbiter.state());
+        assertEquals(AudioArbiterState.WAITING_GATE, arbiter.state());
 
         arbiter.reset();
         arbiter.sttGateClosed(700); // confirmación tardía de la sesión cerrada
         arbiter.tick(2000);
 
-        assertEquals(AudioArbiter.State.IDLE, arbiter.state());
+        assertEquals(AudioArbiterState.IDLE, arbiter.state());
         assertFalse(rec.events.contains("speak:1"));
     }
 }

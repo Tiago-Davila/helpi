@@ -1,0 +1,3 @@
+title = "Helpi secret scanning"
+[extend]
+useDefault = true

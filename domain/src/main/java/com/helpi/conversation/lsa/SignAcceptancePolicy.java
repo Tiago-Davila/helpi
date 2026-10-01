@@ -12,51 +12,11 @@ import java.util.List;
  */
 public final class SignAcceptancePolicy {
 
-    public enum Reason {
-        ACCEPTED,
-        BELOW_THRESHOLD,
-        INVALID_OUTPUT
-    }
-
-    public static final class Decision {
-        public final boolean accepted;
-        public final int classIndex;
-        public final float confidence;
-        public final Reason reason;
-        public final List<Prediction> predictions;
-
-        Decision(boolean accepted, int classIndex, float confidence, Reason reason,
-                List<Prediction> predictions) {
-            this.accepted = accepted;
-            this.classIndex = classIndex;
-            this.confidence = confidence;
-            this.reason = reason;
-            this.predictions = predictions;
-        }
-    }
-
-    /** Una opción del top 3. No implica que la seña haya sido aceptada. */
-    public static final class Prediction {
-        public final int classIndex;
-        public final float confidence;
-
-        Prediction(int classIndex, float confidence) {
-            this.classIndex = classIndex;
-            this.confidence = confidence;
-        }
-    }
-
     private final float threshold;
     private final boolean outputsProbabilities;
     private final int expectedClasses;
 
-    /**
-     * @param threshold            umbral de confianza (sobre probabilidades).
-     * @param outputsProbabilities true si el modelo ya emite probabilidades;
-     *                             false si emite logits (se aplica softmax una
-     *                             sola vez, nunca dos).
-     * @param expectedClasses      cantidad de clases del catálogo.
-     */
+    /** Configura el umbral, el formato de salida del modelo y el tamaño del catálogo. */
     public SignAcceptancePolicy(float threshold, boolean outputsProbabilities, int expectedClasses) {
         if (threshold <= 0f || threshold >= 1f) {
             throw new IllegalArgumentException("umbral fuera de (0,1): " + threshold);
@@ -69,7 +29,8 @@ public final class SignAcceptancePolicy {
         this.expectedClasses = expectedClasses;
     }
 
-    public Decision evaluate(float[] scores) {
+    /** Evalúa las puntuaciones y devuelve el resultado de aceptación. */
+    public SignDecision evaluate(float[] scores) {
         if (scores == null || scores.length != expectedClasses) {
             return invalidDecision();
         }
@@ -90,14 +51,14 @@ public final class SignAcceptancePolicy {
         if (confidence < threshold) {
             // vocabulario cerrado: fuera de las 64 se resuelve como
             // no-reconocida, nunca se fuerza a la clase más cercana
-            return new Decision(
-                    false, best.classIndex, confidence, Reason.BELOW_THRESHOLD, predictions);
+            return new SignDecision(
+                    false, best.classIndex, confidence, AcceptanceReason.BELOW_THRESHOLD, predictions);
         }
-        return new Decision(true, best.classIndex, confidence, Reason.ACCEPTED, predictions);
+        return new SignDecision(true, best.classIndex, confidence, AcceptanceReason.ACCEPTED, predictions);
     }
 
-    private static Decision invalidDecision() {
-        return new Decision(false, -1, 0f, Reason.INVALID_OUTPUT, Collections.emptyList());
+    private static SignDecision invalidDecision() {
+        return new SignDecision(false, -1, 0f, AcceptanceReason.INVALID_OUTPUT, Collections.emptyList());
     }
 
     private static List<Prediction> topPredictions(float[] probabilities, int limit) {

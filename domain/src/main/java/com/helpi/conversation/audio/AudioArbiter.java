@@ -19,23 +19,6 @@ import java.util.Objects;
  */
 public final class AudioArbiter {
 
-    /** Efectos que el árbitro ordena; los ejecuta la capa Android. */
-    public interface Listener {
-        /** Cerrar la compuerta STT y confirmar con {@link #sttGateClosed}. */
-        void requestCloseSttGate();
-
-        /** Reabrir la compuerta STT (buffer ya invalidado). */
-        void openSttGate();
-
-        /** Iniciar la síntesis del mensaje. */
-        void speak(long messageId, String text);
-
-        /** El mensaje venció en cola: queda como "no pronunciado". */
-        void expired(long messageId);
-    }
-
-    public enum State { IDLE, WAITING_GATE, SPEAKING, GUARD }
-
     /** Demora inicial que permite cancelar una salida evidentemente incorrecta. */
     private final long cancelWindowMs;
     /** Guarda acústica tras el fin del TTS (cola de reverberación). */
@@ -45,9 +28,9 @@ public final class AudioArbiter {
     /** Watchdog: un callback TTS perdido no puede silenciar el STT para siempre. */
     private final long ttsWatchdogMs;
     private final int maxQueue;
-    private final Listener listener;
+    private final AudioArbiterListener listener;
 
-    private State state = State.IDLE;
+    private AudioArbiterState state = AudioArbiterState.IDLE;
     private final Deque<Pending> queue = new ArrayDeque<>();
     private long currentMessageId = -1;
     private long stateEnteredAtMs;
@@ -67,11 +50,13 @@ public final class AudioArbiter {
         }
     }
 
-    public AudioArbiter(Listener listener) {
+    /** Crea el árbitro con las demoras predeterminadas. */
+    public AudioArbiter(AudioArbiterListener listener) {
         this(listener, 600, 400, 5000, 15000, 3);
     }
 
-    public AudioArbiter(Listener listener, long cancelWindowMs, long acousticGuardMs,
+    /** Crea el árbitro con tiempos de cancelación, guarda, cola y watchdog configurables. */
+    public AudioArbiter(AudioArbiterListener listener, long cancelWindowMs, long acousticGuardMs,
             long queueTtlMs, long ttsWatchdogMs, int maxQueue) {
         this.listener = Objects.requireNonNull(listener);
         this.cancelWindowMs = cancelWindowMs;
@@ -81,14 +66,12 @@ public final class AudioArbiter {
         this.maxQueue = maxQueue;
     }
 
-    public State state() {
+    /** Devuelve el estado del ciclo actual de voz. */
+    public AudioArbiterState state() {
         return state;
     }
 
-    /**
-     * Encola un mensaje aceptado. Devuelve false si la cola está llena
-     * (el mensaje queda como no pronunciado).
-     */
+    /** Encola un mensaje aceptado para pronunciarlo cuando el audio esté libre. */
     public boolean enqueue(long messageId, String text, long nowMs) {
         if (queue.size() >= maxQueue) {
             listener.expired(messageId);
@@ -99,33 +82,29 @@ public final class AudioArbiter {
         return true;
     }
 
-    /** Cancela un mensaje aún no reproducido ("no quise decir eso"). */
+    /** Cancela un mensaje que todavía no empezó a reproducirse. */
     public boolean cancel(long messageId) {
         return queue.removeIf(p -> p.id == messageId);
     }
 
-    /**
-     * Descarta por completo el ciclo acústico actual. Se usa al cerrar una
-     * conversación para que ningún texto pendiente pueda pasar a la próxima.
-     * No emite callbacks porque el coordinador elimina también sus turnos.
-     */
+    /** Descarta el ciclo acústico y sus mensajes pendientes al cerrar la conversación. */
     public void reset() {
         queue.clear();
         currentMessageId = -1;
         stateEnteredAtMs = 0;
         hearingSpeaking = false;
-        state = State.IDLE;
+        state = AudioArbiterState.IDLE;
     }
 
-    /** El oyente está (o dejó de estar) hablando según Vosk. */
+    /** Actualiza si Vosk detecta que el oyente está hablando. */
     public void hearingSpeechActive(boolean active, long nowMs) {
         this.hearingSpeaking = active;
         tick(nowMs);
     }
 
-    /** Confirmación del executor de audio: compuerta cerrada y buffer invalidado. */
+    /** Confirma que el executor cerró STT e invalidó su buffer. */
     public void sttGateClosed(long nowMs) {
-        if (state != State.WAITING_GATE) {
+        if (state != AudioArbiterState.WAITING_GATE) {
             return; // confirmación tardía de un ciclo anterior: se ignora
         }
         Pending next = queue.pollFirst();
@@ -133,36 +112,33 @@ public final class AudioArbiter {
             reopen();
             return;
         }
-        state = State.SPEAKING;
+        state = AudioArbiterState.SPEAKING;
         stateEnteredAtMs = nowMs;
         currentMessageId = next.id;
         listener.speak(next.id, next.text);
     }
 
-    /** onDone / cancelación del TTS. */
+    /** Registra que TTS terminó o canceló el mensaje indicado. */
     public void ttsFinished(long messageId, long nowMs) {
-        if (state != State.SPEAKING || messageId != currentMessageId) {
+        if (state != AudioArbiterState.SPEAKING || messageId != currentMessageId) {
             return; // callback tardío
         }
-        state = State.GUARD;
+        state = AudioArbiterState.GUARD;
         stateEnteredAtMs = nowMs;
         currentMessageId = -1;
     }
 
-    /** Error del TTS: mismo tratamiento acústico que un fin normal. */
+    /** Registra el fallo de TTS y aplica la guarda acústica. */
     public void ttsFailed(long messageId, long nowMs) {
-        if (state == State.SPEAKING && messageId == currentMessageId) {
+        if (state == AudioArbiterState.SPEAKING && messageId == currentMessageId) {
             listener.expired(messageId);
-            state = State.GUARD;
+            state = AudioArbiterState.GUARD;
             stateEnteredAtMs = nowMs;
             currentMessageId = -1;
         }
     }
 
-    /**
-     * Avance de tiempo: vencimientos de cola, fin de guarda, watchdog y
-     * arranque de reproducciones pendientes. Llamar periódicamente.
-     */
+    /** Avanza vencimientos, guardas y mensajes pendientes según la hora recibida. */
     public List<Long> tick(long nowMs) {
         List<Long> expired = new ArrayList<>();
         // vencimiento de mensajes en cola
@@ -187,7 +163,7 @@ public final class AudioArbiter {
                     // callback perdido: no dejar el STT silenciado indefinidamente
                     listener.expired(currentMessageId);
                     currentMessageId = -1;
-                    state = State.GUARD;
+                    state = AudioArbiterState.GUARD;
                     stateEnteredAtMs = nowMs;
                 }
                 break;
@@ -202,7 +178,7 @@ public final class AudioArbiter {
     }
 
     private void maybeStart(long nowMs) {
-        if (state != State.IDLE || queue.isEmpty()) {
+        if (state != AudioArbiterState.IDLE || queue.isEmpty()) {
             return;
         }
         Pending head = queue.peekFirst();
@@ -210,13 +186,13 @@ public final class AudioArbiter {
         if (nowMs < head.notBeforeMs || hearingSpeaking) {
             return;
         }
-        state = State.WAITING_GATE;
+        state = AudioArbiterState.WAITING_GATE;
         stateEnteredAtMs = nowMs;
         listener.requestCloseSttGate();
     }
 
     private void reopen() {
-        state = State.IDLE;
+        state = AudioArbiterState.IDLE;
         listener.openSttGate();
     }
 }

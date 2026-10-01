@@ -1,5 +1,7 @@
 plugins {
     `java-library`
+    jacoco
+    id("com.github.spotbugs")
 }
 
 java {
@@ -13,4 +15,24 @@ dependencies {
 
 tasks.test {
     useJUnit()
+}
+
+jacoco { toolVersion = "0.8.12" }
+
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+    }
+}
+
+spotbugs {
+    ignoreFailures.set(false)
+    excludeFilter.set(rootProject.file("config/quality/spotbugs-exclude.xml"))
+}
+
+tasks.withType<com.github.spotbugs.snom.SpotBugsTask>().configureEach {
+    reports.create("xml") { required.set(true) }
+    reports.create("html") { required.set(true) }
 }

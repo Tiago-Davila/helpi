@@ -7,7 +7,6 @@ import com.helpi.conversation.keypoints.KeypointContract
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import kotlin.math.abs
@@ -28,8 +27,7 @@ import kotlin.math.abs
  *   "casos": [ { "secuencia": [[168 floats] × 40], "logitsEsperados": [...] } ]
  * }
  *
- * Sin artefactos reales (los provee helpi-ml) el test queda en "assumption
- * failed": no aprueba la etapa, la deja explícitamente pendiente.
+ * Sin artefactos reales (los provee helpi-ml) falla: nunca omite esta etapa.
  */
 @RunWith(AndroidJUnit4::class)
 class ModelReferenceTest {
@@ -42,7 +40,7 @@ class ModelReferenceTest {
     @Test
     fun salidasCoincidenConLaMaquinaDeEntrenamiento() {
         val bundleResult = ModelBundle.load(appContext)
-        assumeTrue(
+        assertTrue(
             "artefactos del modelo ausentes: etapa 1 pendiente, no aprobada",
             bundleResult is ModelBundleResult.Ready,
         )
@@ -55,9 +53,14 @@ class ModelReferenceTest {
         } catch (_: Exception) {
             null
         }
-        assumeTrue("fixture_android.json ausente: etapa 1 pendiente", fixtureJson != null)
+        assertTrue("fixture_android.json ausente: etapa 1 pendiente", fixtureJson != null)
 
         val fixture = JSONObject(fixtureJson!!)
+        assertEquals(
+            "contrato del fixture",
+            KeypointContract.CONTRACT_VERSION,
+            fixture.optInt("contractVersion", 2),
+        )
         assertEquals("frames del fixture", KeypointContract.FRAMES, fixture.getInt("frames"))
         assertEquals("coordenadas del fixture", KeypointContract.COORDS, fixture.getInt("coordenadas"))
         val tolerance = fixture.getDouble("toleranciaLogits").toFloat()

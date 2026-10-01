@@ -10,6 +10,7 @@ public final class FrameObservation {
     public final HandObservation left;
     public final HandObservation right;
 
+    /** Crea una observación de cuadro con las manos detectadas y su timestamp. */
     public FrameObservation(
             long timestampMs,
             boolean shouldersVisible,
