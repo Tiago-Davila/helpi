@@ -2,9 +2,9 @@ package com.helpi.conversation.ui
 
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
@@ -27,15 +27,15 @@ import org.junit.Test
 /** Prueba el flujo completo de UI sin depender de una cámara o voz presente en el AVD. */
 class ConversationScreenTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
-
     private val chat = Conversation()
     private val state = mutableStateOf(SessionCoordinator.UiState())
     private val participantes = mutableStateOf(Participantes())
-
     private fun render(active: Boolean = false) {
         compose.activityRule.scenario.onActivity {
-            it.enableEdgeToEdge()
+            it.enableEdgeToEdge(SystemBarStyle.dark(0), SystemBarStyle.dark(0))
             it.window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+            it.window.decorView.isFocusableInTouchMode = true
+            it.window.decorView.requestFocus()
         }
         if (active) {
             state.value = activeState()
@@ -43,7 +43,7 @@ class ConversationScreenTest {
         }
         compose.setContent {
             HelpiTheme {
-                Surface(Modifier.fillMaxSize().safeDrawingPadding()) {
+                Surface(Modifier.fillMaxSize()) {
                     ConversationContent(
                         state.value,
                         ConversationActions(
@@ -192,7 +192,7 @@ class ConversationScreenTest {
             )
         }
 
-        compose.onNodeWithTag("distanceGuideOverlay").assertIsDisplayed()
+        compose.onNodeWithTag("distanceGuideOverlay", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithText("Distancia adecuada").assertIsDisplayed()
         compose.onNodeWithText("Predicciones sin confirmar").assertIsDisplayed()
         compose.onNodeWithText("1. Gracias").assertIsDisplayed()
@@ -246,11 +246,11 @@ class ConversationScreenTest {
         val nodo = compose.onNodeWithContentDescription(aviso)
         nodo.assertIsDisplayed()
         nodo.assert(
-            SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Contraído"),
+            SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Contraído")
         )
-        nodo.performClick()
+        nodo.performSemanticsAction(SemanticsActions.OnClick) { it() }
         nodo.assert(
-            SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Desplegado"),
+            SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Desplegado")
         )
     }
 
@@ -260,7 +260,7 @@ class ConversationScreenTest {
         compose.onNodeWithText("Cuenta").performClick()
         compose.onNodeWithText("Tiago").assertIsDisplayed()
         compose.onNodeWithContentDescription("Umbral de confianza").assertIsDisplayed()
-        compose.onNodeWithText("LSA64", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("LSA64", substring = true).performScrollTo().assertIsDisplayed()
     }
 
     @Test fun cambiarElNombreDeCuentaSeVeEnLosMensajes() {

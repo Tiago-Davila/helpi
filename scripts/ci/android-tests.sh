@@ -3,6 +3,8 @@ set -euo pipefail
 results=app/build/outputs/androidTest-results/connected
 reports=app/build/reports/qa-stages
 mkdir -p "$reports"
+# Never publish a previous successful run as evidence for the current attempt.
+rm -rf "$reports/model" "$reports/ui" "$reports/capture-status.txt"
 rm -rf "$results"
 ./gradlew :app:connectedDebugAndroidTest '-Pandroid.testInstrumentationRunnerArguments.class=com.helpi.conversation.lsa.ModelReferenceTest' --stacktrace
 python3 scripts/ci/verify.py junit "$results" com.helpi.conversation.lsa.ModelReferenceTest

@@ -1,3 +1,4 @@
+import hashlib
 import json
 import tempfile
 import unittest
@@ -8,6 +9,40 @@ import verify
 
 
 class GatesTest(unittest.TestCase):
+    def test_bundle_rejects_missing_artifacts_and_empty_reference_cases(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            assets = root / 'app/src/main/assets/lsa'
+            assets.mkdir(parents=True)
+            model = assets / 'modelo_lsa.tflite'
+            catalog = assets / 'catalogo_senas.json'
+            # These bytes exercise the packaging gate, not model inference.
+            model.write_bytes(b'synthetic-packaging-fixture')
+            catalog.write_bytes(b'{}')
+            manifest = {'frames': 40, 'coords': 168, 'numClasses': 64, 'contractVersion': 3,
+                        'modelSha256': hashlib.sha256(model.read_bytes()).hexdigest(),
+                        'catalogSha256': hashlib.sha256(catalog.read_bytes()).hexdigest()}
+            (assets / 'lsa-manifest.json').write_text(json.dumps(manifest))
+            fixture = root / 'app/src/androidTest/assets/fixture_android.json'
+            fixture.parent.mkdir(parents=True)
+            reference = {'casos': [{}], 'toleranciaLogits': 0.001, 'contractVersion': 3}
+            fixture.write_text(json.dumps(reference))
+            with patch.object(verify, 'ROOT', root):
+                verify.bundle()
+                for artifact in (model, catalog, fixture):
+                    with self.subTest(missing=artifact.name):
+                        content = artifact.read_bytes()
+                        artifact.unlink()
+                        with self.assertRaises(OSError):
+                            verify.bundle()
+                        artifact.write_bytes(content)
+                for key, invalid in [('casos', []), ('toleranciaLogits', 0.01),
+                                     ('contractVersion', 2)]:
+                    with self.subTest(field=key):
+                        fixture.write_text(json.dumps({**reference, key: invalid}))
+                        with self.assertRaises(ValueError):
+                            verify.bundle()
+
     def test_junit_requires_tests_and_rejects_failures_and_skips(self):
         with tempfile.TemporaryDirectory() as directory:
             with self.assertRaises(ValueError):

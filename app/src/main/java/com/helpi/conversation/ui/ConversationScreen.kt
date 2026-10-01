@@ -833,7 +833,7 @@ private fun GuiaDeDistancia(
         SigningDistanceGuide.State.MOVE_FARTHER -> HelpiColors.Warning
         SigningDistanceGuide.State.UNKNOWN -> Color.White.copy(alpha = 0.55f)
     }
-    Canvas(modifier.clearAndSetSemantics { }.testTag("distanceGuideOverlay")) {
+    Canvas(modifier.clearAndSetSemantics { testTag = "distanceGuideOverlay" }) {
         val centerX = size.width / 2f
         // Marcas en el centro del rango óptimo de la guía. Se aproxima el
         // aspecto de la imagen con el del panel (la preview usa FIT_CENTER).

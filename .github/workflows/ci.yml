@@ -112,6 +112,10 @@ jobs:
           api-level: ${{ matrix.api }}
           arch: x86_64
           target: default
+          # Stable Linux build. Pinning avoids CI changing emulator binaries
+          # between runs and bypasses flaky resolution of the latest archive.
+          emulator-build: 15917651
+          emulator-options: -no-window -gpu swangle -no-snapshot -noaudio -no-boot-anim -feature -Vulkan
           disable-animations: true
           script: bash scripts/ci/android-tests.sh
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

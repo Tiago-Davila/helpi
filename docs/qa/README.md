@@ -72,6 +72,8 @@ No versionar secretos ni datos de conversaciones en reportes.
 
 ## Estado de validación LSA
 
+Resultados y límites de la validación local: [registro del 2026-10-01](validation-2026-10-01.md).
+
 1. Modelo sin cámara: fixture real, paquete consistente y tolerancia 1e-3.
 2. Extracción y distribución: **pendiente de referencias de helpi-ml**.
 3. Cámara → extracción → modelo → publicación: **pendiente de etapa 2**.
