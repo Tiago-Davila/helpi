@@ -114,6 +114,13 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
+    // Robolectric 4.14.1 trae BouncyCastle 1.78.1 (GHSA-574f-3g2m-x479, GHSA-9pwp-9qqc-pr26,
+    // GHSA-qp49-qgx5-5m26, corregidos en 1.85). Solo afecta al classpath de tests.
+    constraints {
+        testImplementation("org.bouncycastle:bcprov-jdk18on:1.86") {
+            because("vulnerabilidades críticas en versiones < 1.85")
+        }
+    }
     testImplementation(libs.kotlinx.coroutines.test)
 
     androidTestImplementation(composeBom)
