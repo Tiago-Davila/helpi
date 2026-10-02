@@ -2,6 +2,15 @@ buildscript {
     dependencies {
         // AGP arrastra netty 4.1.93 vía grpc-netty (GHSA-c653-97m9-rcg9, corregido en 4.1.135).
         classpath(platform("io.netty:netty-bom:4.1.138.Final"))
+        // AGP y plugins de análisis arrastran BouncyCastle 1.77/1.78 (GHSA-574f-3g2m-x479,
+        // GHSA-9pwp-9qqc-pr26, GHSA-qp49-qgx5-5m26, corregidos en 1.85).
+        constraints {
+            listOf("bcprov", "bcpkix", "bcutil").forEach {
+                classpath("org.bouncycastle:$it-jdk18on:1.86") {
+                    because("vulnerabilidades críticas en versiones < 1.85")
+                }
+            }
+        }
     }
 }
 
