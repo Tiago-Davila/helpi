@@ -1,3 +1,10 @@
+buildscript {
+    dependencies {
+        // AGP arrastra netty 4.1.93 vía grpc-netty (GHSA-c653-97m9-rcg9, corregido en 4.1.135).
+        classpath(platform("io.netty:netty-bom:4.1.138.Final"))
+    }
+}
+
 plugins {
     id("org.jlleitschuh.gradle.ktlint") version "12.1.2"
     id("io.gitlab.arturbosch.detekt") version "1.23.8" apply false
