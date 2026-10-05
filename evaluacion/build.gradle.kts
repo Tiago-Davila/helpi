@@ -7,6 +7,10 @@ plugins {
     id("io.gitlab.arturbosch.detekt")
 }
 
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 android {
     namespace = "com.helpi.evaluacion"
     compileSdk = 35

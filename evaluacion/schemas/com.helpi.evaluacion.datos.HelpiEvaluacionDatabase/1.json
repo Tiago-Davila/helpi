@@ -1,0 +1,762 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "1e4de5d948b85c80c8da03a9e7fe639f",
+    "entities": [
+      {
+        "tableName": "consentimiento",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `avisoVersion` TEXT NOT NULL, `avisoVideoSha256` TEXT NOT NULL, `otorgadoEn` INTEGER NOT NULL, `revocadoEn` INTEGER)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "avisoVersion",
+            "columnName": "avisoVersion",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "avisoVideoSha256",
+            "columnName": "avisoVideoSha256",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "otorgadoEn",
+            "columnName": "otorgadoEn",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "revocadoEn",
+            "columnName": "revocadoEn",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "participante",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`codigo` TEXT NOT NULL, `creadoEn` INTEGER NOT NULL, PRIMARY KEY(`codigo`))",
+        "fields": [
+          {
+            "fieldPath": "codigo",
+            "columnName": "codigo",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "creadoEn",
+            "columnName": "creadoEn",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "codigo"
+          ]
+        }
+      },
+      {
+        "tableName": "sesion",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `participanteCodigo` TEXT NOT NULL, `consentimientoId` INTEGER NOT NULL, `protocoloVersion` TEXT NOT NULL, `semilla` INTEGER NOT NULL, `estado` TEXT NOT NULL, `bloqueActual` INTEGER NOT NULL, `appVersionName` TEXT NOT NULL, `appVersionCode` INTEGER NOT NULL, `modeloVersion` TEXT NOT NULL, `modeloSha256` TEXT NOT NULL, `catalogoSha256` TEXT NOT NULL, `contratoKeypoints` INTEGER NOT NULL, `dispositivoFabricante` TEXT NOT NULL, `dispositivoModelo` TEXT NOT NULL, `sdkAndroid` INTEGER NOT NULL, `creadaEn` INTEGER NOT NULL, `ultimoIntentoEn` INTEGER, `ultimaExportacionEn` INTEGER, `intentosPerdidos` INTEGER NOT NULL, `revision` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`participanteCodigo`) REFERENCES `participante`(`codigo`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`consentimientoId`) REFERENCES `consentimiento`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "participanteCodigo",
+            "columnName": "participanteCodigo",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "consentimientoId",
+            "columnName": "consentimientoId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "protocoloVersion",
+            "columnName": "protocoloVersion",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "semilla",
+            "columnName": "semilla",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "estado",
+            "columnName": "estado",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bloqueActual",
+            "columnName": "bloqueActual",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "appVersionName",
+            "columnName": "appVersionName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "appVersionCode",
+            "columnName": "appVersionCode",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "modeloVersion",
+            "columnName": "modeloVersion",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "modeloSha256",
+            "columnName": "modeloSha256",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "catalogoSha256",
+            "columnName": "catalogoSha256",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "contratoKeypoints",
+            "columnName": "contratoKeypoints",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dispositivoFabricante",
+            "columnName": "dispositivoFabricante",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dispositivoModelo",
+            "columnName": "dispositivoModelo",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sdkAndroid",
+            "columnName": "sdkAndroid",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "creadaEn",
+            "columnName": "creadaEn",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ultimoIntentoEn",
+            "columnName": "ultimoIntentoEn",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "ultimaExportacionEn",
+            "columnName": "ultimaExportacionEn",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "intentosPerdidos",
+            "columnName": "intentosPerdidos",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "revision",
+            "columnName": "revision",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_sesion_participanteCodigo",
+            "unique": false,
+            "columnNames": [
+              "participanteCodigo"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_sesion_participanteCodigo` ON `${TABLE_NAME}` (`participanteCodigo`)"
+          },
+          {
+            "name": "index_sesion_consentimientoId",
+            "unique": false,
+            "columnNames": [
+              "consentimientoId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_sesion_consentimientoId` ON `${TABLE_NAME}` (`consentimientoId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "participante",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "participanteCodigo"
+            ],
+            "referencedColumns": [
+              "codigo"
+            ]
+          },
+          {
+            "table": "consentimiento",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "consentimientoId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "condiciones_prueba",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`sesionId` TEXT NOT NULL, `entorno` TEXT NOT NULL, `tipoEntorno` TEXT NOT NULL, `iluminacion` TEXT NOT NULL, `contraluz` INTEGER NOT NULL, `distancia` TEXT NOT NULL, `manoDominante` TEXT NOT NULL, `guantes` INTEGER NOT NULL, `soporteCamara` TEXT NOT NULL, `perfilParticipante` TEXT NOT NULL, PRIMARY KEY(`sesionId`), FOREIGN KEY(`sesionId`) REFERENCES `sesion`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "sesionId",
+            "columnName": "sesionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "entorno",
+            "columnName": "entorno",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tipoEntorno",
+            "columnName": "tipoEntorno",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "iluminacion",
+            "columnName": "iluminacion",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "contraluz",
+            "columnName": "contraluz",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "distancia",
+            "columnName": "distancia",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "manoDominante",
+            "columnName": "manoDominante",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "guantes",
+            "columnName": "guantes",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "soporteCamara",
+            "columnName": "soporteCamara",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "perfilParticipante",
+            "columnName": "perfilParticipante",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "sesionId"
+          ]
+        },
+        "foreignKeys": [
+          {
+            "table": "sesion",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "sesionId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "intento",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `sesionId` TEXT NOT NULL, `posicion` INTEGER NOT NULL, `bloque` INTEGER NOT NULL, `numeroIntento` INTEGER NOT NULL, `reemplazado` INTEGER NOT NULL, `senaEsperadaIndice` INTEGER NOT NULL, `senaEsperadaGlosa` TEXT NOT NULL, `vioVideo` INTEGER NOT NULL, `resultado` TEXT NOT NULL, `causaSinResultado` TEXT, `predichoIndice` INTEGER, `predichoGlosa` TEXT, `confianza` REAL, `umbral` REAL NOT NULL, `superoUmbral` INTEGER NOT NULL, `correcto` INTEGER NOT NULL, `descartado` INTEGER NOT NULL, `loHiceMal` INTEGER NOT NULL, `inicioRelMs` INTEGER NOT NULL, `duracionSegmentoMs` INTEGER, FOREIGN KEY(`sesionId`) REFERENCES `sesion`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sesionId",
+            "columnName": "sesionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "posicion",
+            "columnName": "posicion",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bloque",
+            "columnName": "bloque",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "numeroIntento",
+            "columnName": "numeroIntento",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "reemplazado",
+            "columnName": "reemplazado",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "senaEsperadaIndice",
+            "columnName": "senaEsperadaIndice",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "senaEsperadaGlosa",
+            "columnName": "senaEsperadaGlosa",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "vioVideo",
+            "columnName": "vioVideo",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "resultado",
+            "columnName": "resultado",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "causaSinResultado",
+            "columnName": "causaSinResultado",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "predichoIndice",
+            "columnName": "predichoIndice",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "predichoGlosa",
+            "columnName": "predichoGlosa",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "confianza",
+            "columnName": "confianza",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "umbral",
+            "columnName": "umbral",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "superoUmbral",
+            "columnName": "superoUmbral",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "correcto",
+            "columnName": "correcto",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "descartado",
+            "columnName": "descartado",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "loHiceMal",
+            "columnName": "loHiceMal",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "inicioRelMs",
+            "columnName": "inicioRelMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "duracionSegmentoMs",
+            "columnName": "duracionSegmentoMs",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_intento_sesionId",
+            "unique": false,
+            "columnNames": [
+              "sesionId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_intento_sesionId` ON `${TABLE_NAME}` (`sesionId`)"
+          },
+          {
+            "name": "index_intento_sesionId_posicion_numeroIntento",
+            "unique": true,
+            "columnNames": [
+              "sesionId",
+              "posicion",
+              "numeroIntento"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_intento_sesionId_posicion_numeroIntento` ON `${TABLE_NAME}` (`sesionId`, `posicion`, `numeroIntento`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "sesion",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "sesionId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "prediccion_top",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`intentoId` INTEGER NOT NULL, `rango` INTEGER NOT NULL, `indice` INTEGER NOT NULL, `glosa` TEXT NOT NULL, `confianza` REAL NOT NULL, PRIMARY KEY(`intentoId`, `rango`), FOREIGN KEY(`intentoId`) REFERENCES `intento`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "intentoId",
+            "columnName": "intentoId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rango",
+            "columnName": "rango",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "indice",
+            "columnName": "indice",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "glosa",
+            "columnName": "glosa",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "confianza",
+            "columnName": "confianza",
+            "affinity": "REAL",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "intentoId",
+            "rango"
+          ]
+        },
+        "foreignKeys": [
+          {
+            "table": "intento",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "intentoId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "interrupcion",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `sesionId` TEXT NOT NULL, `bloque` INTEGER NOT NULL, `posicionPendiente` INTEGER NOT NULL, `causa` TEXT NOT NULL, `ocurrioEn` INTEGER NOT NULL, FOREIGN KEY(`sesionId`) REFERENCES `sesion`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sesionId",
+            "columnName": "sesionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bloque",
+            "columnName": "bloque",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "posicionPendiente",
+            "columnName": "posicionPendiente",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "causa",
+            "columnName": "causa",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ocurrioEn",
+            "columnName": "ocurrioEn",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_interrupcion_sesionId",
+            "unique": false,
+            "columnNames": [
+              "sesionId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_interrupcion_sesionId` ON `${TABLE_NAME}` (`sesionId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "sesion",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "sesionId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "envio",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`envioId` TEXT NOT NULL, `sesionId` TEXT NOT NULL, `revision` INTEGER NOT NULL, `payload` BLOB NOT NULL, `sha256` TEXT NOT NULL, `estado` TEXT NOT NULL, `motivo` TEXT, `intentos` INTEGER NOT NULL, `creadoEn` INTEGER NOT NULL, `ultimoIntentoEn` INTEGER, PRIMARY KEY(`envioId`), FOREIGN KEY(`sesionId`) REFERENCES `sesion`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "envioId",
+            "columnName": "envioId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sesionId",
+            "columnName": "sesionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "revision",
+            "columnName": "revision",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "payload",
+            "columnName": "payload",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sha256",
+            "columnName": "sha256",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "estado",
+            "columnName": "estado",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "motivo",
+            "columnName": "motivo",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "intentos",
+            "columnName": "intentos",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "creadoEn",
+            "columnName": "creadoEn",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ultimoIntentoEn",
+            "columnName": "ultimoIntentoEn",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "envioId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_envio_sesionId",
+            "unique": false,
+            "columnNames": [
+              "sesionId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_envio_sesionId` ON `${TABLE_NAME}` (`sesionId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "sesion",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "sesionId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "estado_depuracion",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `ultimaHoraVistaEn` INTEGER NOT NULL, `ultimaDepuracionEn` INTEGER, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ultimaHoraVistaEn",
+            "columnName": "ultimaHoraVistaEn",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ultimaDepuracionEn",
+            "columnName": "ultimaDepuracionEn",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '1e4de5d948b85c80c8da03a9e7fe639f')"
+    ]
+  }
+}
