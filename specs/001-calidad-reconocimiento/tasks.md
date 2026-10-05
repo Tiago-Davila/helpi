@@ -89,7 +89,7 @@ canónicos.
   - que la serialización de una sesión fija (UUID, semilla `20261005` y reloj fijos, los 5 intentos y la interrupción del ejemplo) es **semánticamente igual** a `ejemplos/sesion-evaluacion-v1.ejemplo.json`.
 
   Bloqueante de CI; falla hasta T010. — Deps: T006 · Ref: FR-009, FR-039, research R-07, R-11
-- [ ] T010 [US1] Implementar en `evaluacion/src/main/java/com/helpi/evaluacion/contrato/` el modelo `SesionDocumento.kt` (independiente de Room) y `SesionContratoSerializer.kt`. El serializador usa `android.util.JsonWriter` con orden de claves fijo, **todas las claves presentes con `null` explícito**, confianzas con 6 decimales vía `BigDecimal` `HALF_EVEN`, `semilla` como texto decimal, instantes RFC 3339 UTC con `Z`, y salida UTF-8 sin BOM. Debe hacer pasar T009. — Deps: T009 · Ref: FR-009, FR-039, contrato §Tipos y convenciones, research R-07
+- [X] T010 [US1] Implementar en `evaluacion/src/main/java/com/helpi/evaluacion/contrato/` el modelo `SesionDocumento.kt` (independiente de Room) y `SesionContratoSerializer.kt`. El serializador usa `android.util.JsonWriter` con orden de claves fijo, **todas las claves presentes con `null` explícito**, confianzas con 6 decimales vía `BigDecimal` `HALF_EVEN`, `semilla` como texto decimal, instantes RFC 3339 UTC con `Z`, y salida UTF-8 sin BOM. Debe hacer pasar T009. — Deps: T009 · Ref: FR-009, FR-039, contrato §Tipos y convenciones, research R-07
 
 **Checkpoint F2**: T009 en verde y bloqueante en CI. **Condición para pasar**: cualquier cambio
 en `contracts/` o en el serializador que rompa el ejemplo hace fallar CI.
