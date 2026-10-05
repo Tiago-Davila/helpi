@@ -26,6 +26,20 @@ android {
         }
     }
 
+    flavorDimensions += "registro"
+
+    productFlavors {
+        create("evaluacion") {
+            dimension = "registro"
+            applicationIdSuffix = ".evaluacion"
+            versionNameSuffix = "-evaluacion"
+            resValue("string", "app_name", "Helpi Evaluación")
+        }
+        create("produccion") {
+            dimension = "registro"
+        }
+    }
+
     // Obligatorio: sin esto Gradle comprime los modelos en el APK y
     // LiteRT/MediaPipe no pueden mapearlos a memoria (falla poco descriptiva).
     androidResources {
