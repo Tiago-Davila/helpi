@@ -95,6 +95,7 @@ android {
 
 dependencies {
     implementation(project(":domain"))
+    add("evaluacionImplementation", project(":evaluacion"))
 
     implementation(libs.kotlinx.coroutines.android)
 
