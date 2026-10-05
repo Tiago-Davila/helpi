@@ -25,6 +25,31 @@ for flavor in Produccion Evaluacion; do
   python3 scripts/ci/verify.py junit "$results" com.helpi.conversation.ui.ConversationScreenTest
   cp -r "$results" "$reports/ui-${lower_flavor}"
 done
+rm -rf "$reports/sobrecosto"
+mkdir -p "$reports/sobrecosto"
+rm -rf "$results"
+./gradlew :app:connectedEvaluacionDebugAndroidTest \
+  '-Pandroid.testInstrumentationRunnerArguments.class=com.helpi.conversation.evaluacion.RegistroSobrecostoTest' \
+  --rerun-tasks --stacktrace
+python3 scripts/ci/verify.py junit "$results" \
+  com.helpi.conversation.evaluacion.RegistroSobrecostoTest
+mapfile -t benchmark_logs < <(
+  find "$results" -type f \
+    -name 'logcat-com.helpi.conversation.evaluacion.RegistroSobrecostoTest-*.txt'
+)
+if [[ "${#benchmark_logs[@]}" -eq 0 ]]; then
+  echo "No benchmark logcat found; the device report is unavailable." >&2
+  exit 1
+fi
+for log_file in "${benchmark_logs[@]}"; do
+  device_name="$(basename "$(dirname "$log_file")")"
+  report_json="$(sed -n 's/.*SOBRECOSTO_REPORTE=//p' "$log_file" | tail -n 1)"
+  if [[ -z "$report_json" ]]; then
+    echo "Benchmark report marker missing from $log_file." >&2
+    exit 1
+  fi
+  printf '%s\n' "$report_json" > "$reports/sobrecosto/${device_name// /_}.json"
+done
 # There are no provenance-checked capture reference clips in this repository.
 # Do not equate UI or model fixture tests with a validated camera pipeline.
 printf '%s\n' 'PENDING: extractor distribution and full camera chain require helpi-ml clips and reference metrics.' | tee "$reports/capture-status.txt"

@@ -149,7 +149,7 @@ con todos los intentos resueltos, y se retoma en el primer intento sin respuesta
   - la retoma conserva participante, condiciones y semilla.
 
   Test instrumentado `app/src/androidTestEvaluacion/java/com/helpi/conversation/evaluacion/SesionInterrumpidaTest.kt`: termina el proceso entre intentos, reabre y verifica el estado, los intentos conservados y la posición de retoma. — Deps: T013, T014 · Ref: FR-040a, Edge Cases (sesión interrumpida), research R-03
-- [ ] T016 [US1] **Test de sobrecosto del registro**: `app/src/androidTestEvaluacion/java/com/helpi/conversation/evaluacion/RegistroSobrecostoTest.kt`.
+- [X] T016 [US1] **Test de sobrecosto del registro**: `app/src/androidTestEvaluacion/java/com/helpi/conversation/evaluacion/RegistroSobrecostoTest.kt`.
   - **Entradas**: los casos de `app/src/androidTest/assets/fixture_android.json`, repetidos hasta tener **n ≥ 200 pares** en el mismo dispositivo, tras 20 iteraciones de calentamiento descartadas.
   - **Par**: cada repetición pasa la **misma** secuencia por la cadena de clasificación con el registro **activado** y **desactivado**, en orden AB/BA sorteado con semilla fija.
     - Activado: `RegistroObserver` real, y cada decisión se convierte de inmediato en un intento resuelto y se entrega a `EscritorRegistro` (base temporal en disco, sin vaciarla entre iteraciones).
