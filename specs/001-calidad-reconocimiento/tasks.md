@@ -80,10 +80,11 @@ ejemplo de referencia compartido con `helpi-firebase`.
 **Independent Test**: el test de contrato pasa contra `contracts/` sin tocar los archivos
 canónicos.
 
-- [ ] T009 [US1] **Test primero**: `evaluacion/src/test/java/com/helpi/evaluacion/contrato/ContratoSesionTest.kt`, que suma `../specs/001-calidad-reconocimiento/contracts` como recursos de test en `evaluacion/build.gradle.kts`. Verifica:
+- [X] T009 [US1] **Test primero**: `evaluacion/src/test/java/com/helpi/evaluacion/contrato/ContratoSesionTest.kt`, que suma `../specs/001-calidad-reconocimiento/contracts` como recursos de test en `evaluacion/build.gradle.kts`. Verifica:
   - los hashes de `CONTRATO_SHA256`;
   - que el ejemplo valida contra `envio-sesion-evaluacion.schema.json`;
   - que **cada** archivo de `ejemplos/negativos/` es rechazado;
+  - que el esquema admite estructuralmente más de 1.000 intentos y más de 500 interrupciones;
   - las reglas **S-02 a S-08** del contrato sobre el ejemplo (S-01 compara encabezados y va en T019);
   - que la serialización de una sesión fija (UUID, semilla `20261005` y reloj fijos, los 5 intentos y la interrupción del ejemplo) es **semánticamente igual** a `ejemplos/sesion-evaluacion-v1.ejemplo.json`.
 

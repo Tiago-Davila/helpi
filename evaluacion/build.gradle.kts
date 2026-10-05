@@ -15,6 +15,12 @@ android {
         minSdk = 26
     }
 
+    sourceSets {
+        getByName("test") {
+            resources.srcDir("../specs/001-calidad-reconocimiento/contracts")
+        }
+    }
+
     testOptions { unitTests.isIncludeAndroidResources = true }
 
     compileOptions {

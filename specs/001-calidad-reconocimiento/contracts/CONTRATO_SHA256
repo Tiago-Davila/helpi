@@ -1,0 +1,11 @@
+fd57f7ca2a54f9f29da3311d32be69f4a02da0e1faf18910426088f2ddcd7993  ./ejemplos/negativos/campo-adicional.json
+fc3039ac485b0b4ded20f3fae3b4ac2b1d32d57237157c8396c82eb1de543123  ./ejemplos/negativos/codigo-participante-con-nombre.json
+63405096f39495bf1e4f3079f3f69e3da8cd9f9cced6aa928ccd7180d3690396  ./ejemplos/negativos/descarte-bajo-umbral.json
+a2c27bbacf9f50e6340cf4fb4211ddc7a58433d0b52b903ef1aa926bb8d003a1  ./ejemplos/negativos/falta-campo-obligatorio.json
+a1269f49cfcccfa5de9674ff78377d7325269368b71cd51b41cd64de8f8521a5  ./ejemplos/negativos/indice-fuera-de-rango.json
+d938fcc69b9b937d2870d366c8e4564034f05edda2ccb9649447e9e167135d13  ./ejemplos/negativos/keypoints-en-intento.json
+1fdbd17cdc60758e5485556c45b7106b21a110e419816483efddfc04f745149e  ./ejemplos/negativos/semilla-numerica.json
+ce7be3fd84e7dc335b4a3d30d34befb9590bac034b2291c882a0bc3f3741da9a  ./ejemplos/negativos/sin-resultado-con-prediccion.json
+f6ab8e388974fe638f7e31fd7412897d62fccf6944491ae6ac915ef121f823d7  ./ejemplos/negativos/version-contrato-desconocida.json
+88a69e78e658c49cf9ddd69bcdb508b1b2bc8937bbbb235ea64de9afe8db1e7b  ./ejemplos/sesion-evaluacion-v1.ejemplo.json
+ccb3881eff2809848fb096b65e42c056c2f61c7fd0848016eb5d7425e91fa51d  ./envio-sesion-evaluacion.schema.json

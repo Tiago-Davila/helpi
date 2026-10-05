@@ -19,7 +19,7 @@ espresso = "3.7.0"
 room = "2.8.5"
 work = "2.12.0"
 ksp = "2.0.21-1.0.28"
-mockwebserver = "5.3.0"
+mockwebserver = "4.12.0"
 jsonSchemaValidator = "3.0.7"
 
 [libraries]
