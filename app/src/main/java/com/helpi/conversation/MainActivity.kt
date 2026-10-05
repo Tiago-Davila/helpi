@@ -56,7 +56,7 @@ class MainActivity : ComponentActivity() {
                     // Cada pantalla aplica sus propios márgenes seguros: en la
                     // conversación horizontal la cámara llega hasta el borde
                     // físico y solo sus controles esquivan barras y recortes.
-                    Box(Modifier.fillMaxSize()) {
+                    VariantBindings.applicationContent(Modifier.fillMaxSize()) {
                         ConversationScreen(
                             viewModel = viewModel,
                             onStart = ::requestPermissionsAndPrepare,

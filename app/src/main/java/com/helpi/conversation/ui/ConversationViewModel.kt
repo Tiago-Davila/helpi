@@ -2,8 +2,8 @@ package com.helpi.conversation.ui
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
+import com.helpi.conversation.VariantBindings
 import com.helpi.conversation.lsa.sequence.RecognitionMode
-import com.helpi.conversation.session.SessionCoordinator
 import com.helpi.conversation.vision.CameraCaptureMetrics
 import com.helpi.conversation.vision.LandmarkExtractionMetrics
 import com.helpi.conversation.vision.LandmarkFrame
@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.update
  */
 class ConversationViewModel(application: Application) : AndroidViewModel(application) {
 
-    val coordinator = SessionCoordinator(application)
+    val coordinator = VariantBindings.createSessionCoordinator(application)
     val uiState = coordinator.uiState
 
     private val _participantes = MutableStateFlow(Participantes())

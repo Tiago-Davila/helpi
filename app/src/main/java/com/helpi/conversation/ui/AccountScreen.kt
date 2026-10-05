@@ -111,7 +111,7 @@ internal fun PantallaCuenta(
                 color = HelpiColors.LedMuted,
             )
         }
-        Spacer(Modifier.height(24.dp))
+        com.helpi.conversation.VariantBindings.validationMenuEntry()
     }
 
     if (editando) {
