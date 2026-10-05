@@ -2,13 +2,80 @@ import hashlib
 import json
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 import verify
 
 
 class GatesTest(unittest.TestCase):
+    def _verify_synthetic_apk(self, directory, permissions=(), packages=(), assets=()):
+        apk_path = Path(directory) / 'app-produccion-release.apk'
+        android = 'http://schemas.android.com/apk/res/android'
+        permission_xml = ''.join(
+            f'<uses-permission android:name="{permission}" />'
+            for permission in permissions
+        )
+        manifest = (
+            f'<manifest xmlns:android="{android}">{permission_xml}'
+            '<application android:allowBackup="false" android:debuggable="false" />'
+            '</manifest>'
+        )
+        with zipfile.ZipFile(apk_path, 'w') as archive:
+            archive.writestr('assets/modelo_lsa.tflite', b'modelo', zipfile.ZIP_STORED)
+            archive.writestr('assets/holistic_landmarker.task', b'extractor', zipfile.ZIP_STORED)
+            for asset in assets:
+                archive.writestr(asset, b'evaluacion')
+
+        def analyzer_output(command, text):
+            if command[1:3] == ['manifest', 'print']:
+                return manifest
+            if command[1:3] == ['dex', 'packages']:
+                return '\n'.join(f'P {package}' for package in packages)
+            raise AssertionError(f'Unexpected apkanalyzer command: {command}')
+
+        analyzer = patch('verify.subprocess.check_output', side_effect=analyzer_output)
+        with analyzer as check_output:
+            verify.apk(str(apk_path), 'apkanalyzer')
+        return check_output
+
+    def test_apk_accepts_clean_production_listing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            check_output = self._verify_synthetic_apk(
+                directory,
+                packages=('com.helpi.conversation', 'androidx.activity'),
+            )
+            apk_path = str(Path(directory) / 'app-produccion-release.apk')
+            check_output.assert_has_calls([
+                call(['apkanalyzer', 'manifest', 'print', apk_path], text=True),
+                call(['apkanalyzer', 'dex', 'packages', apk_path], text=True),
+            ])
+
+    def test_apk_rejects_each_forbidden_package(self):
+        for package in ('com.helpi.evaluacion', 'androidx.room', 'androidx.work'):
+            with self.subTest(package=package), tempfile.TemporaryDirectory() as directory:
+                with self.assertRaises(ValueError):
+                    self._verify_synthetic_apk(directory, packages=(package,))
+
+    def test_apk_rejects_each_network_permission(self):
+        for permission in (
+            'android.permission.INTERNET',
+            'android.permission.ACCESS_NETWORK_STATE',
+        ):
+            with self.subTest(permission=permission), tempfile.TemporaryDirectory() as directory:
+                with self.assertRaises(ValueError):
+                    self._verify_synthetic_apk(directory, permissions=(permission,))
+
+    def test_apk_rejects_every_evaluation_asset_path(self):
+        for asset in (
+            'assets/evaluacion/aviso.mp4',
+            'assets/evaluacion/referencias/lsa64/video.mp4',
+        ):
+            with self.subTest(asset=asset), tempfile.TemporaryDirectory() as directory:
+                with self.assertRaises(ValueError):
+                    self._verify_synthetic_apk(directory, assets=(asset,))
+
     def test_bundle_rejects_missing_artifacts_and_empty_reference_cases(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
