@@ -102,7 +102,7 @@ en `contracts/` o en el serializador que rompa el ejemplo hace fallar CI.
 
 **Independent Test**: tests de DAO con Room en memoria: cascadas, índice único e invariantes.
 
-- [ ] T011 [US1] Crear las entidades, los enums y los `TypeConverters` en `evaluacion/src/main/java/com/helpi/evaluacion/datos/entidades/`: `ConsentimientoEntity`, `ParticipanteEntity`, `SesionEntity`, `CondicionesPruebaEntity`, `IntentoEntity`, `PrediccionTopEntity`, `InterrupcionEntity`, `EnvioEntity` y `EstadoDepuracionEntity`. Restricciones literales de data-model:
+- [X] T011 [US1] Crear las entidades, los enums y los `TypeConverters` en `evaluacion/src/main/java/com/helpi/evaluacion/datos/entidades/`: `ConsentimientoEntity`, `ParticipanteEntity`, `SesionEntity`, `CondicionesPruebaEntity`, `IntentoEntity`, `PrediccionTopEntity`, `InterrupcionEntity`, `EnvioEntity` y `EstadoDepuracionEntity`. Restricciones literales de data-model:
   - `participante.codigo`: "patrón `^P-[0-9]{3,4}$`";
   - `sesion.id`: "String PK (UUID v4)";
   - `EstadoSesion`: `CREADA`, `EN_CURSO`, `PAUSADA`, `INTERRUMPIDA`, `COMPLETA`, `TERMINADA_ANTES`;
