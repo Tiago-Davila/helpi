@@ -160,6 +160,21 @@ class DaoTest {
         assertNull(intentos.buscar(intentoId)?.predichoIndice)
     }
 
+    @Test
+    fun sumaIntentosPerdidosEnLaTransaccionDelSiguienteIntento() = runBlocking {
+        val sesionId = crearSesion()
+        val primero = intentoSinResultado(sesionId)
+        intentos.registrarIntento(primero, emptyList(), 900L, intentosPerdidos = 2)
+        intentos.registrarIntento(
+            primero.copy(numeroIntento = 2, inicioRelMs = 1_000L),
+            emptyList(),
+            1_000L,
+            intentosPerdidos = 3
+        )
+
+        assertEquals(5, sesiones.buscar(sesionId)?.intentosPerdidos)
+    }
+
     private suspend fun crearSesion(
         codigo: String = "P-007",
         sesionId: String = uuid(1),

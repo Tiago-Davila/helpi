@@ -38,8 +38,19 @@ abstract class IntentoDao {
     )
     abstract suspend fun marcarReemplazado(intentoId: Long): Int
 
-    @Query("UPDATE sesion SET ultimoIntentoEn = :momento WHERE id = :sesionId")
-    abstract suspend fun actualizarUltimoIntento(sesionId: String, momento: Long): Int
+    @Query(
+        """
+        UPDATE sesion
+        SET ultimoIntentoEn = :momento,
+            intentosPerdidos = intentosPerdidos + :intentosPerdidos
+        WHERE id = :sesionId
+        """
+    )
+    abstract suspend fun actualizarUltimoIntento(
+        sesionId: String,
+        momento: Long,
+        intentosPerdidos: Int
+    ): Int
 
     @Query("SELECT * FROM intento WHERE sesionId = :sesionId ORDER BY posicion, numeroIntento")
     abstract suspend fun listarDeSesion(sesionId: String): List<IntentoEntity>
@@ -63,8 +74,10 @@ abstract class IntentoDao {
     open suspend fun registrarIntento(
         intento: IntentoEntity,
         top3: List<PrediccionTopDato>,
-        momento: Long
+        momento: Long,
+        intentosPerdidos: Int = 0
     ): Long {
+        require(intentosPerdidos >= 0) { "intentosPerdidos no puede ser negativo" }
         validarTop3(intento, top3)
 
         val anterior = ultimoDePosicion(intento.sesionId, intento.posicion)
@@ -97,7 +110,7 @@ abstract class IntentoDao {
                 }
             )
         }
-        check(actualizarUltimoIntento(intento.sesionId, momento) == 1) {
+        check(actualizarUltimoIntento(intento.sesionId, momento, intentosPerdidos) == 1) {
             "La sesión no existe para registrar su último intento"
         }
         return intentoId

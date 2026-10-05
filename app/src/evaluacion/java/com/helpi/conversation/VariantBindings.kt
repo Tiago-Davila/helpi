@@ -19,11 +19,12 @@ import androidx.compose.ui.unit.sp
 import com.helpi.conversation.observation.RecognitionObserver
 import com.helpi.conversation.session.SessionCoordinator
 import com.helpi.evaluacion.navigation.EvaluacionGraph
+import com.helpi.evaluacion.registro.RegistroObserver
 
 /** Evaluation-only UI and recognition wiring. */
 @Suppress("ComposableNaming")
 object VariantBindings {
-    val recognitionObserver: RecognitionObserver = RecognitionObserver.NO_OP
+    val recognitionObserver: RecognitionObserver = RegistroObserver()
     val deliveryMode = SessionCoordinator.DeliveryMode.OBSERVER_ONLY
 
     @Composable
