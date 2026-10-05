@@ -97,6 +97,10 @@ dependencies {
     implementation(project(":domain"))
     add("evaluacionImplementation", project(":evaluacion"))
 
+    if (providers.gradleProperty("canarioEvaluacion").orNull == "true") {
+        add("produccionImplementation", project(":evaluacion"))
+    }
+
     implementation(libs.kotlinx.coroutines.android)
 
     val composeBom = platform(libs.compose.bom)
@@ -201,5 +205,53 @@ tasks.register<JacocoReport>("jacocoEvaluacionDebugReport") {
     reports {
         xml.required.set(true)
         html.required.set(true)
+    }
+}
+
+tasks.register("verificarProduccionSinEvaluacion") {
+    group = "verification"
+    description = "Ensures the production runtime classpath excludes evaluation-only dependencies."
+
+    doLast {
+        val forbiddenProjectPaths = setOf(":evaluacion", ":evaluacion-dominio")
+
+        fun forbiddenDependencies(configurationName: String): Set<String> =
+            configurations.getByName(configurationName)
+                .incoming.resolutionResult.allComponents
+                .mapNotNull { component ->
+                    when (val id = component.id) {
+                        is org.gradle.api.artifacts.component.ProjectComponentIdentifier ->
+                            id.projectPath.takeIf { it in forbiddenProjectPaths }
+
+                        is org.gradle.api.artifacts.component.ModuleComponentIdentifier -> {
+                            when {
+                                id.group == "androidx.room" && id.module.startsWith("room-") ->
+                                    "${id.group}:${id.module}"
+
+                                id.group == "androidx.work" && id.module.startsWith("work-") ->
+                                    "${id.group}:${id.module}"
+
+                                id.group == "com.google.android.datatransport" &&
+                                    id.module == "transport-backend-cct" ->
+                                    "${id.group}:${id.module}"
+
+                                else -> null
+                            }
+                        }
+
+                        else -> null
+                    }
+                }.toSet()
+
+        val productionForbidden = forbiddenDependencies("produccionReleaseRuntimeClasspath")
+        check(productionForbidden.isEmpty()) {
+            "Forbidden production dependency: ${productionForbidden.sorted().joinToString()}"
+        }
+
+        val evaluationCct = forbiddenDependencies("evaluacionReleaseRuntimeClasspath")
+            .filter { it == "com.google.android.datatransport:transport-backend-cct" }
+        check(evaluationCct.isEmpty()) {
+            "Forbidden evaluation telemetry dependency: ${evaluationCct.sorted().joinToString()}"
+        }
     }
 }

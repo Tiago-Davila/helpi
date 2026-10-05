@@ -89,7 +89,7 @@ def apk(path, apkanalyzer):
 
     dex_packages = subprocess.check_output([apkanalyzer, 'dex', 'packages', path], text=True)
     package_names = {
-        fields[1]
+        fields[-1]
         for line in dex_packages.splitlines()
         if len(fields := line.strip().split()) > 1 and fields[0] == 'P'
     }

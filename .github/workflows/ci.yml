@@ -170,6 +170,50 @@ jobs:
             **/build/reports/**
             **/build/test-results/**
             app/build/outputs/androidTest-results/**
+  canario-produccion:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+        with:
+          packages: platform-tools platforms;android-35 build-tools;35.0.0
+          log-accepted-android-sdk-licenses: false
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+      - name: Production dependency graph passes without the canary
+        run: ./gradlew :app:verificarProduccionSinEvaluacion --stacktrace
+      - name: Dependency graph rejects the evaluation canary
+        run: |
+          if ./gradlew :app:verificarProduccionSinEvaluacion -PcanarioEvaluacion=true --stacktrace > "$RUNNER_TEMP/gradle-canary.log" 2>&1; then
+            cat "$RUNNER_TEMP/gradle-canary.log"
+            echo 'The Gradle dependency canary unexpectedly passed.'
+            exit 1
+          fi
+          if ! grep -Fq 'Forbidden production dependency: :evaluacion' "$RUNNER_TEMP/gradle-canary.log"; then
+            cat "$RUNNER_TEMP/gradle-canary.log"
+            echo 'The Gradle canary failed for an unexpected reason.'
+            exit 1
+          fi
+      - name: APK verifier rejects the evaluation canary
+        run: |
+          ./gradlew :app:assembleProduccionRelease -PcanarioEvaluacion=true --stacktrace
+          if python3 scripts/ci/verify.py apk app/build/outputs/apk/produccion/release/app-produccion-release-unsigned.apk "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer" > "$RUNNER_TEMP/apk-canary.log" 2>&1; then
+            cat "$RUNNER_TEMP/apk-canary.log"
+            echo 'The APK canary unexpectedly passed.'
+            exit 1
+          fi
+          if ! grep -Fq 'APK contains forbidden package com.helpi.evaluacion' "$RUNNER_TEMP/apk-canary.log"; then
+            cat "$RUNNER_TEMP/apk-canary.log"
+            echo 'The APK canary failed for an unexpected reason.'
+            exit 1
+          fi
   security:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -261,7 +305,7 @@ jobs:
           path: build/reports/codeql
   ci-gate:
     if: always()
-    needs: [quality, unit-contract, android-tests, build, security, codeql]
+    needs: [quality, unit-contract, android-tests, build, canario-produccion, security, codeql]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:

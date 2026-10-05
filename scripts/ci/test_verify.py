@@ -32,7 +32,7 @@ class GatesTest(unittest.TestCase):
             if command[1:3] == ['manifest', 'print']:
                 return manifest
             if command[1:3] == ['dex', 'packages']:
-                return '\n'.join(f'P {package}' for package in packages)
+                return '\n'.join(f'P d 1 2 3 {package}' for package in packages)
             raise AssertionError(f'Unexpected apkanalyzer command: {command}')
 
         analyzer = patch('verify.subprocess.check_output', side_effect=analyzer_output)
