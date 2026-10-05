@@ -13,7 +13,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 REPORTS = {
     'domain': ROOT / 'domain/build/reports/jacoco/test/jacocoTestReport.xml',
-    'app': ROOT / 'app/build/reports/jacoco/jacocoDebugReport/jacocoDebugReport.xml',
+    'appProduccion': ROOT / 'app/build/reports/jacoco/jacocoProduccionDebugReport/jacocoProduccionDebugReport.xml',
+    'appEvaluacion': ROOT / 'app/build/reports/jacoco/jacocoEvaluacionDebugReport/jacocoEvaluacionDebugReport.xml',
 }
 BASELINE = ROOT / 'config/quality/coverage.json'
 
@@ -33,10 +34,12 @@ def coverage(initialize=False):
         measured[module] = {'covered': covered, 'total': covered + missed}
     if initialize:
         require(not BASELINE.exists(), 'Initial coverage already recorded; cannot overwrite')
-        BASELINE.write_text(json.dumps(measured, indent=2) + '\n')
+        baseline = {'domain': measured['domain'], 'app': measured['appProduccion']}
+        BASELINE.write_text(json.dumps(baseline, indent=2) + '\n')
     expected = json.loads(BASELINE.read_text())
     for module, actual in measured.items():
-        minimum = expected[module]
+        baseline_module = 'app' if module.startswith('app') else module
+        minimum = expected[baseline_module]
         require(Fraction(actual['covered'], actual['total']) >=
                 Fraction(minimum['covered'], minimum['total']), f'{module}: coverage regressed: {actual} < {minimum}')
         print(f"{module}: {100 * actual['covered'] / actual['total']:.2f}% lines")

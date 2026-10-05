@@ -165,15 +165,34 @@ tasks.withType<Test>().configureEach {
     }
 }
 
-tasks.register<JacocoReport>("jacocoDebugReport") {
-    dependsOn("testDebugUnitTest")
+tasks.register<JacocoReport>("jacocoProduccionDebugReport") {
+    dependsOn("testProduccionDebugUnitTest")
     executionData.setFrom(
         layout.buildDirectory.file(
-            "outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec"
+            "outputs/unit_test_code_coverage/produccionDebugUnitTest/testProduccionDebugUnitTest.exec"
         )
     )
     classDirectories.setFrom(
-        fileTree(layout.buildDirectory.dir("tmp/kotlin-classes/debug")) {
+        fileTree(layout.buildDirectory.dir("tmp/kotlin-classes/produccionDebug")) {
+            exclude("**/R.class", "**/R$*.class", "**/BuildConfig.*", "**/Manifest*.*")
+        }
+    )
+    sourceDirectories.setFrom(files("src/main/java"))
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+    }
+}
+
+tasks.register<JacocoReport>("jacocoEvaluacionDebugReport") {
+    dependsOn("testEvaluacionDebugUnitTest")
+    executionData.setFrom(
+        layout.buildDirectory.file(
+            "outputs/unit_test_code_coverage/evaluacionDebugUnitTest/testEvaluacionDebugUnitTest.exec"
+        )
+    )
+    classDirectories.setFrom(
+        fileTree(layout.buildDirectory.dir("tmp/kotlin-classes/evaluacionDebug")) {
             exclude("**/R.class", "**/R$*.class", "**/BuildConfig.*", "**/Manifest*.*")
         }
     )

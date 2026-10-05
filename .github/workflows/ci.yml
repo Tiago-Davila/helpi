@@ -34,7 +34,7 @@ jobs:
       - run: python3 -m unittest discover -s scripts/ci -p 'test_*.py'
       - run: node scripts/ci/test-branch-policy.cjs
       - run: bash scripts/ci/lint-workflows.sh
-      - run: ./gradlew ktlintCheck :app:detekt :app:lintDebug :domain:spotbugsMain --stacktrace
+      - run: ./gradlew ktlintCheck :app:detekt :app:lintProduccionDebug :app:lintEvaluacionDebug :domain:spotbugsMain --stacktrace
       - name: Prevent baseline growth
         if: github.event_name == 'pull_request'
         env:
@@ -66,11 +66,12 @@ jobs:
           packages: platform-tools platforms;android-35 build-tools;35.0.0
           log-accepted-android-sdk-licenses: false
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
-      - run: ./gradlew :domain:jacocoTestReport :app:jacocoDebugReport --stacktrace
+      - run: ./gradlew :domain:jacocoTestReport :app:jacocoProduccionDebugReport :app:jacocoEvaluacionDebugReport --stacktrace
       - run: |
           python3 scripts/ci/verify.py coverage
           python3 scripts/ci/verify.py junit domain/build/test-results/test
-          python3 scripts/ci/verify.py junit app/build/test-results/testDebugUnitTest
+          python3 scripts/ci/verify.py junit app/build/test-results/testProduccionDebugUnitTest
+          python3 scripts/ci/verify.py junit app/build/test-results/testEvaluacionDebugUnitTest
           python3 scripts/ci/verify.py bundle
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
@@ -153,10 +154,10 @@ jobs:
           packages: platform-tools platforms;android-35 build-tools;35.0.0
           log-accepted-android-sdk-licenses: false
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
-      - run: ./gradlew :app:assembleDebug :app:assembleRelease --stacktrace
+      - run: ./gradlew :app:assembleProduccionDebug :app:assembleProduccionRelease --stacktrace
       - run: |
-          python3 scripts/ci/verify.py apk app/build/outputs/apk/debug/app-debug.apk "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer"
-          python3 scripts/ci/verify.py apk app/build/outputs/apk/release/app-release-unsigned.apk "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer"
+          python3 scripts/ci/verify.py apk app/build/outputs/apk/produccion/debug/app-produccion-debug.apk "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer"
+          python3 scripts/ci/verify.py apk app/build/outputs/apk/produccion/release/app-produccion-release-unsigned.apk "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
@@ -243,7 +244,7 @@ jobs:
           build-mode: ${{ matrix.language == 'java-kotlin' && 'manual' || 'none' }}
           queries: security-extended
       - if: matrix.language == 'java-kotlin'
-        run: ./gradlew :app:assembleDebug :domain:classes --no-build-cache --rerun-tasks
+        run: ./gradlew :app:assembleProduccionDebug :domain:classes --no-build-cache --rerun-tasks
       - uses: github/codeql-action/analyze@1190a975f95ce23525efb6a3fc21ea29567c1b52 # v3
         with:
           category: /language:${{ matrix.language }}
@@ -288,10 +289,10 @@ jobs:
           packages: platform-tools platforms;android-35 build-tools;35.0.0
           log-accepted-android-sdk-licenses: false
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
-      - run: ./gradlew :app:assembleDebug :app:assembleRelease
+      - run: ./gradlew :app:assembleProduccionDebug :app:assembleProduccionRelease
       - run: |
-          python3 scripts/ci/verify.py apk app/build/outputs/apk/debug/app-debug.apk "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer"
-          python3 scripts/ci/verify.py apk app/build/outputs/apk/release/app-release-unsigned.apk "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer"
+          python3 scripts/ci/verify.py apk app/build/outputs/apk/produccion/debug/app-produccion-debug.apk "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer"
+          python3 scripts/ci/verify.py apk app/build/outputs/apk/produccion/release/app-produccion-release-unsigned.apk "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer"
           git rev-parse HEAD > app/build/outputs/apk/SOURCE_SHA.txt
           sha256sum app/build/outputs/apk/*/*.apk > app/build/outputs/apk/SHA256SUMS
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
