@@ -19,23 +19,26 @@ import com.helpi.conversation.lsa.ModelBundle
 import com.helpi.conversation.lsa.ModelBundleResult
 import com.helpi.conversation.lsa.SignAcceptancePolicy
 import com.helpi.conversation.lsa.SignClassifier
+import com.helpi.conversation.lsa.SignDecision
 import com.helpi.conversation.lsa.sequence.PhraseCaptureState
 import com.helpi.conversation.lsa.sequence.RecognitionMode
-import com.helpi.conversation.lsa.sequence.SequenceCaptureBuffer
-import com.helpi.conversation.lsa.sequence.SequenceAppendResult
 import com.helpi.conversation.lsa.sequence.SequenceAcceptancePolicy
+import com.helpi.conversation.lsa.sequence.SequenceAppendResult
+import com.helpi.conversation.lsa.sequence.SequenceCaptureBuffer
 import com.helpi.conversation.lsa.sequence.SequenceModelBundle
 import com.helpi.conversation.lsa.sequence.SequenceModelBundleResult
 import com.helpi.conversation.lsa.sequence.SequenceTranslationCandidate
 import com.helpi.conversation.lsa.sequence.SequenceTranslator
+import com.helpi.conversation.observation.NoResultCause
+import com.helpi.conversation.observation.RecognitionObserver
 import com.helpi.conversation.vision.CameraCaptureMetrics
 import com.helpi.conversation.vision.FramingEvaluator
 import com.helpi.conversation.vision.LandmarkExtractionMetrics
 import com.helpi.conversation.vision.LandmarkFrame
 import com.helpi.conversation.vision.ObservationFactory
+import com.helpi.conversation.vision.SamplingProfile
 import com.helpi.conversation.vision.SegmentEvent
 import com.helpi.conversation.vision.SegmenterConfig
-import com.helpi.conversation.vision.SamplingProfile
 import com.helpi.conversation.vision.SignSegmenter
 import com.helpi.conversation.vision.SigningDistanceGuide
 import com.helpi.conversation.vision.VisionMetrics
@@ -56,7 +59,16 @@ import kotlinx.coroutines.flow.asStateFlow
  *
  * La conversación vive exclusivamente en memoria y se descarta al cerrar.
  */
-class SessionCoordinator(private val context: Context) {
+class SessionCoordinator(
+    private val context: Context,
+    private val recognitionObserver: RecognitionObserver = RecognitionObserver.NO_OP,
+    private val deliveryMode: DeliveryMode = DeliveryMode.CONVERSATION
+) {
+
+    enum class DeliveryMode {
+        CONVERSATION,
+        OBSERVER_ONLY
+    }
 
     data class Capabilities(
         val keyboard: Boolean = true,
@@ -67,7 +79,7 @@ class SessionCoordinator(private val context: Context) {
         val stt: Boolean = false,
         val sttDetail: String = "",
         val tts: Boolean = false,
-        val ttsDetail: String = "",
+        val ttsDetail: String = ""
     )
 
     data class RecognitionFeedback(
@@ -75,13 +87,10 @@ class SessionCoordinator(private val context: Context) {
         val threshold: Float,
         val accepted: Boolean,
         val gloss: String? = null,
-        val predictions: List<RecognitionPrediction> = emptyList(),
+        val predictions: List<RecognitionPrediction> = emptyList()
     )
 
-    data class RecognitionPrediction(
-        val label: String,
-        val confidence: Float,
-    )
+    data class RecognitionPrediction(val label: String, val confidence: Float)
 
     data class UiState(
         val session: SessionState = SessionState.INICIO,
@@ -100,7 +109,7 @@ class SessionCoordinator(private val context: Context) {
         val phraseCandidate: SequenceTranslationCandidate? = null,
         val notice: String? = null,
         val microphoneEnabled: Boolean = true,
-        val cameraEnabled: Boolean = true,
+        val cameraEnabled: Boolean = true
     )
 
     private val executor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
@@ -123,7 +132,7 @@ class SessionCoordinator(private val context: Context) {
         val timestampMs: Long,
         val vector: FloatArray,
         val imageWidth: Int,
-        val imageHeight: Int,
+        val imageHeight: Int
     )
 
     /** Buffer de cuadros del segmento en curso. */
@@ -172,39 +181,43 @@ class SessionCoordinator(private val context: Context) {
 
     private val arbiter: AudioArbiter by lazy {
         AudioArbiter(object : AudioArbiterListener {
-        override fun requestCloseSttGate() {
-            val gen = generation
-            audioState = AudioChannelState.CERRANDO_ENTRADA_STT
-            speech?.closeGate()
-            // confirmación explícita: la compuerta quedó cerrada
-            submit(gen) {
-                if (!isActive() || arbiter.state() != AudioArbiterState.WAITING_GATE) return@submit
+            override fun requestCloseSttGate() {
+                val gen = generation
+                audioState = AudioChannelState.CERRANDO_ENTRADA_STT
+                speech?.closeGate()
+                // confirmación explícita: la compuerta quedó cerrada
+                submit(gen) {
+                    if (!isActive() ||
+                        arbiter.state() != AudioArbiterState.WAITING_GATE
+                    ) {
+                        return@submit
+                    }
+                    audioState = AudioChannelState.TTS_HABLANDO
+                    arbiter.sttGateClosed(now())
+                    publish()
+                }
+            }
+
+            override fun openSttGate() {
+                if (microphoneEnabled && isActive()) speech?.openGate()
+                audioState = if (capabilities.stt && microphoneEnabled && isActive()) {
+                    AudioChannelState.STT_ESCUCHANDO
+                } else {
+                    AudioChannelState.STT_LISTO
+                }
+            }
+
+            override fun speak(messageId: Long, text: String) {
                 audioState = AudioChannelState.TTS_HABLANDO
-                arbiter.sttGateClosed(now())
-                publish()
+                speechOutput?.speak(messageId, text)
             }
-        }
 
-        override fun openSttGate() {
-            if (microphoneEnabled && isActive()) speech?.openGate()
-            audioState = if (capabilities.stt && microphoneEnabled && isActive()) {
-                AudioChannelState.STT_ESCUCHANDO
-            } else {
-                AudioChannelState.STT_LISTO
+            override fun expired(messageId: Long) {
+                if (hasTurn(messageId)) {
+                    conversation.updateVoice(messageId, VoiceState.NOT_SPOKEN)
+                }
             }
-        }
-
-        override fun speak(messageId: Long, text: String) {
-            audioState = AudioChannelState.TTS_HABLANDO
-            speechOutput?.speak(messageId, text)
-        }
-
-        override fun expired(messageId: Long) {
-            if (hasTurn(messageId)) {
-                conversation.updateVoice(messageId, VoiceState.NOT_SPOKEN)
-            }
-        }
-    })
+        })
     }
 
     // ------------------------------------------------------------------
@@ -236,79 +249,90 @@ class SessionCoordinator(private val context: Context) {
         // Canal visual: modelo + catálogo (unidad verificada)
         val visionCap = if (!hasPermission(Manifest.permission.CAMERA)) {
             false to "permiso de cámara denegado"
-        } else when (val result = ModelBundle.load(context)) {
-            is ModelBundleResult.Ready -> {
-                bundle = result.bundle
-                try {
-                    classifier = SignClassifier(result.bundle)
-                    acceptancePolicy = SignAcceptancePolicy(
-                        confidenceThreshold,
-                        result.bundle.manifest.outputsProbabilities,
-                        result.bundle.manifest.numClasses,
-                    )
-                    true to ""
-                } catch (e: Exception) {
-                    false to "modelo incompatible: ${e.message}"
+        } else {
+            when (val result = ModelBundle.load(context)) {
+                is ModelBundleResult.Ready -> {
+                    bundle = result.bundle
+                    try {
+                        classifier = SignClassifier(result.bundle)
+                        acceptancePolicy = SignAcceptancePolicy(
+                            confidenceThreshold,
+                            result.bundle.manifest.outputsProbabilities,
+                            result.bundle.manifest.numClasses
+                        )
+                        true to ""
+                    } catch (e: Exception) {
+                        false to "modelo incompatible: ${e.message}"
+                    }
                 }
+                is ModelBundleResult.Missing -> false to "falta ${result.asset}"
+                is ModelBundleResult.Invalid -> false to result.cause
             }
-            is ModelBundleResult.Missing -> false to "falta ${result.asset}"
-            is ModelBundleResult.Invalid -> false to result.cause
         }
 
         // Canal experimental de frases: su ausencia nunca inhabilita a Eva.
         val phraseCap = if (!hasPermission(Manifest.permission.CAMERA)) {
             false to "permiso de cámara denegado"
-        } else when (val result = SequenceModelBundle.load(context)) {
-            is SequenceModelBundleResult.Ready -> {
-                try {
-                    sequenceBundle = result.bundle
-                    sequenceTranslator = SequenceTranslator(result.bundle)
-                    phraseCaptureState = PhraseCaptureState.READY
-                    true to ""
-                } catch (e: Exception) {
-                    sequenceTranslator = null
-                    sequenceBundle = null
-                    phraseCaptureState = PhraseCaptureState.UNAVAILABLE
-                    false to "paquete de frases incompatible: ${e.message}"
+        } else {
+            when (val result = SequenceModelBundle.load(context)) {
+                is SequenceModelBundleResult.Ready -> {
+                    try {
+                        sequenceBundle = result.bundle
+                        sequenceTranslator = SequenceTranslator(result.bundle)
+                        phraseCaptureState = PhraseCaptureState.READY
+                        true to ""
+                    } catch (e: Exception) {
+                        sequenceTranslator = null
+                        sequenceBundle = null
+                        phraseCaptureState = PhraseCaptureState.UNAVAILABLE
+                        false to "paquete de frases incompatible: ${e.message}"
+                    }
                 }
-            }
-            is SequenceModelBundleResult.Missing -> {
-                phraseCaptureState = PhraseCaptureState.UNAVAILABLE
-                false to "modo frase pendiente: falta ${result.asset}"
-            }
-            is SequenceModelBundleResult.Invalid -> {
-                phraseCaptureState = PhraseCaptureState.UNAVAILABLE
-                false to result.cause
+                is SequenceModelBundleResult.Missing -> {
+                    phraseCaptureState = PhraseCaptureState.UNAVAILABLE
+                    false to "modo frase pendiente: falta ${result.asset}"
+                }
+                is SequenceModelBundleResult.Invalid -> {
+                    phraseCaptureState = PhraseCaptureState.UNAVAILABLE
+                    false to result.cause
+                }
             }
         }
 
         // Canal A: Vosk
         val sttCap = if (!hasPermission(Manifest.permission.RECORD_AUDIO)) {
             false to "permiso de micrófono denegado"
-        } else when (val result = VoskModelStore.install(context)) {
-            is VoskModelStore.Result.Ready -> {
-                try {
-                    val gen = generation
-                    speech = VoskSpeechSource(
-                        modelDir = result.modelDir,
-                        onPartial = { text -> submit(gen) { onSttPartial(text) } },
-                        onFinal = { text -> submit(gen) { onSttFinal(text) } },
-                        onSpeechActivity = { active ->
-                            submit(gen) {
-                                if (!isActive() || !microphoneEnabled) return@submit
-                                arbiter.hearingSpeechActive(active, now())
-                                if (active) audioState = AudioChannelState.STT_TRANSCRIBIENDO
+        } else {
+            when (val result = VoskModelStore.install(context)) {
+                is VoskModelStore.Result.Ready -> {
+                    try {
+                        val gen = generation
+                        speech = VoskSpeechSource(
+                            modelDir = result.modelDir,
+                            onPartial = { text -> submit(gen) { onSttPartial(text) } },
+                            onFinal = { text -> submit(gen) { onSttFinal(text) } },
+                            onSpeechActivity = { active ->
+                                submit(gen) {
+                                    if (!isActive() || !microphoneEnabled) return@submit
+                                    arbiter.hearingSpeechActive(active, now())
+                                    if (active) audioState = AudioChannelState.STT_TRANSCRIBIENDO
+                                }
+                            },
+                            onError = { msg ->
+                                submit(gen) {
+                                    notice = msg
+                                    publish()
+                                }
                             }
-                        },
-                        onError = { msg -> submit(gen) { notice = msg; publish() } },
-                    )
-                    true to ""
-                } catch (e: Exception) {
-                    false to "Vosk no inicializó: ${e.message}"
+                        )
+                        true to ""
+                    } catch (e: Exception) {
+                        false to "Vosk no inicializó: ${e.message}"
+                    }
                 }
+                is VoskModelStore.Result.Missing -> false to result.detail
+                is VoskModelStore.Result.Failed -> false to result.detail
             }
-            is VoskModelStore.Result.Missing -> false to result.detail
-            is VoskModelStore.Result.Failed -> false to result.detail
         }
 
         // Salida de voz
@@ -319,7 +343,8 @@ class SessionCoordinator(private val context: Context) {
                 submit(gen) {
                     capabilities = capabilities.copy(
                         tts = desc != null,
-                        ttsDetail = desc ?: "sin voz española offline: la persona oyente no recibirá audio",
+                        ttsDetail =
+                        desc ?: "sin voz española offline: la persona oyente no recibirá audio"
                     )
                     if (desc != null &&
                         stateMachine.current() == SessionState.ACTIVA_LIMITADA &&
@@ -344,15 +369,19 @@ class SessionCoordinator(private val context: Context) {
                     arbiter.ttsFailed(id, now())
                     publish()
                 }
-            },
+            }
         )
 
         capabilities = capabilities.copy(
-            vision = visionCap.first, visionDetail = visionCap.second,
-            phraseVision = phraseCap.first, phraseVisionDetail = phraseCap.second,
-            stt = sttCap.first, sttDetail = sttCap.second,
+            vision = visionCap.first,
+            visionDetail = visionCap.second,
+            phraseVision = phraseCap.first,
+            phraseVisionDetail = phraseCap.second,
+            stt = sttCap.first,
+            sttDetail = sttCap.second
         )
-        audioState = if (sttCap.first) AudioChannelState.STT_LISTO else AudioChannelState.NO_DISPONIBLE
+        audioState =
+            if (sttCap.first) AudioChannelState.STT_LISTO else AudioChannelState.NO_DISPONIBLE
 
         // El teclado siempre es un canal disponible, aun si se deniegan los
         // sensores. La sesión no queda bloqueada por una capacidad opcional.
@@ -377,8 +406,21 @@ class SessionCoordinator(private val context: Context) {
         val gen = generation
         ticker?.cancel(false)
         ticker = executor.scheduleWithFixedDelay(
-            { if (gen == generation) submit(gen) { if (isActive()) { arbiter.tick(now()); publish() } } },
-            200, 200, TimeUnit.MILLISECONDS,
+            {
+                if (gen ==
+                    generation
+                ) {
+                    submit(gen) {
+                        if (isActive()) {
+                            arbiter.tick(now())
+                            publish()
+                        }
+                    }
+                }
+            },
+            200,
+            200,
+            TimeUnit.MILLISECONDS
         )
         publish()
     }
@@ -461,7 +503,9 @@ class SessionCoordinator(private val context: Context) {
         classifier?.let { closing -> classifierExecutor.execute { closing.close() } }
         classifier = null
         classifying = false
-        sequenceTranslator?.let { closing -> sequenceClassifierExecutor.execute { closing.close() } }
+        sequenceTranslator?.let { closing ->
+            sequenceClassifierExecutor.execute { closing.close() }
+        }
         sequenceTranslator = null
         sequenceBundle = null
         sequenceClassifying = false
@@ -518,7 +562,7 @@ class SessionCoordinator(private val context: Context) {
                 targetFps = metrics.targetFps,
                 cameraFps = metrics.analyzerFps,
                 analyzedFrames = metrics.analyzedFrames,
-                rateLimitedFrames = metrics.rateLimitedFrames,
+                rateLimitedFrames = metrics.rateLimitedFrames
             )
             publish()
         }
@@ -534,7 +578,7 @@ class SessionCoordinator(private val context: Context) {
                 poseFrames = metrics.poseFrames,
                 leftHandFrames = metrics.leftHandFrames,
                 rightHandFrames = metrics.rightHandFrames,
-                lastMediaPipeLatencyMs = metrics.lastLatencyMs,
+                lastMediaPipeLatencyMs = metrics.lastLatencyMs
             )
             publish()
         }
@@ -551,7 +595,8 @@ class SessionCoordinator(private val context: Context) {
 
         val obs = observationFactory.observe(frame)
         framing = framingEvaluator.evaluate(obs)
-        signingDistance = signingDistanceGuide.evaluate(frame.pose, frame.imageWidth, frame.imageHeight)
+        signingDistance =
+            signingDistanceGuide.evaluate(frame.pose, frame.imageWidth, frame.imageHeight)
 
         if (recognitionMode == RecognitionMode.PHRASE_EXPERIMENTAL) {
             processPhraseLandmarks(frame)
@@ -575,7 +620,9 @@ class SessionCoordinator(private val context: Context) {
         when (event.type) {
             SegmentEvent.Type.ARMED -> visualState = VisualChannelState.ARMADO
             SegmentEvent.Type.STARTED -> {
-                visionMetrics = visionMetrics.copy(segmentsStarted = visionMetrics.segmentsStarted + 1)
+                reportSegmentStarted(event.segmentStartMs)
+                visionMetrics =
+                    visionMetrics.copy(segmentsStarted = visionMetrics.segmentsStarted + 1)
                 visualState = VisualChannelState.CAPTURANDO_SENA
                 frameBuffer.clear()
                 for (previous in preRollBuffer) {
@@ -583,19 +630,35 @@ class SessionCoordinator(private val context: Context) {
                 }
             }
             SegmentEvent.Type.ENDED -> {
-                visionMetrics = visionMetrics.copy(segmentsCompleted = visionMetrics.segmentsCompleted + 1)
+                visionMetrics =
+                    visionMetrics.copy(segmentsCompleted = visionMetrics.segmentsCompleted + 1)
                 visualState = VisualChannelState.REARMANDO
                 classifySegment(event.segmentStartMs, event.segmentEndMs)
             }
             SegmentEvent.Type.ABORTED -> {
-                visionMetrics = visionMetrics.copy(segmentsAborted = visionMetrics.segmentsAborted + 1)
+                when (event.abortReason) {
+                    SegmentEvent.AbortReason.TOO_SHORT -> reportNoResult(
+                        NoResultCause.SEGMENTO_CORTO
+                    )
+                    SegmentEvent.AbortReason.TOO_LONG -> reportNoResult(
+                        NoResultCause.SEGMENTO_LARGO
+                    )
+                    SegmentEvent.AbortReason.TRACKING_LOST ->
+                        reportNoResult(NoResultCause.SEGUIMIENTO_PERDIDO)
+
+                    SegmentEvent.AbortReason.NONE -> Unit
+                }
+                visionMetrics =
+                    visionMetrics.copy(segmentsAborted = visionMetrics.segmentsAborted + 1)
                 visualState = VisualChannelState.REARMANDO
                 frameBuffer.clear()
-                if (event.abortReason == SegmentEvent.AbortReason.TRACKING_LOST) {
+                if (event.abortReason == SegmentEvent.AbortReason.TRACKING_LOST &&
+                    deliveryMode == DeliveryMode.CONVERSATION
+                ) {
                     visualState = VisualChannelState.CALIDAD_INSUFICIENTE
                     conversation.systemNote(
                         "No vi bien tus manos. Dejá las manos quietas un momento y volvé a intentar.",
-                        now(),
+                        now()
                     )
                 }
             }
@@ -638,37 +701,62 @@ class SessionCoordinator(private val context: Context) {
     }
 
     private fun classifySegment(startMs: Long, endMs: Long) {
-        val cls = classifier ?: return
-        val policy = acceptancePolicy ?: return
-        val catalog = bundle?.catalog ?: return
+        val cls = classifier
+        val policy = acceptancePolicy
+        val catalog = bundle?.catalog
+        if (cls == null || policy == null || catalog == null) {
+            reportNoResult(NoResultCause.ERROR_MODELO)
+            return
+        }
 
         if (classifying) {
             // sin cola ilimitada: el intento no se traduce tardíamente sin aviso
-            conversation.systemNote("Ese intento no se procesó: había otro en curso.", now())
+            if (deliveryMode == DeliveryMode.CONVERSATION) {
+                conversation.systemNote("Ese intento no se procesó: había otro en curso.", now())
+            }
             frameBuffer.clear()
             return
         }
         val segment = frameBuffer.filter { it.timestampMs in startMs..endMs }
         frameBuffer.clear()
-        if (segment.isEmpty()) return
+        if (segment.isEmpty()) {
+            reportNoResult(NoResultCause.SEGMENTO_CORTO)
+            return
+        }
         // El contrato v3 usa un único tamaño de imagen por segmento. Con la
         // orientación fija no cambia; si cambiara (rotación a mitad de seña),
         // el intento se descarta en vez de mezclar geometrías.
         val imageWidth = segment.first().imageWidth
         val imageHeight = segment.first().imageHeight
         if (segment.any { it.imageWidth != imageWidth || it.imageHeight != imageHeight }) {
-            conversation.systemNote("Ese intento no se procesó: cambió la orientación de la cámara.", now())
+            reportNoResult(NoResultCause.ORIENTACION_CAMBIO)
+            if (deliveryMode == DeliveryMode.CONVERSATION) {
+                conversation.systemNote(
+                    "Ese intento no se procesó: cambió la orientación de la cámara.",
+                    now()
+                )
+            }
             return
         }
         val frames = segment.map { it.vector }
         // Sin hombros el contrato v3 no tiene escala: se avisa en lugar de
         // reportarlo como una falla del modelo.
         if (frames.none { KeypointContract.hasShoulders(it) }) {
-            conversation.systemNote("No vi tus hombros. Encuadrate con el torso visible y volvé a intentar.", now())
+            reportNoResult(NoResultCause.SIN_HOMBROS)
+            if (deliveryMode == DeliveryMode.CONVERSATION) {
+                conversation.systemNote(
+                    "No vi tus hombros. Encuadrate con el torso visible y volvé a intentar.",
+                    now()
+                )
+            }
             return
         }
 
-        val turn = conversation.open(Speaker.DEAF, startMs)
+        val turn = if (deliveryMode == DeliveryMode.CONVERSATION) {
+            conversation.open(Speaker.DEAF, startMs)
+        } else {
+            null
+        }
         val gen = generation
         val thresholdUsed = confidenceThreshold
         val revision = visionRevision
@@ -683,10 +771,10 @@ class SessionCoordinator(private val context: Context) {
                 classifying = false
                 visionMetrics = visionMetrics.copy(
                     classifierRuns = visionMetrics.classifierRuns + 1,
-                    lastClassifierLatencyMs = (now() - startedAt).coerceAtLeast(0L),
+                    lastClassifierLatencyMs = (now() - startedAt).coerceAtLeast(0L)
                 )
                 if (!isActive() || !cameraEnabled || revision != visionRevision) {
-                    conversation.markRejected(turn.id())
+                    turn?.let { conversation.markRejected(it.id()) }
                     publish()
                     return@submit
                 }
@@ -707,34 +795,68 @@ class SessionCoordinator(private val context: Context) {
                             threshold = thresholdUsed,
                             accepted = decision.accepted,
                             gloss = acceptedGloss,
-                            predictions = predictions,
+                            predictions = predictions
                         )
-                        if (decision.accepted) {
-                            val text = catalog.displayText(decision.classIndex)
-                            if (text == null) {
-                                conversation.markRejected(turn.id())
+                        dispatchDecision(decision, thresholdUsed, endMs) {
+                            if (decision.accepted) {
+                                val text = catalog.displayText(decision.classIndex)
+                                if (text == null) {
+                                    turn?.let { conversation.markRejected(it.id()) }
+                                } else {
+                                    turn?.let {
+                                        conversation.publishSign(it.id(), text)
+                                        arbiter.enqueue(
+                                            it.id(),
+                                            catalog.gloss(decision.classIndex)!!,
+                                            now()
+                                        )
+                                    }
+                                }
                             } else {
-                                conversation.publishSign(turn.id(), text)
-                                arbiter.enqueue(turn.id(), catalog.gloss(decision.classIndex)!!, now())
+                                turn?.let { conversation.markRejected(it.id()) }
+                                turn?.let {
+                                    val confidencePercent = (decision.confidence * 100).roundToInt()
+                                    val thresholdPercent = (thresholdUsed * 100).roundToInt()
+                                    val message =
+                                        "No reconocí la seña. Volvé a intentarlo. " +
+                                            "Confianza $confidencePercent %, umbral $thresholdPercent %."
+                                    conversation.systemNote(
+                                        message,
+                                        now()
+                                    )
+                                }
                             }
-                        } else {
-                            conversation.markRejected(turn.id())
-                            conversation.systemNote(
-                                    "No reconocí la seña. Volvé a intentarlo. " +
-                                    "Confianza ${(decision.confidence * 100).roundToInt()} %, " +
-                                    "umbral ${(thresholdUsed * 100).roundToInt()} %.",
-                                now(),
-                            )
                         }
                     },
                     onFailure = {
-                        conversation.markRejected(turn.id())
-                        notice = "No se pudo ejecutar el modelo LSA: ${it.message ?: "error desconocido"}"
-                    },
+                        reportNoResult(NoResultCause.ERROR_MODELO)
+                        turn?.let { conversation.markRejected(it.id()) }
+                        notice =
+                            "No se pudo ejecutar el modelo LSA: ${it.message ?: "error desconocido"}"
+                    }
                 )
                 publish()
             }
         }
+    }
+
+    internal fun reportSegmentStarted(startMs: Long) {
+        recognitionObserver.onSegmentStarted(startMs)
+    }
+
+    internal fun reportNoResult(cause: NoResultCause) {
+        recognitionObserver.onNoResult(cause)
+    }
+
+    internal fun dispatchDecision(
+        decision: SignDecision,
+        thresholdUsed: Float,
+        segmentEndMs: Long,
+        conversationDelivery: () -> Unit
+    ) {
+        recognitionObserver.onDecision(decision, thresholdUsed, segmentEndMs)
+        if (deliveryMode == DeliveryMode.OBSERVER_ONLY) return
+        conversationDelivery()
     }
 
     /** Cambia de motor sin mezclar buffers ni contratos de entrada. */
@@ -775,9 +897,13 @@ class SessionCoordinator(private val context: Context) {
 
     /** Inicia una captura de frase; nunca se activa automáticamente. */
     fun startPhraseCapture() = submit(generation) {
-        if (!isActive() || !cameraEnabled || !capabilities.phraseVision ||
+        if (!isActive() ||
+            !cameraEnabled ||
+            !capabilities.phraseVision ||
             recognitionMode != RecognitionMode.PHRASE_EXPERIMENTAL
-        ) return@submit
+        ) {
+            return@submit
+        }
         if (phraseCaptureState != PhraseCaptureState.READY) return@submit
         val start = lastVisionTimestampMs.takeIf { it > 0L } ?: now()
         phraseCandidate = null
@@ -833,9 +959,13 @@ class SessionCoordinator(private val context: Context) {
             val result = runCatching { translator.translate(tensor) }
             submit(gen) {
                 sequenceClassifying = false
-                if (!isActive() || !cameraEnabled || revision != visionRevision ||
+                if (!isActive() ||
+                    !cameraEnabled ||
+                    revision != visionRevision ||
                     recognitionMode != RecognitionMode.PHRASE_EXPERIMENTAL
-                ) return@submit
+                ) {
+                    return@submit
+                }
                 result.fold(
                     onSuccess = { candidate ->
                         val decision = sequenceAcceptancePolicy.evaluate(candidate)
@@ -852,7 +982,7 @@ class SessionCoordinator(private val context: Context) {
                         phraseCaptureState = PhraseCaptureState.READY
                         notice = "No se pudo ejecutar el modelo de frases: " +
                             (error.message ?: "error desconocido")
-                    },
+                    }
                 )
                 publish()
             }
@@ -870,7 +1000,11 @@ class SessionCoordinator(private val context: Context) {
         } else {
             PhraseCaptureState.UNAVAILABLE
         }
-        visualState = if (cameraEnabled) VisualChannelState.BUSCANDO_ENCUADRE else VisualChannelState.NO_DISPONIBLE
+        visualState = if (cameraEnabled) {
+            VisualChannelState.BUSCANDO_ENCUADRE
+        } else {
+            VisualChannelState.NO_DISPONIBLE
+        }
         publish()
     }
 
@@ -883,7 +1017,10 @@ class SessionCoordinator(private val context: Context) {
             publish()
             return@submit
         }
-        val turn = conversation.open(Speaker.DEAF, phraseCandidateStartMs.takeIf { it >= 0L } ?: now())
+        val turn = conversation.open(
+            Speaker.DEAF,
+            phraseCandidateStartMs.takeIf { it >= 0L } ?: now()
+        )
         conversation.publishTyped(turn.id(), text)
         if (capabilities.tts) {
             arbiter.enqueue(turn.id(), text, now())
@@ -936,7 +1073,7 @@ class SessionCoordinator(private val context: Context) {
             acceptancePolicy = SignAcceptancePolicy(
                 confidenceThreshold,
                 loaded.manifest.outputsProbabilities,
-                loaded.manifest.numClasses,
+                loaded.manifest.numClasses
             )
         }
         publish()
@@ -957,7 +1094,11 @@ class SessionCoordinator(private val context: Context) {
             arbiter.hearingSpeechActive(false, now())
         }
         if (arbiter.state() == AudioArbiterState.IDLE) {
-            audioState = if (microphoneEnabled) AudioChannelState.STT_ESCUCHANDO else AudioChannelState.STT_LISTO
+            audioState = if (microphoneEnabled) {
+                AudioChannelState.STT_ESCUCHANDO
+            } else {
+                AudioChannelState.STT_LISTO
+            }
         }
         publish()
     }
@@ -976,21 +1117,31 @@ class SessionCoordinator(private val context: Context) {
         signingDistanceGuide.reset()
         signingDistance = SigningDistanceGuide.State.UNKNOWN
         segmenter = SignSegmenter(SegmenterConfig.defaults())
-        phraseCaptureState = if (cameraEnabled && capabilities.phraseVision &&
+        phraseCaptureState = if (cameraEnabled &&
+            capabilities.phraseVision &&
             recognitionMode == RecognitionMode.PHRASE_EXPERIMENTAL
         ) {
             PhraseCaptureState.READY
-        } else if (capabilities.phraseVision && recognitionMode == RecognitionMode.PHRASE_EXPERIMENTAL) {
+        } else if (capabilities.phraseVision &&
+            recognitionMode == RecognitionMode.PHRASE_EXPERIMENTAL
+        ) {
             PhraseCaptureState.READY
         } else {
             PhraseCaptureState.UNAVAILABLE
         }
         framing = FramingEvaluator.Issue.SIN_PERSONA
-        visualState = if (cameraEnabled) VisualChannelState.BUSCANDO_ENCUADRE else VisualChannelState.NO_DISPONIBLE
+        visualState = if (cameraEnabled) {
+            VisualChannelState.BUSCANDO_ENCUADRE
+        } else {
+            VisualChannelState.NO_DISPONIBLE
+        }
         publish()
     }
 
-    fun dismissNotice() = submit(generation) { notice = null; publish() }
+    fun dismissNotice() = submit(generation) {
+        notice = null
+        publish()
+    }
 
     /** Texto escrito por la persona sorda: se publica y se pronuncia por TTS. */
     fun submitTyped(text: String) = submit(generation) {
@@ -1024,7 +1175,7 @@ class SessionCoordinator(private val context: Context) {
             vision = false,
             visionDetail = detail,
             phraseVision = false,
-            phraseVisionDetail = detail,
+            phraseVisionDetail = detail
         )
         phraseCaptureState = PhraseCaptureState.UNAVAILABLE
         visualState = VisualChannelState.NO_DISPONIBLE
@@ -1068,17 +1219,15 @@ class SessionCoordinator(private val context: Context) {
             SessionState.ACTIVA_LIMITADA
         }
 
-    private fun isActive(): Boolean =
-        stateMachine.current() == SessionState.ACTIVA ||
-            stateMachine.current() == SessionState.ACTIVA_LIMITADA
+    private fun isActive(): Boolean = stateMachine.current() == SessionState.ACTIVA ||
+        stateMachine.current() == SessionState.ACTIVA_LIMITADA
 
     private fun activeVisionAvailable(): Boolean = when (recognitionMode) {
         RecognitionMode.SINGLE_SIGN -> capabilities.vision
         RecognitionMode.PHRASE_EXPERIMENTAL -> capabilities.phraseVision
     }
 
-    private fun hasTurn(id: Long): Boolean =
-        runCatching { conversation.get(id) }.isSuccess
+    private fun hasTurn(id: Long): Boolean = runCatching { conversation.get(id) }.isSuccess
 
     /** Ajusta la tasa sin tocar la ventana fija de 40 cuadros del modelo. */
     private fun updateSamplingProfile() {
@@ -1088,7 +1237,9 @@ class SessionCoordinator(private val context: Context) {
                 segmenter.isArmed() -> SamplingProfile.ARMED
                 else -> SamplingProfile.IDLE
             }
-            RecognitionMode.PHRASE_EXPERIMENTAL -> if (phraseCaptureState == PhraseCaptureState.CAPTURING) {
+            RecognitionMode.PHRASE_EXPERIMENTAL -> if (phraseCaptureState ==
+                PhraseCaptureState.CAPTURING
+            ) {
                 SamplingProfile.ACTIVE
             } else {
                 SamplingProfile.IDLE
@@ -1128,7 +1279,7 @@ class SessionCoordinator(private val context: Context) {
             phraseCandidate = phraseCandidate,
             notice = notice,
             microphoneEnabled = microphoneEnabled,
-            cameraEnabled = cameraEnabled,
+            cameraEnabled = cameraEnabled
         )
     }
 
@@ -1137,6 +1288,7 @@ class SessionCoordinator(private val context: Context) {
         const val DEFAULT_THRESHOLD = 0.90f
         const val MIN_THRESHOLD = 0.50f
         const val MAX_THRESHOLD = 0.99f
+
         /** Vigencia de la pausa; pasada, la sesión se invalida (D07). */
         const val PAUSE_TTL_MS = 2L * 60 * 1000
         private const val MIN_PHRASE_FRAMES = 3
