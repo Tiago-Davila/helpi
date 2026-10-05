@@ -154,9 +154,12 @@ jobs:
           packages: platform-tools platforms;android-35 build-tools;35.0.0
           log-accepted-android-sdk-licenses: false
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
-      - run: ./gradlew :app:assembleProduccionDebug :app:assembleProduccionRelease --stacktrace
+      - run: ./gradlew :app:assembleProduccionDebug --stacktrace
       - run: |
           python3 scripts/ci/verify.py apk app/build/outputs/apk/produccion/debug/app-produccion-debug.apk "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer"
+      - name: Verify production release excludes evaluation
+        run: |
+          ./gradlew :app:assembleProduccionRelease --stacktrace
           python3 scripts/ci/verify.py apk app/build/outputs/apk/produccion/release/app-produccion-release-unsigned.apk "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()

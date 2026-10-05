@@ -79,13 +79,37 @@ def apk(path, apkanalyzer):
     manifest = subprocess.check_output([apkanalyzer, 'manifest', 'print', path], text=True)
     root = ET.fromstring(manifest)
     android = '{http://schemas.android.com/apk/res/android}'
-    require(not any(n.get(android + 'name') == 'android.permission.INTERNET'
-                    for n in root if n.tag.startswith('uses-permission')), 'APK requests INTERNET')
+    permissions = {
+        node.get(android + 'name')
+        for node in root
+        if node.tag.startswith('uses-permission')
+    }
+    for permission in ('android.permission.INTERNET', 'android.permission.ACCESS_NETWORK_STATE'):
+        require(permission not in permissions, f'APK requests {permission}')
+
+    dex_packages = subprocess.check_output([apkanalyzer, 'dex', 'packages', path], text=True)
+    package_names = {
+        fields[1]
+        for line in dex_packages.splitlines()
+        if len(fields := line.strip().split()) > 1 and fields[0] == 'P'
+    }
+    for prohibited in ('com.helpi.evaluacion', 'androidx.room', 'androidx.work'):
+        require(not any(
+            package == prohibited or package.startswith(f'{prohibited}.')
+            for package in package_names
+        ), f'APK contains forbidden package {prohibited}')
+
     application = root.find('application')
     require(application is not None and application.get(android + 'allowBackup') == 'false', 'Backup must be disabled')
     if 'release' in Path(path).name:
         require(application.get(android + 'debuggable', 'false') == 'false', 'Release is debuggable')
     with zipfile.ZipFile(path) as archive:
+        evaluation_assets = [
+            info.filename
+            for info in archive.infolist()
+            if info.filename.startswith('assets/evaluacion/')
+        ]
+        require(not evaluation_assets, f'APK contains evaluation assets: {evaluation_assets}')
         models = [i for i in archive.infolist() if i.filename.endswith(('.tflite', '.task'))]
         require(len(models) >= 2, 'Missing packaged model/extractor')
         require(all(i.compress_type == zipfile.ZIP_STORED for i in models), 'Models are compressed')
