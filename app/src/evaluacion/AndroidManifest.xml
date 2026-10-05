@@ -9,4 +9,6 @@
     <uses-permission
         android:name="android.permission.ACCESS_NETWORK_STATE"
         tools:node="remove" />
+
+    <application android:name=".EvaluacionApplication" />
 </manifest>

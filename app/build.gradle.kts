@@ -147,6 +147,7 @@ dependencies {
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.espresso.core)
     androidTestImplementation(libs.compose.ui.test.junit4)
+    add("androidTestEvaluacionImplementation", libs.room.runtime)
     debugImplementation(libs.compose.ui.test.manifest)
 }
 

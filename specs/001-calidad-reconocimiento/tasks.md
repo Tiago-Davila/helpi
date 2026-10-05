@@ -142,7 +142,7 @@ con todos los intentos resueltos, y se retoma en el primer intento sin respuesta
   - `RegistroObserver`: implementa `RecognitionObserver` y **solo reenvía** los eventos del puerto a un flujo en memoria. No tiene estado de intento ni escribe.
 
   Enlazarlo en `app/src/evaluacion/java/com/helpi/conversation/VariantBindings.kt`. Tests JVM: ninguna llamada del observador ni del encolado hace E/S en el hilo que la invoca; la cola llena y el disco lleno no lanzan excepciones al llamador. — Deps: T007, T008, T012 · Ref: FR-006, NFR-006, Edge Cases (almacenamiento lleno), research R-02, R-03
-- [ ] T015 [US1] Implementar la recuperación en `evaluacion/src/main/java/com/helpi/evaluacion/registro/RecuperacionSesiones.kt`:
+- [X] T015 [US1] Implementar la recuperación en `evaluacion/src/main/java/com/helpi/evaluacion/registro/RecuperacionSesiones.kt`:
   - al arrancar, `EN_CURSO` → `INTERRUMPIDA` con `interrupcion(PROCESO_TERMINADO)`;
   - en `ON_STOP` → `INTERRUMPIDA` con `SEGUNDO_PLANO`;
   - el intento en curso se descarta;

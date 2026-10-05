@@ -24,6 +24,12 @@ abstract class SesionDao {
     @Query("SELECT * FROM sesion WHERE id = :sesionId")
     abstract suspend fun buscar(sesionId: String): SesionEntity?
 
+    @Query("SELECT * FROM sesion WHERE estado = 'EN_CURSO' ORDER BY creadaEn")
+    abstract suspend fun listarEnCurso(): List<SesionEntity>
+
+    @Query("SELECT * FROM condiciones_prueba WHERE sesionId = :sesionId")
+    abstract suspend fun condiciones(sesionId: String): CondicionesPruebaEntity?
+
     @Query("SELECT * FROM sesion WHERE participanteCodigo = :codigo ORDER BY creadaEn")
     abstract suspend fun listarDeParticipante(codigo: String): List<SesionEntity>
 
@@ -70,5 +76,15 @@ abstract class SesionDao {
         require(bloque in 1..4) { "bloque debe estar entre 1 y 4" }
         if (contarOtraEnCurso(sesionId) > 0) return false
         return actualizarABloqueEnCurso(sesionId, bloque) == 1
+    }
+
+    @Query("UPDATE sesion SET estado = 'INTERRUMPIDA' WHERE id = :sesionId AND estado = 'EN_CURSO'")
+    abstract suspend fun marcarInterrumpidaSiEnCurso(sesionId: String): Int
+
+    @Transaction
+    open suspend fun interrumpirSiEnCurso(interrupcion: InterrupcionEntity): Boolean {
+        if (marcarInterrumpidaSiEnCurso(interrupcion.sesionId) != 1) return false
+        insertarInterrupcion(interrupcion)
+        return true
     }
 }
