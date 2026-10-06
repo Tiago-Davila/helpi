@@ -81,11 +81,33 @@ abstract class SesionDao {
     }
 
     @Transaction
-    open suspend fun iniciarBloque(sesionId: String, bloque: Int): Boolean {
+    open suspend fun iniciarBloque(
+        sesionId: String,
+        bloque: Int,
+        avisoVersion: String,
+        avisoVideoSha256: String
+    ): Boolean {
         require(bloque in 1..4) { "bloque debe estar entre 1 y 4" }
+        if (!tieneConsentimientoVigente(avisoVersion, avisoVideoSha256)) return false
         if (contarOtraEnCurso(sesionId) > 0) return false
         return actualizarABloqueEnCurso(sesionId, bloque) == 1
     }
+
+    @Query(
+        """
+        SELECT EXISTS(
+            SELECT 1 FROM consentimiento
+            WHERE id = (SELECT MAX(id) FROM consentimiento)
+                AND revocadoEn IS NULL
+                AND avisoVersion = :avisoVersion
+                AND avisoVideoSha256 = :avisoVideoSha256
+        )
+        """
+    )
+    protected abstract suspend fun tieneConsentimientoVigente(
+        avisoVersion: String,
+        avisoVideoSha256: String
+    ): Boolean
 
     @Query("UPDATE sesion SET estado = 'INTERRUMPIDA' WHERE id = :sesionId AND estado = 'EN_CURSO'")
     abstract suspend fun marcarInterrumpidaSiEnCurso(sesionId: String): Int

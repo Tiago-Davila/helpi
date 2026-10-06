@@ -1,0 +1,20 @@
+<resources>
+    <string name="aviso_titulo">Antes de iniciar una validación</string>
+    <string name="aviso_que_se_registra">Se registran la seña pedida, la predicción de Eva, su confianza y las tres predicciones principales, además de las condiciones de la prueba y las versiones de la aplicación y del modelo.</string>
+    <string name="aviso_que_no_se_registra">No se guarda ni se envía el video de la cámara, ninguna imagen ni los puntos del cuerpo o de las manos.</string>
+    <string name="aviso_para_que">Estos datos se usan para medir cómo reconoce Eva fuera del laboratorio. Eva reconoce señas; no interpreta lo que la persona quiere decir.</string>
+    <string name="aviso_donde_queda">Los datos quedan en este teléfono. Solo si alguien elige enviarlos, se copia la sesión al receptor del equipo.</string>
+    <string name="aviso_retencion">En el teléfono, una sesión exportada se conserva hasta 90 días desde la exportación. Si no se exportó, se conserva hasta 180 días desde el último intento registrado, o desde la creación si no hubo intentos. La retención del receptor la informa el equipo.</string>
+    <string name="aviso_quien_accede">El equipo de evaluación puede acceder a las sesiones que se le envíen.</string>
+    <string name="aviso_a_quienes_cubre">Este consentimiento cubre a todas las personas que participen en este teléfono.</string>
+    <string name="aviso_revocar_y_borrar">Puedes revocar el consentimiento en Ajustes de evaluación. Revocar detiene el registro y borra los envíos que todavía no salieron del teléfono, pero no borra las sesiones guardadas. Borrar los datos es una acción aparte. Para pedir que el equipo elimine una sesión ya enviada, contacta al equipo de evaluación.</string>
+    <string name="aviso_video_titulo">Aviso completo en LSA</string>
+    <string name="aviso_video_no_reproducido">El video no se reproduce hasta que lo pidas.</string>
+    <string name="aviso_video_faltante">Falta el video del aviso en LSA o no está disponible. No se puede aceptar ni iniciar una validación hasta instalar el asset oficial.</string>
+    <string name="aviso_reproducir_video">Reproducir video en LSA</string>
+    <string name="aviso_video_atribucion">LSA64 · LIDI, UNLP · CC BY-NC-SA 4.0</string>
+    <string name="aviso_aceptar">Acepto que se registre</string>
+    <string name="aviso_consentimiento_vigente">Consentimiento vigente</string>
+    <string name="aviso_aceptacion_fallo">No se pudo guardar el consentimiento. Inténtalo de nuevo.</string>
+    <string name="aviso_volver">Volver</string>
+</resources>

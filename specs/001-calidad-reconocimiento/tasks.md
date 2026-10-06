@@ -224,7 +224,7 @@ borrar; el borrado es una acción aparte.
 **Independent Test**: escenarios de US7. Con dos participantes: revocar → no se registra más,
 pero las sesiones siguen; borrar uno → solo quedan las del otro.
 
-- [ ] T023 [US1] Implementar en `evaluacion/src/main/java/com/helpi/evaluacion/consentimiento/` la pantalla del aviso:
+- [X] T023 [US1] Implementar en `evaluacion/src/main/java/com/helpi/evaluacion/consentimiento/` la pantalla del aviso:
   - texto llano y video en LSA lado a lado; el video se reproduce solo a pedido;
   - el botón "Acepto que se registre" no exige ver el video;
   - el contenido es el listado en research R-09, con `strings.xml` de `:evaluacion`;

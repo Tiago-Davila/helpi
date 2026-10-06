@@ -2,6 +2,7 @@ package com.helpi.evaluacion.datos
 
 import android.database.sqlite.SQLiteConstraintException
 import androidx.room.Room
+import com.helpi.evaluacion.consentimiento.AVISO_VERSION_ACTUAL
 import com.helpi.evaluacion.datos.entidades.CausaInterrupcion
 import com.helpi.evaluacion.datos.entidades.CausaSinResultado
 import com.helpi.evaluacion.datos.entidades.CondicionesPruebaEntity
@@ -118,10 +119,23 @@ class DaoTest {
         val primera = crearSesion("P-007", uuid(1))
         val segunda = crearSesion("P-007", uuid(2))
 
-        assertTrue(sesiones.iniciarBloque(primera, 1))
-        assertFalse(sesiones.iniciarBloque(segunda, 1))
+        assertTrue(sesiones.iniciarBloque(primera, 1, AVISO_VERSION_ACTUAL, HASH))
+        assertFalse(sesiones.iniciarBloque(segunda, 1, AVISO_VERSION_ACTUAL, HASH))
         assertEquals(EstadoSesion.EN_CURSO, sesiones.estado(primera))
         assertEquals(EstadoSesion.CREADA, sesiones.estado(segunda))
+    }
+
+    @Test
+    fun iniciarBloqueExigeElConsentimientoMasRecienteConVersionYHashActuales() = runBlocking {
+        val sesionId = crearSesion()
+        val consentimientoId = requireNotNull(sesiones.buscar(sesionId)).consentimientoId
+
+        assertFalse(
+            sesiones.iniciarBloque(sesionId, 1, AVISO_VERSION_ACTUAL, "b".repeat(64))
+        )
+        consentimientos.revocar(consentimientoId, 3L)
+        assertFalse(sesiones.iniciarBloque(sesionId, 1, AVISO_VERSION_ACTUAL, HASH))
+        assertEquals(EstadoSesion.CREADA, sesiones.estado(sesionId))
     }
 
     @Test
@@ -185,7 +199,7 @@ class DaoTest {
         }
         val consentimientoId = consentimientos.insertar(
             ConsentimientoEntity(
-                avisoVersion = "1.0",
+                avisoVersion = AVISO_VERSION_ACTUAL,
                 avisoVideoSha256 = HASH,
                 otorgadoEn = 2L,
                 revocadoEn = null

@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.helpi.conversation.observation.RecognitionObserver
 import com.helpi.conversation.session.SessionCoordinator
+import com.helpi.evaluacion.consentimiento.ConsentimientoRoute
 import com.helpi.evaluacion.navigation.EvaluacionGraph
 import com.helpi.evaluacion.registro.RegistroObserver
 
@@ -30,7 +31,11 @@ object VariantBindings {
     @Composable
     fun applicationContent(modifier: Modifier, content: @Composable () -> Unit) {
         Box(modifier) {
-            content()
+            if (EvaluacionGraph.currentRoute == EvaluacionGraph.VALIDATION_ROUTE) {
+                ConsentimientoRoute(onVolver = EvaluacionGraph::volver)
+            } else {
+                content()
+            }
             evaluationBadge(Modifier.align(Alignment.TopCenter))
         }
     }

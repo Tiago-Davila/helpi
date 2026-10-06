@@ -134,7 +134,7 @@ class SesionInterrumpidaTest {
     ) {
         val consentimientoId = database.consentimientoDao().insertar(
             ConsentimientoEntity(
-                avisoVersion = "1.0",
+                avisoVersion = "1",
                 avisoVideoSha256 = HASH,
                 otorgadoEn = 20L,
                 revocadoEn = null
@@ -167,7 +167,7 @@ class SesionInterrumpidaTest {
             ),
             condiciones(sesionId)
         )
-        check(database.sesionDao().iniciarBloque(sesionId, 1))
+        check(database.sesionDao().iniciarBloque(sesionId, 1, "1", HASH))
     }
 
     private suspend fun registrarIntentoRespondido(

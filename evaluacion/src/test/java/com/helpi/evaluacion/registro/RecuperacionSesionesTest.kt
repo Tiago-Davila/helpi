@@ -1,6 +1,7 @@
 package com.helpi.evaluacion.registro
 
 import androidx.room.Room
+import com.helpi.evaluacion.consentimiento.AVISO_VERSION_ACTUAL
 import com.helpi.evaluacion.datos.HelpiEvaluacionDatabase
 import com.helpi.evaluacion.datos.PrediccionTopDato
 import com.helpi.evaluacion.datos.entidades.CausaInterrupcion
@@ -86,7 +87,7 @@ class RecuperacionSesionesTest {
         database.participanteDao().insertar(ParticipanteEntity("P-007", creadoEn = 10L))
         val consentimientoId = database.consentimientoDao().insertar(
             ConsentimientoEntity(
-                avisoVersion = "1.0",
+                avisoVersion = AVISO_VERSION_ACTUAL,
                 avisoVideoSha256 = HASH,
                 otorgadoEn = 20L,
                 revocadoEn = null
@@ -119,7 +120,7 @@ class RecuperacionSesionesTest {
             ),
             condiciones()
         )
-        check(dao.iniciarBloque(sesionId, 1))
+        check(dao.iniciarBloque(sesionId, 1, AVISO_VERSION_ACTUAL, HASH))
         return sesionId
     }
 

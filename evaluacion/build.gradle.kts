@@ -41,6 +41,7 @@ android {
 
     defaultConfig {
         minSdk = 26
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "URL_RECEPTOR", javaStringLiteral(urlReceptor))
         buildConfigField("String", "CLAVE_ENVIO", javaStringLiteral(claveEnvio))
         buildConfigField(
@@ -92,6 +93,12 @@ dependencies {
     testImplementation(libs.mockwebserver)
     testImplementation(libs.okhttp.tls)
     testImplementation(libs.json.schema.validator)
+
+    androidTestImplementation(platform(libs.compose.bom))
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.compose.ui.test.junit4)
+    debugImplementation(libs.compose.ui.test.manifest)
 }
 
 ktlint {
