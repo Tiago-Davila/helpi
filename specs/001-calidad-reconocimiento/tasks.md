@@ -232,7 +232,7 @@ pero las sesiones siguen; borrar uno → solo quedan las del otro.
   - la compuerta impide iniciar, retomar, exportar y enviar sin consentimiento vigente.
 
   Test de UI con un asset de prueba en `evaluacion/src/androidTest/`. El video real es un asset externo: sin él, el build no se usa con participantes. — Deps: T008, T012 · Ref: FR-011, FR-012, FR-014, US1-1, research R-09
-- [ ] T024 [US7] Implementar la revocación en `evaluacion/src/main/java/com/helpi/evaluacion/consentimiento/Revocacion.kt` y Ajustes de evaluación. En una transacción:
+- [X] T024 [US7] Implementar la revocación en `evaluacion/src/main/java/com/helpi/evaluacion/consentimiento/Revocacion.kt` y Ajustes de evaluación. En una transacción:
   - completa `revocadoEn`;
   - pasa la sesión `EN_CURSO` a `INTERRUMPIDA` con causa `REVOCACION` y descarta el intento en curso;
   - borra los `envio` en `PENDIENTE`;

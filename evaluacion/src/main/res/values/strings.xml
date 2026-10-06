@@ -17,4 +17,15 @@
     <string name="aviso_consentimiento_vigente">Consentimiento vigente</string>
     <string name="aviso_aceptacion_fallo">No se pudo guardar el consentimiento. Inténtalo de nuevo.</string>
     <string name="aviso_volver">Volver</string>
+    <string name="ajustes_evaluacion_abrir">Ajustes de evaluación</string>
+    <string name="ajustes_evaluacion_titulo">Ajustes de evaluación</string>
+    <string name="ajustes_consentimiento_vigente">El consentimiento está vigente.</string>
+    <string name="ajustes_consentimiento_no_vigente">No hay un consentimiento vigente.</string>
+    <string name="ajustes_revocacion_detalle">Al revocar se interrumpe la sesión en curso y se eliminan los envíos pendientes. Las sesiones y los intentos ya registrados se conservan en este teléfono.</string>
+    <string name="ajustes_revocar">Revocar consentimiento</string>
+    <string name="revocacion_confirmar_titulo">¿Revocar el consentimiento?</string>
+    <string name="revocacion_confirmar_detalle">No se podrán iniciar ni retomar sesiones hasta que se acepte nuevamente el aviso. Las sesiones registradas no se borrarán.</string>
+    <string name="revocacion_confirmar_accion">Revocar</string>
+    <string name="revocacion_cancelar">Cancelar</string>
+    <string name="revocacion_fallo">No se pudo completar la revocación. Inténtalo de nuevo.</string>
 </resources>

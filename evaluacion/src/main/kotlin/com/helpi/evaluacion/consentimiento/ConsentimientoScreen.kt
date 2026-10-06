@@ -41,7 +41,7 @@ import kotlinx.coroutines.withContext
 
 @Composable
 @Suppress("ktlint:standard:function-naming")
-fun ConsentimientoRoute(onVolver: () -> Unit) {
+fun ConsentimientoRoute(onVolver: () -> Unit, onAjustes: () -> Unit = {}) {
     val context = LocalContext.current.applicationContext
     val repositorio = remember(context) {
         ConsentimientoRepositorio(
@@ -87,6 +87,7 @@ fun ConsentimientoRoute(onVolver: () -> Unit) {
                 }
             },
             onVolver = onVolver,
+            onAjustes = onAjustes,
             modifier = Modifier.padding(top = 40.dp),
             aceptacionFallida = falloAceptacion
         )
@@ -101,7 +102,8 @@ fun ConsentimientoScreen(
     onAceptar: () -> Unit,
     onVolver: () -> Unit,
     modifier: Modifier = Modifier,
-    aceptacionFallida: Boolean = false
+    aceptacionFallida: Boolean = false,
+    onAjustes: () -> Unit = {}
 ) {
     var videoSolicitado by remember(video) { mutableStateOf(false) }
     Row(
@@ -162,6 +164,9 @@ fun ConsentimientoScreen(
             }
             OutlinedButton(onClick = onVolver, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.aviso_volver))
+            }
+            OutlinedButton(onClick = onAjustes, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.ajustes_evaluacion_abrir))
             }
         }
         Column(
