@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.sp
 import com.helpi.conversation.observation.RecognitionObserver
 import com.helpi.conversation.session.SessionCoordinator
 import com.helpi.evaluacion.consentimiento.AjustesEvaluacionRoute
+import com.helpi.evaluacion.consentimiento.BorradoDatosRoute
 import com.helpi.evaluacion.consentimiento.ConsentimientoRoute
 import com.helpi.evaluacion.navigation.EvaluacionGraph
 import com.helpi.evaluacion.registro.RegistroObserver
@@ -39,7 +40,12 @@ object VariantBindings {
                 )
 
                 EvaluacionGraph.SETTINGS_ROUTE -> AjustesEvaluacionRoute(
-                    onVolver = { EvaluacionGraph.navigate(EvaluacionGraph.VALIDATION_ROUTE) }
+                    onVolver = { EvaluacionGraph.navigate(EvaluacionGraph.VALIDATION_ROUTE) },
+                    onBorrarDatos = { EvaluacionGraph.navigate(EvaluacionGraph.DELETE_ROUTE) }
+                )
+
+                EvaluacionGraph.DELETE_ROUTE -> BorradoDatosRoute(
+                    onVolver = { EvaluacionGraph.navigate(EvaluacionGraph.SETTINGS_ROUTE) }
                 )
 
                 else -> content()

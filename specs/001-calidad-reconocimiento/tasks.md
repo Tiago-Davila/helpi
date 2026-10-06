@@ -239,7 +239,7 @@ pero las sesiones siguen; borrar uno → solo quedan las del otro.
   - **no** borra sesiones ni intentos.
 
   Tests JVM con Room en memoria para US7-1 y US7-2. — Deps: T015, T023 · Ref: FR-013, US7-1, US7-2, research R-09
-- [ ] T025 [US7] Implementar la acción de borrado en `evaluacion/src/main/java/com/helpi/evaluacion/consentimiento/BorradoDatos.kt` y su pantalla:
+- [X] T025 [US7] Implementar la acción de borrado en `evaluacion/src/main/java/com/helpi/evaluacion/consentimiento/BorradoDatos.kt` y su pantalla:
   - elegir "participante P-xxx" o "todas";
   - resumen previo (N sesiones, M intentos, K envíos pendientes);
   - confirmación y borrado en cascada;

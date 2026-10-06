@@ -18,6 +18,12 @@ interface ParticipanteDao {
     @Query("SELECT * FROM participante WHERE codigo = :codigo")
     suspend fun buscar(codigo: String): ParticipanteEntity?
 
+    @Query("SELECT * FROM participante ORDER BY codigo")
+    suspend fun listarTodos(): List<ParticipanteEntity>
+
     @Query("SELECT COUNT(*) FROM participante")
     suspend fun cantidad(): Int
+
+    @Query("DELETE FROM participante")
+    suspend fun eliminarTodos(): Int
 }

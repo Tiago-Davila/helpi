@@ -35,7 +35,7 @@ import kotlinx.coroutines.withContext
 
 @Composable
 @Suppress("ktlint:standard:function-naming")
-fun AjustesEvaluacionRoute(onVolver: () -> Unit) {
+fun AjustesEvaluacionRoute(onVolver: () -> Unit, onBorrarDatos: () -> Unit = {}) {
     val context = LocalContext.current.applicationContext
     val database = remember(context) { HelpiEvaluacionDatabaseProvider.obtener(context) }
     val revocacion = remember(database) { Revocacion(database) }
@@ -57,6 +57,7 @@ fun AjustesEvaluacionRoute(onVolver: () -> Unit) {
         consentimientoVigente = consentimientoVigente,
         falloRevocacion = falloRevocacion,
         onVolver = onVolver,
+        onBorrarDatos = onBorrarDatos,
         onPedirRevocacion = { confirmandoRevocacion = true }
     )
 
@@ -105,6 +106,7 @@ fun AjustesEvaluacionScreen(
     consentimientoVigente: Boolean,
     falloRevocacion: Boolean,
     onVolver: () -> Unit,
+    onBorrarDatos: () -> Unit,
     onPedirRevocacion: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -146,6 +148,9 @@ fun AjustesEvaluacionScreen(
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(stringResource(R.string.ajustes_revocar))
+        }
+        OutlinedButton(onClick = onBorrarDatos, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.borrado_abrir))
         }
         OutlinedButton(onClick = onVolver, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.aviso_volver))

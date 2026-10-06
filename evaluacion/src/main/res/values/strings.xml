@@ -28,4 +28,33 @@
     <string name="revocacion_confirmar_accion">Revocar</string>
     <string name="revocacion_cancelar">Cancelar</string>
     <string name="revocacion_fallo">No se pudo completar la revocación. Inténtalo de nuevo.</string>
+    <string name="borrado_abrir">Borrar datos de evaluación</string>
+    <string name="borrado_titulo">Borrar datos guardados</string>
+    <string name="borrado_cargando">Cargando participantes…</string>
+    <string name="borrado_instrucciones">Elige un participante o todas las personas de este teléfono. Esta acción está disponible aunque el consentimiento no esté vigente.</string>
+    <string name="borrado_elegir">¿Qué datos quieres borrar?</string>
+    <string name="borrado_todas">Todas las personas</string>
+    <string name="borrado_participante">Participante %1$s</string>
+    <string name="borrado_copias">Sesiones ya enviadas o exportadas: %1$s</string>
+    <string name="borrado_sin_copias">No hay sesiones ya enviadas o exportadas en esta selección.</string>
+    <string name="borrado_solicitud_supresion">Las copias que ya salieron del teléfono no se borran aquí. Para solicitar su eliminación, contacta al equipo de evaluación e indica los identificadores listados.</string>
+    <string name="borrado_boton">Borrar datos</string>
+    <string name="borrado_confirmar_titulo">¿Confirmas el borrado?</string>
+    <string name="borrado_confirmar_detalle">Esta acción elimina del teléfono las sesiones, intentos y envíos pendientes seleccionados. El historial de consentimiento se conserva.</string>
+    <string name="borrado_confirmar_accion">Borrar definitivamente</string>
+    <string name="borrado_completado">Los datos seleccionados se eliminaron del teléfono.</string>
+    <string name="borrado_hecho">Hecho</string>
+    <string name="borrado_fallo">No se pudieron borrar los datos. Inténtalo de nuevo.</string>
+    <plurals name="borrado_sesiones">
+        <item quantity="one">Se eliminará %d sesión.</item>
+        <item quantity="other">Se eliminarán %d sesiones.</item>
+    </plurals>
+    <plurals name="borrado_intentos">
+        <item quantity="one">Se eliminará %d intento.</item>
+        <item quantity="other">Se eliminarán %d intentos.</item>
+    </plurals>
+    <plurals name="borrado_envios">
+        <item quantity="one">Se eliminará %d envío pendiente.</item>
+        <item quantity="other">Se eliminarán %d envíos pendientes.</item>
+    </plurals>
 </resources>
