@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
@@ -11,12 +13,41 @@ ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
 }
 
+val localProperties = Properties().apply {
+    rootProject.file("local.properties").takeIf { it.isFile }?.inputStream()?.use { stream ->
+        load(stream)
+    }
+}
+
+fun javaStringLiteral(value: String): String {
+    val escaped = value
+        .replace("\\", "\\\\")
+        .replace("\"", "\\\"")
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\t", "\\t")
+    return "\"$escaped\""
+}
+
+fun evaluationProperty(name: String): String =
+    providers.gradleProperty(name).orNull ?: localProperties.getProperty(name).orEmpty()
+
+val urlReceptor = evaluationProperty("helpi.evaluacion.urlReceptor")
+val claveEnvio = evaluationProperty("helpi.evaluacion.claveEnvio")
+
 android {
     namespace = "com.helpi.evaluacion"
     compileSdk = 35
 
     defaultConfig {
         minSdk = 26
+        buildConfigField("String", "URL_RECEPTOR", javaStringLiteral(urlReceptor))
+        buildConfigField("String", "CLAVE_ENVIO", javaStringLiteral(claveEnvio))
+        buildConfigField(
+            "boolean",
+            "ENVIO_HABILITADO",
+            (urlReceptor.isNotBlank() && claveEnvio.isNotBlank()).toString()
+        )
     }
 
     sourceSets {
@@ -38,6 +69,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

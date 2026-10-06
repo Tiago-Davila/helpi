@@ -162,6 +162,10 @@ jobs:
         run: |
           ./gradlew :app:assembleProduccionRelease --stacktrace
           python3 scripts/ci/verify.py apk app/build/outputs/apk/produccion/release/app-produccion-release-unsigned.apk "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer"
+      - name: Verify evaluation APK network boundary
+        run: |
+          ./gradlew :app:assembleEvaluacionDebug --stacktrace
+          python3 scripts/ci/verify.py apk-evaluacion app/build/outputs/apk/evaluacion/debug/app-evaluacion-debug.apk "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:

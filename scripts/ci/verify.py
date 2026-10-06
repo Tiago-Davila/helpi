@@ -116,6 +116,33 @@ def apk(path, apkanalyzer):
     print(f'{path}: offline, backup and model packaging verified')
 
 
+def apk_evaluacion(path, apkanalyzer):
+    manifest = subprocess.check_output([apkanalyzer, 'manifest', 'print', path], text=True)
+    root = ET.fromstring(manifest)
+    android = '{http://schemas.android.com/apk/res/android}'
+    permissions = {
+        node.get(android + 'name')
+        for node in root
+        if node.tag.startswith('uses-permission')
+    }
+    require('android.permission.INTERNET' in permissions,
+            'Evaluation APK must request android.permission.INTERNET')
+
+    application = root.find('application')
+    require(application is not None, 'Evaluation APK has no application manifest element')
+    require(application.get(android + 'usesCleartextTraffic', 'false') == 'false',
+            'Evaluation APK must not allow cleartext traffic')
+
+    dex_contents = subprocess.check_output([apkanalyzer, 'dex', 'packages', path], text=True)
+    backend_markers = (
+        'com.google.android.datatransport.cct.CctTransportBackend',
+        'com.google.android.datatransport.cct.CctBackendFactory',
+    )
+    require(not any(marker in dex_contents for marker in backend_markers),
+            'Evaluation APK contains forbidden transport-backend-cct classes')
+    print(f'{path}: evaluation network permissions and transport backend verified')
+
+
 def sarif(directory):
     reports = list(Path(directory).rglob('*.sarif'))
     require(reports, 'No SARIF results produced')
@@ -182,13 +209,14 @@ def exceptions():
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('command', choices=['coverage', 'init-coverage', 'junit', 'bundle', 'apk', 'ratchet', 'exceptions', 'sarif'])
+    parser.add_argument('command', choices=['coverage', 'init-coverage', 'junit', 'bundle', 'apk',
+                                             'apk-evaluacion', 'ratchet', 'exceptions', 'sarif'])
     parser.add_argument('args', nargs='*')
     args = parser.parse_args()
     if args.command == 'init-coverage':
         coverage(True)
     else:
-        globals()[args.command](*args.args)
+        globals()[args.command.replace('-', '_')](*args.args)
 
 
 if __name__ == '__main__':

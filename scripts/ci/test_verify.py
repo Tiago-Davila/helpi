@@ -40,6 +40,35 @@ class GatesTest(unittest.TestCase):
             verify.apk(str(apk_path), 'apkanalyzer')
         return check_output
 
+    def _verify_synthetic_evaluation_apk(self, directory, permissions=(), packages=(), cleartext=None):
+        apk_path = Path(directory) / 'app-evaluacion-debug.apk'
+        android = 'http://schemas.android.com/apk/res/android'
+        permission_xml = ''.join(
+            f'<uses-permission android:name="{permission}" />'
+            for permission in permissions
+        )
+        cleartext_attribute = (
+            '' if cleartext is None else f' android:usesCleartextTraffic="{str(cleartext).lower()}"'
+        )
+        manifest = (
+            f'<manifest xmlns:android="{android}">{permission_xml}'
+            f'<application android:allowBackup="false"{cleartext_attribute} />'
+            '</manifest>'
+        )
+        with zipfile.ZipFile(apk_path, 'w') as archive:
+            archive.writestr('classes.dex', b'evaluacion')
+
+        def analyzer_output(command, text):
+            if command[1:3] == ['manifest', 'print']:
+                return manifest
+            if command[1:3] == ['dex', 'packages']:
+                return '\n'.join(f'C d 1 2 3 {package}' for package in packages)
+            raise AssertionError(f'Unexpected apkanalyzer command: {command}')
+
+        with patch('verify.subprocess.check_output', side_effect=analyzer_output) as check_output:
+            verify.apk_evaluacion(str(apk_path), 'apkanalyzer')
+        return check_output
+
     def test_apk_accepts_clean_production_listing(self):
         with tempfile.TemporaryDirectory() as directory:
             check_output = self._verify_synthetic_apk(
@@ -66,6 +95,44 @@ class GatesTest(unittest.TestCase):
             with self.subTest(permission=permission), tempfile.TemporaryDirectory() as directory:
                 with self.assertRaises(ValueError):
                     self._verify_synthetic_apk(directory, permissions=(permission,))
+
+    def test_apk_evaluacion_accepts_secure_network_manifest(self):
+        with tempfile.TemporaryDirectory() as directory:
+            permissions = (
+                'android.permission.INTERNET',
+                'android.permission.ACCESS_NETWORK_STATE',
+            )
+            check_output = self._verify_synthetic_evaluation_apk(directory, permissions=permissions)
+            apk_path = str(Path(directory) / 'app-evaluacion-debug.apk')
+            check_output.assert_has_calls([
+                call(['apkanalyzer', 'manifest', 'print', apk_path], text=True),
+                call(['apkanalyzer', 'dex', 'packages', apk_path], text=True),
+            ])
+
+    def test_apk_evaluacion_requires_internet_and_rejects_cleartext(self):
+        for permissions, cleartext in [
+            (('android.permission.ACCESS_NETWORK_STATE',), None),
+            (('android.permission.INTERNET', 'android.permission.ACCESS_NETWORK_STATE'), True),
+        ]:
+            with self.subTest(permissions=permissions, cleartext=cleartext), tempfile.TemporaryDirectory() as directory:
+                with self.assertRaises(ValueError):
+                    self._verify_synthetic_evaluation_apk(
+                        directory,
+                        permissions=permissions,
+                        cleartext=cleartext,
+                    )
+
+    def test_apk_evaluacion_rejects_transport_backend_cct(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaises(ValueError):
+                self._verify_synthetic_evaluation_apk(
+                    directory,
+                    permissions=(
+                        'android.permission.INTERNET',
+                        'android.permission.ACCESS_NETWORK_STATE',
+                    ),
+                    packages=('com.google.android.datatransport.cct.CctTransportBackend',),
+                )
 
     def test_apk_rejects_every_evaluation_asset_path(self):
         for asset in (

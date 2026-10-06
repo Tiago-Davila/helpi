@@ -179,7 +179,7 @@ destino simulado (`MockWebServer`); **no** implementa el receptor.
 respuestas del contrato.
 
 - [ ] T017 [US1] Implementar `evaluacion/src/main/java/com/helpi/evaluacion/datos/SesionDocumentoMapper.kt`, que arma un `SesionDocumento` desde Room (sesión, condiciones, intentos con top-3 en orden de registro incluidos los reemplazados, interrupciones, versiones de app, modelo, hashes de modelo y catálogo, contrato de keypoints y la `secuencia` regenerada desde `semilla`). Test: el documento mapeado cumple las reglas S-02 a S-08 y el esquema. — Deps: T010, T012, T026 · Ref: FR-008, FR-009, FR-043, contrato §Reglas semánticas
-- [ ] T018 [US1] Habilitar la red **solo en evaluación**:
+- [X] T018 [US1] Habilitar la red **solo en evaluación**:
   - en `app/src/evaluacion/AndroidManifest.xml`, quitar los `remove` de T001 y declarar `INTERNET` y `ACCESS_NETWORK_STATE`;
   - crear `app/src/evaluacion/res/xml/network_security_config.xml` (sin texto plano, anclas de confianza del sistema) y referenciarlo desde el manifiesto;
   - leer `helpi.evaluacion.urlReceptor` y `helpi.evaluacion.claveEnvio` hacia `BuildConfig` en `evaluacion/build.gradle.kts` (sin ellas, el envío queda deshabilitado);
