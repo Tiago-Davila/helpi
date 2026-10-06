@@ -27,6 +27,9 @@ abstract class SesionDao {
     @Query("SELECT * FROM sesion WHERE estado = 'EN_CURSO' ORDER BY creadaEn")
     abstract suspend fun listarEnCurso(): List<SesionEntity>
 
+    @Query("SELECT * FROM sesion")
+    abstract suspend fun listarTodas(): List<SesionEntity>
+
     @Query("SELECT * FROM condiciones_prueba WHERE sesionId = :sesionId")
     abstract suspend fun condiciones(sesionId: String): CondicionesPruebaEntity?
 
@@ -52,6 +55,12 @@ abstract class SesionDao {
 
     @Query("SELECT COUNT(*) FROM sesion")
     abstract suspend fun cantidadSesiones(): Int
+
+    @Query("UPDATE sesion SET envioVencido = 1 WHERE id = :sesionId")
+    abstract suspend fun marcarEnvioVencido(sesionId: String): Int
+
+    @Query("DELETE FROM sesion WHERE id IN (:ids)")
+    abstract suspend fun eliminar(ids: List<String>): Int
 
     @Query("SELECT COUNT(*) FROM condiciones_prueba WHERE sesionId = :sesionId")
     abstract suspend fun cantidadCondiciones(sesionId: String): Int

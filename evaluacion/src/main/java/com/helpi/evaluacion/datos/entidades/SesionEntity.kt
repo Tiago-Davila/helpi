@@ -1,5 +1,6 @@
 package com.helpi.evaluacion.datos.entidades
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -43,7 +44,8 @@ data class SesionEntity(
     val ultimoIntentoEn: Long?,
     val ultimaExportacionEn: Long?,
     val intentosPerdidos: Int,
-    val revision: Int
+    val revision: Int,
+    @ColumnInfo(defaultValue = "0") val envioVencido: Boolean = false
 ) {
     init {
         require(id.matches(UUID_V4_REGEX)) { "id debe ser un UUID v4" }

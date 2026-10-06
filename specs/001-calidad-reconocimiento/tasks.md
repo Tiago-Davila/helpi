@@ -202,7 +202,7 @@ respuestas del contrato.
   - `Rechazado` → `RECHAZADO`; `Bloqueado` → `BLOQUEADO`, ambos con `motivo`; `Transitorio` → `Result.retry()`.
 
   Tests en `evaluacion/src/test/…/envio/EnvioWorkerTest.kt` con `work-testing` y `MockWebServer`: sin conexión, reintentos, confirmación, `sha256` distinto y 4xx sin reintento. — Deps: T019, T020 · Ref: FR-028, FR-029, FR-030, research R-05
-- [ ] T022 [US1] Implementar las reglas de retención en `evaluacion-dominio/src/main/java/com/helpi/evaluacion/dominio/retencion/`:
+- [X] T022 [US1] Implementar las reglas de retención en `evaluacion-dominio/src/main/java/com/helpi/evaluacion/dominio/retencion/`:
   - sesión: 90 días desde `ultimaExportacionEn`, o 180 desde `ultimoIntentoEn`;
   - envío `PENDIENTE` vence a los 30 días;
   - `RECHAZADO` y `BLOQUEADO` se conservan 30 días;

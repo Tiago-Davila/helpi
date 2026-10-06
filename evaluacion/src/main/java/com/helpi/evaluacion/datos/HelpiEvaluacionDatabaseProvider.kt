@@ -14,6 +14,6 @@ object HelpiEvaluacionDatabaseProvider {
             context.applicationContext,
             HelpiEvaluacionDatabase::class.java,
             DATABASE_NAME
-        ).build().also { instancia = it }
+        ).addMigrations(MIGRATION_1_2).build().also { instancia = it }
     }
 }

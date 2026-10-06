@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.Application
 import android.os.Bundle
 import com.helpi.evaluacion.datos.HelpiEvaluacionDatabaseProvider
+import com.helpi.evaluacion.envio.DepuracionWorker
 import com.helpi.evaluacion.registro.RecuperacionSesiones
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -20,6 +21,8 @@ class EvaluacionApplication :
             HelpiEvaluacionDatabaseProvider.obtener(this)
         )
         runBlocking(Dispatchers.IO) { recuperacionSesiones.alArrancar() }
+        DepuracionWorker.programar(this)
+        DepuracionWorker.ejecutarAlAbrir(this)
         registerActivityLifecycleCallbacks(this)
     }
 

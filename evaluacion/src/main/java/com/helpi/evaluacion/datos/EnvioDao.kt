@@ -22,6 +22,12 @@ interface EnvioDao {
     @Query("SELECT * FROM envio WHERE sesionId = :sesionId ORDER BY creadoEn, envioId")
     suspend fun listarDeSesion(sesionId: String): List<EnvioEntity>
 
+    @Query("SELECT * FROM envio ORDER BY creadoEn, envioId")
+    suspend fun listarTodos(): List<EnvioEntity>
+
+    @Query("DELETE FROM envio WHERE envioId = :envioId")
+    suspend fun eliminarPorId(envioId: String): Int
+
     @Query("SELECT COUNT(*) FROM envio WHERE estado = :estado")
     suspend fun cantidad(estado: EstadoEnvio): Int
 }
