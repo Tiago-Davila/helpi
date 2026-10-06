@@ -90,6 +90,7 @@ dependencies {
     testImplementation(libs.room.testing)
     testImplementation(libs.work.testing)
     testImplementation(libs.mockwebserver)
+    testImplementation(libs.okhttp.tls)
     testImplementation(libs.json.schema.validator)
 }
 

@@ -186,7 +186,7 @@ respuestas del contrato.
   - agregar a `scripts/ci/verify.py` el comando `apk-evaluacion`, que exige `INTERNET` presente, `usesCleartextTraffic` ausente o `false` y ausencia de `transport-backend-cct`, con sus casos en `scripts/ci/test_verify.py` y un paso en `ci.yml`.
 
   `verify.py apk` sobre producción sigue exigiendo que no haya `INTERNET`. — Deps: T001, T006 · Ref: FR-032a, research R-04, R-06
-- [ ] T019 [US1] Implementar `evaluacion/src/main/java/com/helpi/evaluacion/envio/ReceptorCliente.kt` con `HttpsURLConnection`:
+- [X] T019 [US1] Implementar `evaluacion/src/main/java/com/helpi/evaluacion/envio/ReceptorCliente.kt` con `HttpsURLConnection`:
   - `POST {urlReceptor}/v1/sesiones-evaluacion` con los encabezados del contrato;
   - timeouts de 15 s y 30 s, sin redirecciones;
   - clasificación de la respuesta en `Confirmado` (200 `RECIBIDO`/`DUPLICADO` con `envioId` y `sha256` coincidentes), `Rechazado`, `Bloqueado` o `Transitorio`, según la tabla del contrato, guardando el `estado` de la respuesta como `motivo`.
