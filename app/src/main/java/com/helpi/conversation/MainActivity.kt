@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.helpi.conversation.lsa.sequence.RecognitionMode
 import com.helpi.conversation.ui.ConversationScreen
 import com.helpi.conversation.ui.ConversationViewModel
 import com.helpi.conversation.ui.components.LandmarkOverlay
@@ -56,7 +57,16 @@ class MainActivity : ComponentActivity() {
                     // Cada pantalla aplica sus propios márgenes seguros: en la
                     // conversación horizontal la cámara llega hasta el borde
                     // físico y solo sus controles esquivan barras y recortes.
-                    VariantBindings.applicationContent(Modifier.fillMaxSize()) {
+                    VariantBindings.applicationContent(
+                        modifier = Modifier.fillMaxSize(),
+                        sessionCoordinator = viewModel.coordinator,
+                        cameraPreview = { CameraPreview() },
+                        onStartRecognition = {
+                            if (!viewModel.uiState.value.cameraEnabled) viewModel.toggleCamera()
+                            viewModel.setRecognitionMode(RecognitionMode.SINGLE_SIGN)
+                            requestPermissionsAndPrepare()
+                        }
+                    ) {
                         ConversationScreen(
                             viewModel = viewModel,
                             onStart = ::requestPermissionsAndPrepare,

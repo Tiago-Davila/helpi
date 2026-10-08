@@ -10,6 +10,7 @@ object EvaluacionGraph {
     const val ALTA_SESION_ROUTE = "alta-sesion"
     const val SETTINGS_ROUTE = "ajustes-evaluacion"
     const val DELETE_ROUTE = "borrar-datos-evaluacion"
+    const val PROTOCOL_ROUTE = "protocolo-evaluacion"
 
     var currentRoute: String? by mutableStateOf(null)
         private set
@@ -18,7 +19,15 @@ object EvaluacionGraph {
         private set
 
     fun navigate(route: String) {
-        require(route in setOf(VALIDATION_ROUTE, ALTA_SESION_ROUTE, SETTINGS_ROUTE, DELETE_ROUTE)) {
+        require(
+            route in setOf(
+                VALIDATION_ROUTE,
+                ALTA_SESION_ROUTE,
+                SETTINGS_ROUTE,
+                DELETE_ROUTE,
+                PROTOCOL_ROUTE
+            )
+        ) {
             "Unknown evaluation route: $route"
         }
         currentRoute = route
@@ -26,6 +35,7 @@ object EvaluacionGraph {
 
     fun establecerSesionActual(sesionId: String) {
         sesionActualId = sesionId
+        navigate(PROTOCOL_ROUTE)
     }
 
     fun volver() {

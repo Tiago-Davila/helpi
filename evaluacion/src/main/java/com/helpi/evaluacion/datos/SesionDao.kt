@@ -11,6 +11,7 @@ import com.helpi.evaluacion.datos.entidades.InterrupcionEntity
 import com.helpi.evaluacion.datos.entidades.SesionEntity
 
 @Dao
+@Suppress("TooManyFunctions")
 abstract class SesionDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     abstract suspend fun insertar(sesion: SesionEntity)
@@ -58,6 +59,24 @@ abstract class SesionDao {
     )
     abstract suspend fun actualizarABloqueEnCurso(sesionId: String, bloque: Int): Int
 
+    @Query("UPDATE sesion SET bloqueActual = :bloque WHERE id = :sesionId AND estado = 'EN_CURSO'")
+    abstract suspend fun actualizarBloqueEnCurso(sesionId: String, bloque: Int): Int
+
+    @Query("UPDATE sesion SET estado = 'COMPLETA' WHERE id = :sesionId AND estado = 'EN_CURSO'")
+    abstract suspend fun marcarCompletaSiEnCurso(sesionId: String): Int
+
+    @Query(
+        "UPDATE sesion SET estado = 'TERMINADA_ANTES' " +
+            "WHERE id = :sesionId AND estado = 'EN_CURSO'"
+    )
+    abstract suspend fun marcarTerminadaAntesSiEnCurso(sesionId: String): Int
+
+    @Query(
+        "UPDATE sesion SET estado = 'PAUSADA', bloqueActual = :bloque " +
+            "WHERE id = :sesionId AND estado = 'EN_CURSO'"
+    )
+    protected abstract suspend fun actualizarAPausadaSiEnCurso(sesionId: String, bloque: Int): Int
+
     @Query("SELECT * FROM interrupcion WHERE sesionId = :sesionId ORDER BY id")
     abstract suspend fun interrupciones(sesionId: String): List<InterrupcionEntity>
 
@@ -95,9 +114,12 @@ abstract class SesionDao {
         avisoVersion: String,
         avisoVideoSha256: String
     ): Boolean {
-        require(bloque in 1..4) { "bloque debe estar entre 1 y 4" }
-        if (!tieneConsentimientoVigente(avisoVersion, avisoVideoSha256)) return false
-        if (contarOtraEnCurso(sesionId) > 0) return false
+        require(bloque in PRIMER_BLOQUE..ULTIMO_BLOQUE) { "bloque debe estar entre 1 y 4" }
+        if (!tieneConsentimientoVigente(avisoVersion, avisoVideoSha256) ||
+            contarOtraEnCurso(sesionId) > 0
+        ) {
+            return false
+        }
         return actualizarABloqueEnCurso(sesionId, bloque) == 1
     }
 
@@ -126,4 +148,19 @@ abstract class SesionDao {
         insertarInterrupcion(interrupcion)
         return true
     }
+
+    @Transaction
+    open suspend fun pausarSiEnCurso(interrupcion: InterrupcionEntity): Boolean {
+        require(interrupcion.bloque in PRIMER_BLOQUE..ULTIMO_BLOQUE) {
+            "bloque debe estar entre 1 y 4"
+        }
+        if (actualizarAPausadaSiEnCurso(interrupcion.sesionId, interrupcion.bloque) != 1) {
+            return false
+        }
+        insertarInterrupcion(interrupcion)
+        return true
+    }
 }
+
+private const val PRIMER_BLOQUE = 1
+private const val ULTIMO_BLOQUE = 4

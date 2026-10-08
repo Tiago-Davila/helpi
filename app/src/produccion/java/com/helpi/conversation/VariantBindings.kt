@@ -22,6 +22,18 @@ object VariantBindings {
     }
 
     @Composable
+    @Suppress("UnusedParameter")
+    fun applicationContent(
+        modifier: Modifier,
+        sessionCoordinator: SessionCoordinator,
+        cameraPreview: @Composable () -> Unit,
+        onStartRecognition: () -> Unit,
+        content: @Composable () -> Unit
+    ) {
+        Box(modifier) { content() }
+    }
+
+    @Composable
     fun evaluationBadge(modifier: Modifier = Modifier) = Unit
 
     @Composable

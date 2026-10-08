@@ -139,6 +139,42 @@ class DaoTest {
     }
 
     @Test
+    fun pausaEntreBloquesPersisteElBloqueYLaPosicionPendienteAtomicos() = runBlocking {
+        val sesionId = crearSesion()
+        assertTrue(sesiones.iniciarBloque(sesionId, 1, AVISO_VERSION_ACTUAL, HASH))
+        val interrupcion = InterrupcionEntity(
+            sesionId = sesionId,
+            bloque = 2,
+            posicionPendiente = 49,
+            causa = CausaInterrupcion.PERSONA_PAUSO_DIA,
+            ocurrioEn = 900L
+        )
+
+        assertTrue(sesiones.pausarSiEnCurso(interrupcion))
+
+        assertEquals(EstadoSesion.PAUSADA, sesiones.estado(sesionId))
+        assertEquals(2, sesiones.buscar(sesionId)?.bloqueActual)
+        assertEquals(listOf(interrupcion.copy(id = 1L)), sesiones.interrupciones(sesionId))
+        assertFalse(sesiones.pausarSiEnCurso(interrupcion))
+        assertEquals(1, sesiones.cantidadInterrupciones(sesionId))
+    }
+
+    @Test
+    fun completaYTerminadaAntesSoloCambianDesdeEnCurso() = runBlocking {
+        val completa = crearSesion(sesionId = uuid(1))
+        assertTrue(sesiones.iniciarBloque(completa, 1, AVISO_VERSION_ACTUAL, HASH))
+        assertEquals(1, sesiones.marcarCompletaSiEnCurso(completa))
+
+        val terminada = crearSesion(sesionId = uuid(2))
+        assertTrue(sesiones.iniciarBloque(terminada, 1, AVISO_VERSION_ACTUAL, HASH))
+        assertEquals(1, sesiones.marcarTerminadaAntesSiEnCurso(terminada))
+
+        assertEquals(EstadoSesion.COMPLETA, sesiones.estado(completa))
+        assertEquals(EstadoSesion.TERMINADA_ANTES, sesiones.estado(terminada))
+        assertEquals(0, sesiones.marcarTerminadaAntesSiEnCurso(completa))
+    }
+
+    @Test
     fun repeticionReemplazaElAnteriorYTop3QuedaCompletoOrdenado() = runBlocking {
         val sesionId = crearSesion()
         val primeroId = intentos.registrarIntento(intentoSinResultado(sesionId), emptyList(), 500L)
