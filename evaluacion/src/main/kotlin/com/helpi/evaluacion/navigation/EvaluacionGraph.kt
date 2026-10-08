@@ -11,6 +11,7 @@ object EvaluacionGraph {
     const val SETTINGS_ROUTE = "ajustes-evaluacion"
     const val DELETE_ROUTE = "borrar-datos-evaluacion"
     const val PROTOCOL_ROUTE = "protocolo-evaluacion"
+    const val SESSIONS_ROUTE = "sesiones-evaluacion"
 
     var currentRoute: String? by mutableStateOf(null)
         private set
@@ -25,7 +26,8 @@ object EvaluacionGraph {
                 ALTA_SESION_ROUTE,
                 SETTINGS_ROUTE,
                 DELETE_ROUTE,
-                PROTOCOL_ROUTE
+                PROTOCOL_ROUTE,
+                SESSIONS_ROUTE
             )
         ) {
             "Unknown evaluation route: $route"

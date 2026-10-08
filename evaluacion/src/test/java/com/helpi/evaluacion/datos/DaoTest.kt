@@ -175,6 +175,24 @@ class DaoTest {
     }
 
     @Test
+    fun exportacionActualizaRevisionYFechaEnUnaOperacionOptimista() = runBlocking {
+        val sesionId = crearSesion()
+
+        assertEquals(
+            1,
+            sesiones.actualizarExportacion(sesionId, revision = 1, exportadoEn = 1_200L)
+        )
+        assertEquals(1, sesiones.buscar(sesionId)?.revision)
+        assertEquals(1_200L, sesiones.buscar(sesionId)?.ultimaExportacionEn)
+        assertEquals(
+            0,
+            sesiones.actualizarExportacion(sesionId, revision = 3, exportadoEn = 2_400L)
+        )
+        assertEquals(1, sesiones.buscar(sesionId)?.revision)
+        assertEquals(1_200L, sesiones.buscar(sesionId)?.ultimaExportacionEn)
+    }
+
+    @Test
     fun repeticionReemplazaElAnteriorYTop3QuedaCompletoOrdenado() = runBlocking {
         val sesionId = crearSesion()
         val primeroId = intentos.registrarIntento(intentoSinResultado(sesionId), emptyList(), 500L)

@@ -30,6 +30,7 @@ import com.helpi.evaluacion.consentimiento.ConsentimientoRoute
 import com.helpi.evaluacion.navigation.EvaluacionGraph
 import com.helpi.evaluacion.registro.RegistroObserver
 import com.helpi.evaluacion.ui.AltaSesionRoute
+import com.helpi.evaluacion.ui.SesionesRoute
 import com.helpi.evaluacion.ui.protocolo.ProtocoloCamaraUiState
 import com.helpi.evaluacion.ui.protocolo.ProtocoloDistanciaUiState
 import com.helpi.evaluacion.ui.protocolo.ProtocoloRoute
@@ -54,6 +55,11 @@ object VariantBindings {
                 EvaluacionGraph.ALTA_SESION_ROUTE -> AltaSesionRoute(
                     onVolver = { EvaluacionGraph.navigate(EvaluacionGraph.VALIDATION_ROUTE) },
                     onSesionCreada = EvaluacionGraph::establecerSesionActual
+                )
+
+                EvaluacionGraph.SESSIONS_ROUTE -> SesionesRoute(
+                    onVolver = EvaluacionGraph::volver,
+                    onRetomar = EvaluacionGraph::establecerSesionActual
                 )
 
                 EvaluacionGraph.SETTINGS_ROUTE -> AjustesEvaluacionRoute(
@@ -91,6 +97,11 @@ object VariantBindings {
                 EvaluacionGraph.ALTA_SESION_ROUTE -> AltaSesionRoute(
                     onVolver = { EvaluacionGraph.navigate(EvaluacionGraph.VALIDATION_ROUTE) },
                     onSesionCreada = EvaluacionGraph::establecerSesionActual
+                )
+
+                EvaluacionGraph.SESSIONS_ROUTE -> SesionesRoute(
+                    onVolver = EvaluacionGraph::volver,
+                    onRetomar = EvaluacionGraph::establecerSesionActual
                 )
 
                 EvaluacionGraph.PROTOCOL_ROUTE -> ProtocoloRoute(
@@ -146,6 +157,12 @@ object VariantBindings {
             modifier = Modifier.testTag("validationEntry")
         ) {
             Text("Validación")
+        }
+        TextButton(
+            onClick = { EvaluacionGraph.navigate(EvaluacionGraph.SESSIONS_ROUTE) },
+            modifier = Modifier.testTag("evaluationSessionsEntry")
+        ) {
+            Text("Sesiones de evaluación")
         }
         Spacer(Modifier.height(24.dp))
     }

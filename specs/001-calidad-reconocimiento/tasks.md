@@ -296,7 +296,7 @@ registradas, y permitir descartar dentro de la ventana de deshacer.
   - Por autorización del usuario se deja un placeholder: no reproduce ni marca `vioVideo` hasta incorporar el paquete real.
 - [X] T030 [US1] Implementar `evaluacion/src/main/java/com/helpi/evaluacion/ui/protocolo/ProtocoloScreen.kt`: dibuja el estado de T028 (glosa grande con "Intento N de 192 · Bloque b de 4", guía de encuadre existente, botones "Descartar", "Repetir intento", "Lo hice mal", "Pausar" y "Terminar sesión") sobre `SessionCoordinator` en modo `OBSERVER_ONLY`, e integra T029 en "Ver seña de referencia". Nunca muestra exactitud acumulada. Test de UI de US1-3. — Deps: T027, T028, T029 · Ref: US1-3, US1-4, US1-5, US4, FR-042
   - Integración autorizada: `ProtocoloRoute` y la pantalla permanecen en `:evaluacion`; `app/src/evaluacion` adapta el estado/preview y conecta el coordinador.
-- [ ] T031 [US1] Implementar en `evaluacion/src/main/java/com/helpi/evaluacion/ui/SesionesScreen.kt` la lista de sesiones:
+- [X] T031 [US1] Implementar en `evaluacion/src/main/java/com/helpi/evaluacion/ui/SesionesScreen.kt` la lista de sesiones:
   - estado, avance, "envío pendiente", "envío vencido" y última exportación;
   - "Retomar" para las sesiones `PAUSADA` o `INTERRUMPIDA`;
   - "Exportar archivo": `FileProvider` en `evaluacion/src/main/AndroidManifest.xml` + diálogo de compartir del sistema; actualiza `ultimaExportacionEn` y `revision`;
