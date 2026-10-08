@@ -275,7 +275,7 @@ registradas, y permitir descartar dentro de la ventana de deshacer.
   - persiste `participante`, `sesion` `CREADA` (semilla nueva, versiones y dispositivo) y `condiciones_prueba` en una transacción.
 
   Test de UI de US1-2. — Deps: T012, T023 · Ref: FR-008, FR-015, FR-040b, US1-2, research R-12
-- [ ] T028 [US1] Implementar `evaluacion/src/main/java/com/helpi/evaluacion/ui/protocolo/ProtocoloViewModel.kt`, **el único que resuelve un intento**:
+- [X] T028 [US1] Implementar `evaluacion/src/main/java/com/helpi/evaluacion/ui/protocolo/ProtocoloViewModel.kt`, **el único que resuelve un intento**:
   - consume los eventos de `RegistroObserver`;
   - ventana de deshacer de 3 s ("Descartar" solo sobre el umbral);
   - tiempo agotado de 15 s sin segmento (`TIEMPO_AGOTADO`);

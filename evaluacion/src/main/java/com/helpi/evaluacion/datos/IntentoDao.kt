@@ -70,6 +70,15 @@ abstract class IntentoDao {
     @Query("SELECT COUNT(*) FROM intento")
     abstract suspend fun cantidadTotal(): Int
 
+    @Query(
+        """
+        UPDATE intento SET loHiceMal = 1
+        WHERE sesionId = :sesionId AND posicion = :posicion
+            AND numeroIntento = :numeroIntento AND reemplazado = 0
+        """
+    )
+    abstract suspend fun marcarLoHiceMal(sesionId: String, posicion: Int, numeroIntento: Int): Int
+
     @Transaction
     open suspend fun registrarIntento(
         intento: IntentoEntity,

@@ -25,8 +25,10 @@ data class RegistroIntento(
 /** Persiste intentos en un hilo propio y nunca espera por él al ser invocado desde reconocimiento. */
 class EscritorRegistro internal constructor(
     private val persistir: suspend (RegistroIntento, Int) -> Unit,
+    private val persistirMarcaLoHiceMal: suspend (String, Int, Int) -> Unit = { _, _, _ -> },
     capacidadCola: Int = CAPACIDAD_COLA
-) : Closeable {
+) : Closeable,
+    EscritorIntentos {
     constructor(dao: IntentoDao) : this(
         persistir = { registro, perdidos ->
             dao.registrarIntento(
@@ -35,10 +37,23 @@ class EscritorRegistro internal constructor(
                 registro.momento,
                 perdidos
             )
+        },
+        persistirMarcaLoHiceMal = { sesionId, posicion, numeroIntento ->
+            dao.marcarLoHiceMal(sesionId, posicion, numeroIntento)
         }
     )
 
-    private val cola = Channel<RegistroIntento>(capacidadCola)
+    private sealed interface Operacion {
+        data class Registrar(val registro: RegistroIntento) : Operacion
+
+        data class MarcarLoHiceMal(
+            val sesionId: String,
+            val posicion: Int,
+            val numeroIntento: Int
+        ) : Operacion
+    }
+
+    private val cola = Channel<Operacion>(capacidadCola)
     private val perdidasPendientes = mutableMapOf<String, Int>()
     private val lockPerdidas = Any()
     private val dispatcher = Executors.newSingleThreadExecutor { tarea ->
@@ -47,8 +62,11 @@ class EscritorRegistro internal constructor(
     private val job = SupervisorJob()
     private val scope = CoroutineScope(job + dispatcher)
     private val worker = scope.launch {
-        for (registro in cola) {
-            procesar(registro)
+        for (operacion in cola) {
+            when (operacion) {
+                is Operacion.Registrar -> procesar(operacion.registro)
+                is Operacion.MarcarLoHiceMal -> procesarMarca(operacion)
+            }
         }
     }
 
@@ -57,11 +75,15 @@ class EscritorRegistro internal constructor(
     }
 
     /** Devuelve inmediatamente; una cola llena se contabiliza en memoria para esa sesión. */
-    fun trySend(registro: RegistroIntento): Boolean {
-        val resultado = cola.trySend(registro)
+    override fun trySend(registro: RegistroIntento): Boolean {
+        val resultado = cola.trySend(Operacion.Registrar(registro))
         if (resultado.isFailure) registrarPerdida(registro.intento.sesionId, 1)
         return resultado.isSuccess
     }
+
+    /** Encola la corrección detrás del intento, sin E/S en el hilo de interfaz. */
+    override fun marcarLoHiceMal(sesionId: String, posicion: Int, numeroIntento: Int): Boolean =
+        cola.trySend(Operacion.MarcarLoHiceMal(sesionId, posicion, numeroIntento)).isSuccess
 
     private suspend fun procesar(registro: RegistroIntento) {
         val sesionId = registro.intento.sesionId
@@ -75,6 +97,20 @@ class EscritorRegistro internal constructor(
             registrarPerdida(sesionId, sumarSaturado(perdidos, 1))
         } catch (_: Exception) {
             registrarPerdida(sesionId, sumarSaturado(perdidos, 1))
+        }
+    }
+
+    private suspend fun procesarMarca(operacion: Operacion.MarcarLoHiceMal) {
+        try {
+            persistirMarcaLoHiceMal(
+                operacion.sesionId,
+                operacion.posicion,
+                operacion.numeroIntento
+            )
+        } catch (cancelacion: CancellationException) {
+            throw cancelacion
+        } catch (_: Exception) {
+            // Una marca no debe detener las escrituras posteriores de la sesión.
         }
     }
 

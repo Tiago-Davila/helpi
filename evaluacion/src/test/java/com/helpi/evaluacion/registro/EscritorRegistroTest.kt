@@ -42,6 +42,39 @@ class EscritorRegistroTest {
     }
 
     @Test
+    fun correccionSeProcesaDespuesDelIntentoYaEncolado() = runBlocking {
+        val inicioPersistencia = CountDownLatch(1)
+        val liberarPersistencia = CountDownLatch(1)
+        val operacionesProcesadas = CountDownLatch(2)
+        val orden = CopyOnWriteArrayList<String>()
+        val escritor = EscritorRegistro(
+            persistir = { _, _ ->
+                orden += "intento"
+                inicioPersistencia.countDown()
+                liberarPersistencia.await(5, TimeUnit.SECONDS)
+                operacionesProcesadas.countDown()
+            },
+            persistirMarcaLoHiceMal = { _, _, _ ->
+                orden += "marca"
+                operacionesProcesadas.countDown()
+            }
+        )
+
+        try {
+            assertTrue(escritor.trySend(registro()))
+            assertTrue(inicioPersistencia.await(5, TimeUnit.SECONDS))
+            assertTrue(escritor.marcarLoHiceMal("sesion-test", 1, 1))
+            liberarPersistencia.countDown()
+
+            assertTrue(operacionesProcesadas.await(5, TimeUnit.SECONDS))
+            assertEquals(listOf("intento", "marca"), orden)
+        } finally {
+            liberarPersistencia.countDown()
+            escritor.cerrarYEsperar()
+        }
+    }
+
+    @Test
     fun colaLlenaNoLanzaYElPerdidoSeSumaEnLaProximaTransaccion() = runBlocking {
         val primerIntentoEnCurso = CountDownLatch(1)
         val liberarPrimero = CountDownLatch(1)
