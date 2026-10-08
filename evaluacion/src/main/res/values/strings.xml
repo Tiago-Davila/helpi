@@ -47,6 +47,10 @@
     <string name="borrado_hecho">Hecho</string>
     <string name="borrado_fallo">No se pudieron borrar los datos. Inténtalo de nuevo.</string>
     <string name="alta_titulo">Nueva sesión de validación</string>
+    <string name="protocolo_ver_referencia">Ver seña de referencia</string>
+    <string name="protocolo_referencia_no_solicitada">El clip no se reproduce automáticamente.</string>
+    <string name="protocolo_referencia_faltante">El clip de referencia no está incluido en esta build. No se marcó como visto.</string>
+    <string name="protocolo_referencia_atribucion">Referencia prevista: LSA64 · LIDI, UNLP · CC BY-NC-SA 4.0</string>
     <string name="alta_instrucciones">Completa el código de participante y todas las condiciones. No se pedirá ninguna seña antes de completar este formulario.</string>
     <string name="alta_codigo_participante">Código de participante</string>
     <string name="alta_codigo_patron">Formato: P- seguido de 3 o 4 números.</string>
