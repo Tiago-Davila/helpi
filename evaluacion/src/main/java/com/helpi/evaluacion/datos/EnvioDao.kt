@@ -28,6 +28,12 @@ interface EnvioDao {
     @Query("DELETE FROM envio WHERE envioId = :envioId")
     suspend fun eliminarPorId(envioId: String): Int
 
+    @Query(
+        "UPDATE envio SET estado = :estado, motivo = :motivo " +
+            "WHERE envioId = :envioId AND estado = 'PENDIENTE'"
+    )
+    suspend fun actualizarEstadoPendiente(envioId: String, estado: EstadoEnvio, motivo: String): Int
+
     @Query("DELETE FROM envio WHERE estado = 'PENDIENTE'")
     suspend fun eliminarPendientes(): Int
 

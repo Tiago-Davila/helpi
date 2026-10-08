@@ -193,7 +193,7 @@ respuestas del contrato.
 
   Tests con `MockWebServer`: uno por fila de la tabla de respuestas; el 200 con `sha256` distinto queda `Transitorio`; S-01 (`X-Helpi-Contrato` e `Idempotency-Key` coinciden con el cuerpo). — Deps: T018 · Ref: FR-030, FR-032 (canal cifrado), NFR-004, contrato §Transporte y §Respuestas, research R-06
 - [X] T020 [US1] Implementar `evaluacion/src/main/java/com/helpi/evaluacion/envio/EnvioRepositorio.kt`, que encola: en **una** transacción serializa la sesión, guarda en `envio` los bytes exactos, el `sha256`, un `envioId` UUID v4 y la `revision` (incrementada), y encola el trabajo. Rechaza el encolado con más de **20** `PENDIENTE` o sin consentimiento vigente (regla de T023). Tests JVM: lo guardado es byte a byte lo que se enviará; con 20 pendientes, el encolado número 21 se rechaza; sin consentimiento vigente se rechaza. — Deps: T012, T017, T019, T023 · Ref: FR-027, NFR-004, research R-05
-- [ ] T021 [US1] Implementar `evaluacion/src/main/java/com/helpi/evaluacion/envio/EnvioWorker.kt`:
+- [X] T021 [US1] Implementar `evaluacion/src/main/java/com/helpi/evaluacion/envio/EnvioWorker.kt`:
   - `OneTimeWorkRequest` único `envio-sesiones-evaluacion`, `APPEND_OR_REPLACE`;
   - `Constraints(NetworkType.CONNECTED)`;
   - `setBackoffCriteria(EXPONENTIAL, 60 s)` (WorkManager limita a 5 h);

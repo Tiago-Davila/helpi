@@ -29,6 +29,9 @@ abstract class SesionDao {
     )
     abstract suspend fun actualizarRevisionDeEnvio(sesionId: String, revision: Int): Int
 
+    @Query("UPDATE sesion SET ultimaExportacionEn = :exportadoEn WHERE id = :sesionId")
+    abstract suspend fun actualizarUltimaExportacionEn(sesionId: String, exportadoEn: Long): Int
+
     @Query("SELECT * FROM sesion WHERE estado = 'EN_CURSO' ORDER BY creadaEn")
     abstract suspend fun listarEnCurso(): List<SesionEntity>
 
