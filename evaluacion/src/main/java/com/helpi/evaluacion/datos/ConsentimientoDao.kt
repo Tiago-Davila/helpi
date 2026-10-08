@@ -34,6 +34,19 @@ interface ConsentimientoDao {
     suspend fun tieneConsentimientoVigente(avisoVersion: String, avisoVideoSha256: String): Boolean
 
     @Query(
+        """
+        SELECT EXISTS(
+            SELECT 1 FROM consentimiento
+            WHERE id = :consentimientoId
+                AND id = (SELECT MAX(id) FROM consentimiento)
+                AND revocadoEn IS NULL
+                AND avisoVersion = :avisoVersion
+        )
+        """
+    )
+    suspend fun consentimientoActualVigente(consentimientoId: Long, avisoVersion: String): Boolean
+
+    @Query(
         "UPDATE consentimiento SET revocadoEn = :revocadoEn WHERE id = :id AND revocadoEn IS NULL"
     )
     suspend fun revocar(id: Long, revocadoEn: Long): Int

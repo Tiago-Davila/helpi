@@ -24,6 +24,11 @@ abstract class SesionDao {
     @Query("SELECT * FROM sesion WHERE id = :sesionId")
     abstract suspend fun buscar(sesionId: String): SesionEntity?
 
+    @Query(
+        "UPDATE sesion SET revision = :revision WHERE id = :sesionId AND revision = :revision - 1"
+    )
+    abstract suspend fun actualizarRevisionDeEnvio(sesionId: String, revision: Int): Int
+
     @Query("SELECT * FROM sesion WHERE estado = 'EN_CURSO' ORDER BY creadaEn")
     abstract suspend fun listarEnCurso(): List<SesionEntity>
 
