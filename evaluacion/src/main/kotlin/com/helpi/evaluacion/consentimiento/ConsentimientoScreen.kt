@@ -41,7 +41,11 @@ import kotlinx.coroutines.withContext
 
 @Composable
 @Suppress("ktlint:standard:function-naming")
-fun ConsentimientoRoute(onVolver: () -> Unit, onAjustes: () -> Unit = {}) {
+fun ConsentimientoRoute(
+    onVolver: () -> Unit,
+    onAjustes: () -> Unit = {},
+    onContinuar: () -> Unit = {}
+) {
     val context = LocalContext.current.applicationContext
     val repositorio = remember(context) {
         ConsentimientoRepositorio(
@@ -72,17 +76,22 @@ fun ConsentimientoRoute(onVolver: () -> Unit, onAjustes: () -> Unit = {}) {
             video = video,
             consentimientoVigente = consentimientoVigente,
             onAceptar = {
-                val asset = video ?: return@ConsentimientoScreen
-                scope.launch {
-                    try {
-                        withContext(Dispatchers.IO) {
-                            repositorio.aceptar(asset, System.currentTimeMillis())
+                if (consentimientoVigente) {
+                    onContinuar()
+                } else {
+                    video?.let { asset ->
+                        scope.launch {
+                            try {
+                                withContext(Dispatchers.IO) {
+                                    repositorio.aceptar(asset, System.currentTimeMillis())
+                                }
+                                consentimientoVigente = true
+                            } catch (cancelacion: CancellationException) {
+                                throw cancelacion
+                            } catch (_: Exception) {
+                                falloAceptacion = true
+                            }
                         }
-                        consentimientoVigente = true
-                    } catch (cancelacion: CancellationException) {
-                        throw cancelacion
-                    } catch (_: Exception) {
-                        falloAceptacion = true
                     }
                 }
             },
@@ -147,7 +156,7 @@ fun ConsentimientoScreen(
             }
             Button(
                 onClick = onAceptar,
-                enabled = video != null && !consentimientoVigente,
+                enabled = consentimientoVigente || video != null,
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("consentAcceptButton")
@@ -155,7 +164,7 @@ fun ConsentimientoScreen(
                 Text(
                     text = stringResource(
                         if (consentimientoVigente) {
-                            R.string.aviso_consentimiento_vigente
+                            R.string.aviso_continuar
                         } else {
                             R.string.aviso_aceptar
                         }

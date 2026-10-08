@@ -21,6 +21,7 @@ import com.helpi.conversation.session.SessionCoordinator
 import com.helpi.evaluacion.consentimiento.AjustesEvaluacionRoute
 import com.helpi.evaluacion.consentimiento.BorradoDatosRoute
 import com.helpi.evaluacion.consentimiento.ConsentimientoRoute
+import com.helpi.evaluacion.ui.AltaSesionRoute
 import com.helpi.evaluacion.navigation.EvaluacionGraph
 import com.helpi.evaluacion.registro.RegistroObserver
 
@@ -36,7 +37,13 @@ object VariantBindings {
             when (EvaluacionGraph.currentRoute) {
                 EvaluacionGraph.VALIDATION_ROUTE -> ConsentimientoRoute(
                     onVolver = EvaluacionGraph::volver,
-                    onAjustes = { EvaluacionGraph.navigate(EvaluacionGraph.SETTINGS_ROUTE) }
+                    onAjustes = { EvaluacionGraph.navigate(EvaluacionGraph.SETTINGS_ROUTE) },
+                    onContinuar = { EvaluacionGraph.navigate(EvaluacionGraph.ALTA_SESION_ROUTE) }
+                )
+
+                EvaluacionGraph.ALTA_SESION_ROUTE -> AltaSesionRoute(
+                    onVolver = { EvaluacionGraph.navigate(EvaluacionGraph.VALIDATION_ROUTE) },
+                    onSesionCreada = EvaluacionGraph::establecerSesionActual
                 )
 
                 EvaluacionGraph.SETTINGS_ROUTE -> AjustesEvaluacionRoute(

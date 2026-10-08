@@ -268,7 +268,7 @@ registradas, y permitir descartar dentro de la ventana de deshacer.
   - versión `"1.0.0"`.
 
   Test JVM: cada índice aparece 3 veces, no hay iguales consecutivos y la semilla `20261005` reproduce exactamente `protocolo.secuencia` de `contracts/ejemplos/sesion-evaluacion-v1.ejemplo.json`. Conviene hacerla apenas existe T006, porque T017 la usa. — Deps: T006 · Ref: FR-040, FR-040a, FR-041, FR-043, research R-12
-- [ ] T027 [US1] Implementar en `evaluacion/src/main/java/com/helpi/evaluacion/ui/AltaSesionScreen.kt` el alta de sesión:
+- [X] T027 [US1] Implementar en `evaluacion/src/main/java/com/helpi/evaluacion/ui/AltaSesionScreen.kt` el alta de sesión:
   - código de participante con validación "patrón `^P-[0-9]{3,4}$`";
   - formulario de condiciones, **solo enumerados**: `entorno`, `tipoEntorno`, `iluminacion`, `contraluz`, `distancia`, `manoDominante`, `guantes`, `soporteCamara`, `perfilParticipante`;
   - "Empezar" deshabilitado mientras falte un campo;
