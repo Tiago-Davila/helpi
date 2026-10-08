@@ -260,7 +260,7 @@ registradas, y permitir descartar dentro de la ventana de deshacer.
 
 **Independent Test**: quickstart §5 a §7 en el dispositivo de referencia.
 
-- [ ] T026 [P] [US1] Implementar el generador en `evaluacion-dominio/src/main/java/com/helpi/evaluacion/dominio/protocolo/GeneradorProtocolo.java`:
+- [X] T026 [P] [US1] Implementar el generador en `evaluacion-dominio/src/main/java/com/helpi/evaluacion/dominio/protocolo/GeneradorProtocolo.java`:
   - 64 × 3 = 192 intentos;
   - `Collections.shuffle(lista, new Random(semilla))`;
   - reparación determinística de adyacencias, intercambiando con el primer elemento posterior que no cree otra adyacencia;

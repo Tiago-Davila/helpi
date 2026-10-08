@@ -13,6 +13,12 @@ dependencies {
     testImplementation(libs.junit)
 }
 
+sourceSets {
+    test {
+        resources.srcDir("../specs/001-calidad-reconocimiento/contracts")
+    }
+}
+
 tasks.test {
     useJUnit()
 }
