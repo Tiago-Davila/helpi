@@ -52,6 +52,31 @@ presenta como exactitud.
   LSA64 a pedido; cada intento registra si se vio el video y el análisis separa ambos grupos
   (FR-042, FR-042a).
 
+### Session 2026-10-05
+
+- Q: En el modo seña de Eva, ¿cómo descarta la persona un reconocimiento incorrecto? → A:
+  Ventana breve de deshacer: la seña aceptada queda pendiente unos segundos con "Descartar"
+  y solo se publica y se vocaliza al vencer la ventana (FR-023, FR-024, FR-024a).
+- Q: ¿Cómo se mide que el registro no degrade el reconocimiento? → A: Diferencia pareada:
+  mismo conjunto de secuencias de referencia, mismo dispositivo, con y sin registro; la
+  diferencia del percentil 95 MUST NOT superar 5 ms. Ventana de deshacer excluida; la
+  latencia total corresponde a la spec 002 (NFR-005, SC-007).
+- Q: ¿El criterio de sobrecosto se aplica a la diferencia de percentiles o al percentil de las
+  diferencias? → A: Al percentil 95 de las diferencias pareadas, con control A/A (NFR-005,
+  SC-007).
+- Q: ¿Puede el build de evaluación usar la red? → A: Sí, solo para enviar sesiones de
+  evaluación al receptor del equipo por acción explícita; producción sigue sin red
+  (FR-032a; reemplaza la suposición A-05).
+- Q: ¿El aviso de consentimiento de evaluación requiere versión en LSA? → A: Sí: video en LSA
+  del aviso completo junto al texto llano, versionado con el aviso; el consentimiento sigue
+  siendo una acción explícita (FR-012, FR-014).
+- Q: ¿Qué cuenta como "reconocimiento" en los contadores de producción? → A: Solo modo seña:
+  cada segmento de seña clasificado, sobre o bajo el umbral; el modo frase no se mide en esta
+  versión (FR-017a, FR-025).
+- Q: ¿Cuántos entornos cubre cada participante? → A: Uno obligatorio por participante; el
+  conjunto de sesiones cubre al menos 2 entornos; un segundo entorno por persona es opcional
+  (FR-040b, SC-001).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Sesión de validación con verdad de referencia (Priority: P1)
@@ -74,8 +99,8 @@ top-3, superación de umbral, acierto/error, y que la sesión contiene sus condi
 **Acceptance Scenarios**:
 
 1. **Given** un dispositivo sin consentimiento vigente, **When** alguien abre el modo de
-   validación, **Then** ve qué se registra antes de cualquier captura y no puede empezar sin
-   consentir explícitamente.
+   validación, **Then** ve qué se registra (en texto llano y en video en LSA) antes de
+   cualquier captura y no puede empezar sin consentir explícitamente.
 2. **Given** consentimiento otorgado, **When** inicia una sesión, **Then** el sistema exige
    completar las condiciones de la prueba antes de pedir la primera seña.
 3. **Given** una sesión en curso, **When** el protocolo pide una seña, **Then** la indicación
@@ -157,8 +182,9 @@ ningún campo prohibido.
 ### User Story 4 - Descartar un reconocimiento incorrecto (Priority: P2)
 
 La persona señante ve un reconocimiento que no corresponde a lo que quiso decir y lo descarta
-con un gesto simple. El reconocimiento no se publica en la conversación y el descarte se
-cuenta como error percibido.
+con un gesto simple durante la ventana de deshacer, antes de que se publique. El
+reconocimiento no se publica en la conversación ni se vocaliza, y el descarte se cuenta como
+error percibido.
 
 **Why this priority**: es la única retroalimentación real de error disponible en uso real y la
 métrica más valiosa de producción. También mejora la conversación por sí misma.
@@ -174,6 +200,9 @@ ni se vocaliza y que el contador de descartes de la sesión aumenta en uno.
    producción solo cambia el contador; en evaluación se asocia además al intento.
 3. **Given** que la persona no descarta, **When** el reconocimiento se publica, **Then** no se
    lo interpreta como acierto confirmado.
+4. **Given** una seña aceptada en modo seña, **When** aparece, **Then** queda pendiente
+   durante la ventana de deshacer con la acción "Descartar" visible, y recién al vencer la
+   ventana se publica y se ofrece a voz.
 
 ---
 
@@ -294,6 +323,9 @@ verificar que solo quedan las del otro.
   retención tolera saltos del reloj de pared sin borrar de más.
 - **Descarte de algo bajo el umbral**: lo que no superó el umbral no se publica, así que no
   puede descartarse; solo se descartan reconocimientos propuestos.
+- **Modo frase durante una sesión de producción**: sus resultados y descartes no se cuentan
+  (FR-017a); la fila refleja solo el modo seña. Una sesión usada solo en modo frase escribe la
+  fila con cantidad cero.
 - **Misma persona en varias sesiones**: el análisis necesita agrupar sus sesiones por sujeto
   para la partición; eso exige un identificador de participante seudónimo en evaluación (ver
   FR-015), nunca en producción.
@@ -346,8 +378,10 @@ verificar que solo quedan las del otro.
   a todas las personas que participen en ese dispositivo, para que el equipo lo explique a
   cada participante antes de su sesión.
 - **FR-012**: El aviso MUST ser comprensible para una persona sorda sin instrucciones
-  externas: lenguaje llano, apoyo visual y sin depender de audio.
-  [Ver ambigüedad A-04 sobre versión en LSA.]
+  externas: lenguaje llano, apoyo visual y sin depender de audio. MUST incluir un **video en
+  LSA** del aviso completo, mostrado junto al texto llano. El video se versiona con el aviso:
+  un cambio material (FR-014) exige un video nuevo. Mirar el video no reemplaza la acción
+  explícita de consentir.
 - **FR-013**: El consentimiento MUST poder revocarse en cualquier momento desde la app. La
   revocación detiene todo registro futuro (incluida la sesión en curso) y MUST NOT borrar lo
   ya registrado, que se conserva hasta su retención (NFR-011).
@@ -368,6 +402,11 @@ verificar que solo quedan las del otro.
   reconocimientos, cantidad sobre el umbral, cantidad bajo el umbral, confianza media,
   confianza mediana, cantidad de descartes, duración de la sesión, umbral vigente al cerrar,
   versión de app, versión de modelo, modelo de dispositivo y versión de sistema operativo.
+- **FR-017a**: Un **reconocimiento** es un segmento de seña clasificado por Eva en modo seña,
+  haya superado o no el umbral. Las capturas que no llegan al clasificador (sin hombros,
+  cambio de orientación, segmento abortado) MUST NOT contarse. El modo frase experimental
+  MUST NOT medirse en esta versión: sus resultados y descartes no alteran ningún contador de
+  la fila.
 - **FR-018**: La fila MUST NOT contener glosas, índices de clase, top-3, frecuencia por clase,
   keypoints, texto de la conversación, marcas temporales por reconocimiento ni identificadores
   de cuenta, de dispositivo o de publicidad.
@@ -393,12 +432,19 @@ verificar que solo quedan las del otro.
 
 - **FR-023**: La persona señante MUST poder descartar un reconocimiento propuesto con un gesto
   simple, alcanzable sin salir de la conversación. El **descarte** es exclusivamente la
-  acción "Descartar" sobre la frase propuesta, antes de publicarse. Editar el texto antes de
-  confirmar y corregir un mensaje ya publicado MUST NOT contarse como descarte.
+  acción "Descartar" sobre un reconocimiento propuesto, antes de publicarse: en modo seña,
+  durante la ventana de deshacer (FR-024a); en modo frase, en el diálogo de la frase
+  propuesta. Editar el texto antes de confirmar y corregir un mensaje ya publicado MUST NOT
+  contarse como descarte.
 - **FR-024**: Un reconocimiento descartado MUST NOT publicarse en la conversación ni ofrecerse
   a voz.
+- **FR-024a**: En modo seña, toda seña que supera el umbral MUST quedar pendiente durante una
+  **ventana de deshacer** breve (3 s por defecto, configurable) con la acción "Descartar"
+  visible. No se publica ni se vocaliza hasta que vence la ventana sin descarte. No exige
+  una acción de confirmación: si la persona no hace nada, la seña se publica.
 - **FR-025**: Cada descarte MUST contarse como señal de error percibido: en producción solo
-  como contador de la sesión; en evaluación asociado además al intento.
+  como contador de la sesión y solo en modo seña (FR-017a); en evaluación asociado además al
+  intento.
 - **FR-026**: La ausencia de descarte MUST NOT interpretarse ni presentarse como acierto
   confirmado.
 
@@ -420,8 +466,11 @@ verificar que solo quedan las del otro.
   - confirma la recepción de cada fila y deduplica por identificador de sesión (FR-030);
   - recibe las filas por un canal cifrado y no conserva datos de conexión (como la
     dirección IP) asociados a las filas.
-- **FR-032a**: El acceso a red de la app MUST usarse exclusivamente para el envío de filas de
-  producción. La cadena de reconocimiento MUST NOT depender de la red ni usarla.
+- **FR-032a**: La cadena de reconocimiento MUST NOT depender de la red ni usarla, en ninguna
+  variante. En la variante de **producción**, la red MUST usarse exclusivamente para el envío
+  de filas agregadas (FR-017). En la variante de **evaluación**, MUST usarse exclusivamente
+  para enviar sesiones de evaluación al receptor del equipo, solo por acción explícita de la
+  persona sobre una sesión (NFR-004), con el contrato versionado de FR-039.
 
 **Análisis**
 
@@ -459,6 +508,9 @@ verificar que solo quedan las del otro.
   poder retomarse en el siguiente bloque pendiente, también en otro día, conservando
   participante, condiciones y semilla; si las condiciones cambian, el bloque se registra en
   una sesión nueva.
+- **FR-040b**: Cada participante MUST completar el protocolo en **al menos un entorno**. El
+  conjunto de sesiones usado para un reporte MUST cubrir al menos 2 entornos distintos. Un
+  segundo entorno por participante es opcional y se registra como sesión aparte.
 - **FR-041**: El orden de las señas MUST evitar que una misma seña se pida en intentos
   consecutivos, para no medir repetición inmediata.
 - **FR-042**: Durante la sesión, el sistema MUST indicar qué seña hacer sin depender de audio,
@@ -489,22 +541,27 @@ verificar que solo quedan las del otro.
 - **NFR-002**: La secuencia de glosas MUST tratarse como dato sensible bajo la Ley N.º 25.326;
   solo existe en la variante de evaluación, con consentimiento.
 - **NFR-003**: Video, cuadros y keypoints MUST NOT persistirse ni salir del dispositivo en
-  ninguna variante (Constitución, Principio VI).
+  ninguna variante (CLAUDE.md §1 y §3).
 - **NFR-004**: Toda exportación de evaluación MUST ser una acción explícita de la persona;
   nada de evaluación se envía automáticamente.
 
 **Costo de registro**
 
-- **NFR-005**: El registro MUST NOT degradar el reconocimiento: la latencia de reconocimiento
-  con el módulo activo MUST NOT superar en más de un 2 % a la latencia sin él, en ambas
-  variantes.
+- **NFR-005**: El registro MUST NOT degradar el reconocimiento. Se mide con un test
+  instrumentado **pareado**: el mismo conjunto de secuencias de referencia (n ≥ 200 pares) pasa
+  por la cadena con el registro activado y desactivado, en el mismo dispositivo y en orden
+  intercalado. Para cada par se calcula dᵢ = t_con − t_sin, desde el fin del segmento hasta
+  el resultado, excluida la ventana de deshacer (FR-024a). Criterio: **p95(dᵢ) ≤ 5 ms**, en
+  ambas variantes. Un control A/A (desactivado contra desactivado) con p95 > 5 ms vuelve el
+  resultado **no concluyente**, nunca aprobado. La latencia total y su monitoreo en uso real
+  pertenecen a la especificación 002.
 - **NFR-006**: En producción, la escritura a disco MUST ocurrir una sola vez por sesión. En
   evaluación, la escritura MUST ocurrir fuera del camino de reconocimiento.
 
 **Funcionamiento sin conexión**
 
-- **NFR-007**: La app MUST funcionar completa sin red; la red solo sirve para sincronizar
-  indicadores ya persistidos.
+- **NFR-007**: La app MUST funcionar completa sin red; la red solo sirve para enviar lo ya
+  persistido (filas agregadas en producción, sesiones en evaluación; FR-032a).
 
 **Honestidad de las métricas**
 
@@ -533,7 +590,8 @@ verificar que solo quedan las del otro.
 
 - **Variante de compilación**: evaluación o producción; determina qué componentes de registro
   existen en el artefacto.
-- **Consentimiento de evaluación**: aceptación explícita, por dispositivo; versión del aviso,
+- **Consentimiento de evaluación**: aceptación explícita, por dispositivo; versión del aviso
+  (texto y video en LSA),
   fecha de otorgamiento y de revocación. No se vincula a un participante.
 - **Participante (seudónimo)**: identificador sin datos personales que agrupa las sesiones de
   una misma persona para la partición por sujeto. Solo en evaluación.
@@ -547,7 +605,8 @@ verificar que solo quedan las del otro.
   video de referencia, descarte y marca
   "lo hice mal".
 - **Fila de sesión de producción**: identificador aleatorio y únicamente los campos de FR-017.
-- **Cola de envío**: filas de producción pendientes, con intentos de envío y antigüedad.
+- **Cola de envío**: envíos pendientes (filas de producción o sesiones de evaluación), con
+  intentos de envío y antigüedad.
 - **Reporte de calidad**: resultado del análisis sobre un conjunto de sesiones de una misma
   versión de modelo; métricas, desagregaciones, limitaciones y partición utilizada.
 
@@ -570,8 +629,8 @@ verificar que solo quedan las del otro.
 - **SC-006**: Una persona sorda, sin ayuda externa, entiende el aviso de consentimiento y
   completa la primera sesión del protocolo: al menos 4 de cada 5 participantes en la prueba
   de usabilidad.
-- **SC-007**: La latencia de reconocimiento con el módulo activo no supera en más de un 2 % a
-  la medida sin él.
+- **SC-007**: En el test pareado de NFR-005, sobre el dispositivo de referencia,
+  p95(dᵢ) ≤ 5 ms con un control A/A ≤ 5 ms.
 - **SC-008**: Con la red deshabilitada durante 7 días, la app funciona completa y, al
   habilitarla, todas las filas aún dentro del período de retención se envían sin duplicados.
 - **SC-009**: Con los datos del reporte, el equipo puede decidir con justificación escrita si
@@ -580,23 +639,12 @@ verificar que solo quedan las del otro.
 
 ## Ambigüedades abiertas
 
-Las tres de mayor impacto se resolvieron en la sesión de aclaraciones del 2026-10-04. Las
-restantes tienen un valor por defecto asumido y deben confirmarse en `/speckit-clarify`:
+Las de mayor impacto se resolvieron en las sesiones de aclaraciones del 2026-10-04 y
+2026-10-05. Las restantes tienen un valor por defecto asumido y pueden confirmarse en una
+próxima ronda de `/speckit-clarify` o en el plan:
 
 - **A-01 Retención de producción**: la de evaluación quedó fijada en NFR-011. Se asumen 30
   días para filas de producción no enviadas.
-- **A-02 Entornos del protocolo**: el contenido quedó fijado en FR-040a. Se asume que cada
-  participante lo realiza en al menos dos entornos (interior iluminado e interior con poca luz
-  o exterior).
-- **A-04 Aviso de consentimiento en LSA**: "comprensible para una persona sorda" puede requerir
-  una versión del aviso en LSA (video), no solo texto llano. Se asume texto llano con apoyo
-  visual en esta versión, con video en LSA como mejora.
-- **A-05 Formato de exportación y canal**: se asume un archivo estructurado por sesión
-  compartido mediante el mecanismo estándar del sistema para compartir archivos, sin envío por
-  red desde la app.
-- **A-07 Definición de "reconocimiento"** para los contadores de producción: se asume cada
-  resultado del clasificador sobre una ventana válida, superara o no el umbral; las secuencias
-  inválidas (sin hombros) no cuentan como reconocimiento y no se registran.
 - **A-08 Quién usa el build de evaluación**: se asume distribución solo al equipo y a
   participantes de sesiones, nunca por tiendas de aplicaciones.
 
@@ -605,13 +653,18 @@ restantes tienen un valor por defecto asumido y deben confirmarse en `/speckit-c
 - La app sigue sin cuentas de usuario; "no vincular a la cuenta" se cumple trivialmente y se
   extiende a no usar ningún identificador del dispositivo.
 - La cadena de reconocimiento existente (umbral configurable, top-3 no confirmado,
-  vocabulario cerrado) no cambia; el módulo solo la observa.
+  vocabulario cerrado) no cambia; el módulo solo la observa. Única excepción: la ventana de
+  deshacer del modo seña (FR-024a) demora la publicación y la voz de cada seña aceptada.
 - La línea base de comparación es ≈0,85 con partición por sujeto sobre LSA64; el módulo no
   la recalcula.
 - El rendimiento de la app (latencia, cuadros por segundo, batería, temperatura, crashes) se
   trata en la especificación 002; aquí solo se exige que el registro no lo degrade (NFR-005).
 - Quedan fuera de alcance: reentrenamiento automático, panel web de métricas, recolección de
   keypoints o video, y vinculación con la identidad de la persona usuaria.
+- El formato de exportación es el contrato `helpi.evaluacion.sesion` (FR-039), que se usa
+  tanto para el archivo compartido como para el envío al receptor; ambos son acciones
+  explícitas (NFR-004).
+
 ## Dependencias y riesgos
 
 - **Receptor de métricas (nuevo)**: no existe; lo opera el equipo. Hasta que exista, las
@@ -619,10 +672,11 @@ restantes tienen un valor por defecto asumido y deben confirmarse en `/speckit-c
   puede verificarse de punta a punta.
 - **Repositorio de análisis (nuevo)**: no existe. Hasta que exista, la historia 5 y SC-001,
   SC-002 y SC-009 no pueden verificarse; esta app solo garantiza el contrato de exportación.
-- **Cambio de postura de red**: hoy la app elimina el permiso de red. Incorporarlo para el
-  envío de métricas debe pasar el Constitution Check del plan (Principio VI): solo indicadores
-  agregados, nunca conversaciones, keypoints ni video. La cadena de reconocimiento sigue sin
-  usar red (FR-032a).
+- **Cambio de postura de red**: hoy la app elimina el permiso de red. En esta iteración solo
+  la variante de evaluación lo incorpora, para enviar sesiones (FR-032a); producción sigue sin
+  red. Nunca se envían keypoints ni video, y la cadena de reconocimiento sigue sin usar red.
+  Como las sesiones de evaluación contienen glosas (dato sensible, NFR-002), el primer envío
+  real requiere la revisión bajo la Ley N.º 25.326, incluida la ubicación del receptor.
 - **Riesgo legal del opt-out**: los indicadores agregados no permiten reconstruir lo señado,
   pero el modelo de dispositivo y la versión de sistema operativo, junto con el envío desde
   la red de la persona, son datos del dispositivo. Se recomienda una revisión bajo la Ley

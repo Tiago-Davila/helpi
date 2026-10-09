@@ -16,9 +16,10 @@ app, a la spec 002.
 **Tests**: pedidos explícitamente. En las fases 1 y 2 el test se escribe **antes** que el
 componente que lo consume y queda como bloqueante de CI.
 
-**Revisión**: incorpora los 10 hallazgos principales de `/speckit-analyze` del 2026-10-05:
-C1, C2, D1, G1, R1, S1, S2, P1, P2 y F1. Siguen pendientes F2, F3, F4, F7, F10 (data-model) y
-T3, T4, T5 (tests).
+**Revisión**: incorpora los 9 hallazgos principales de `/speckit-analyze` del 2026-10-05:
+C1, C2, D1, G1, R1, S1, S2, P1 y P2. F1–F9 designan las fases, no IDs de hallazgos.
+Las correcciones de coherencia del modelo de datos se incorporan antes de ejecutar F2
+(contrato), F3 (datos), F4 (registro) y F7 (protocolo).
 
 ## Format: `[ID] [P?] [Story] Descripción`
 
@@ -203,12 +204,12 @@ respuestas del contrato.
 
   Tests en `evaluacion/src/test/…/envio/EnvioWorkerTest.kt` con `work-testing` y `MockWebServer`: sin conexión, reintentos, confirmación, `sha256` distinto y 4xx sin reintento. — Deps: T019, T020 · Ref: FR-028, FR-029, FR-030, research R-05
 - [X] T022 [US1] Implementar las reglas de retención en `evaluacion-dominio/src/main/java/com/helpi/evaluacion/dominio/retencion/`:
-  - sesión: 90 días desde `ultimaExportacionEn`, o 180 desde `ultimoIntentoEn`;
+  - sesión: 90 días desde `ultimaExportacionEn`; si nunca se exportó, 180 días desde `ultimoIntentoEn`, o desde `creadaEn` cuando no hay intentos registrados;
   - envío `PENDIENTE` vence a los 30 días;
   - `RECHAZADO` y `BLOQUEADO` se conservan 30 días;
   - guarda de reloj: no depura si la hora retrocedió o saltó más de 400 días.
 
-  Implementar también `DepuracionWorker` periódico diario, sin restricción de red, más la corrida al abrir la app, en `evaluacion/src/main/java/com/helpi/evaluacion/envio/DepuracionWorker.kt`, con la marca "envío vencido" en la sesión. Tests JVM de las reglas y de los saltos de reloj. — Deps: T012, T013 · Ref: NFR-011, FR-031 (variante de evaluación), Edge Cases (reloj incorrecto), research R-05, R-13
+  Implementar también `DepuracionWorker` periódico diario, sin restricción de red, más la corrida al abrir la app, en `evaluacion/src/main/java/com/helpi/evaluacion/envio/DepuracionWorker.kt`, con la marca "envío vencido" en la sesión. Tests JVM de sesiones sin intentos, sesiones retomadas y saltos de reloj. — Deps: T012, T013 · Ref: NFR-011, FR-031 (variante de evaluación), Edge Cases (reloj incorrecto), research R-05, R-13
 
 **Checkpoint F5**: los tests de la cola, del cliente y de `verify.py apk-evaluacion` están en
 verde contra el destino simulado; la retención pasa sus tests. **Condición para pasar**:
@@ -278,7 +279,7 @@ registradas, y permitir descartar dentro de la ventana de deshacer.
 - [X] T028 [US1] Implementar `evaluacion/src/main/java/com/helpi/evaluacion/ui/protocolo/ProtocoloViewModel.kt`, **el único que resuelve un intento**:
   - consume los eventos de `RegistroObserver`;
   - ventana de deshacer de 3 s ("Descartar" solo sobre el umbral);
-  - tiempo agotado de 15 s sin segmento (`TIEMPO_AGOTADO`);
+  - tiempo agotado de 15 s sin segmento (`TIEMPO_AGOTADO`, causa del protocolo; no se emite por `RecognitionObserver`);
   - "Repetir intento" solo ante "sin resultado" (el anterior queda `reemplazado`);
   - "Lo hice mal" hasta que empieza el intento siguiente;
   - pausa entre bloques ("Seguir" o "Retomar otro día");
