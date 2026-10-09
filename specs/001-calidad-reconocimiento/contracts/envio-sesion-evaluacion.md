@@ -195,7 +195,10 @@ Cuerpo de error (4xx):
    plazo se fija en la revisión legal (Ley N.º 25.326) que pide la spec.
 6. Entregar al análisis una exportación en bloque con los documentos **tal como se
    recibieron**, sin transformar.
-7. No calcular métricas sobre el contenido (research R-10).
+7. La función receptora no calcula métricas sobre el contenido (research R-10). Se permite
+   que un componente de análisis separado del receptor y de solo lectura consuma los documentos
+   recibidos y calcule únicamente las métricas agregadas definidas en §Reglas para el análisis.
+   Este componente no modifica ni elimina los documentos fuente.
 
 ---
 
