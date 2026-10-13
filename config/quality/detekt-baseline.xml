@@ -7,63 +7,18 @@
     <ID>ComplexCondition:ObservationFactory.kt$ObservationFactory$x &lt; edgeMargin || x &gt; 1f - edgeMargin || y &lt; edgeMargin || y &gt; 1f - edgeMargin</ID>
     <ID>ComplexCondition:SessionCoordinator.kt$SessionCoordinator$!isActive() || !cameraEnabled || !capabilities.phraseVision || recognitionMode != RecognitionMode.PHRASE_EXPERIMENTAL</ID>
     <ID>ComplexCondition:SessionCoordinator.kt$SessionCoordinator$!isActive() || !cameraEnabled || revision != visionRevision || recognitionMode != RecognitionMode.PHRASE_EXPERIMENTAL</ID>
-    <ID>CyclomaticComplexMethod:ConversationScreen.kt$@Composable private fun PanelDeCaptura( state: SessionCoordinator.UiState, actions: ConversationActions, teclado: Boolean, onTeclado: () -&gt; Unit, cameraPreview: @Composable () -&gt; Unit, modifier: Modifier = Modifier, forma: Shape = HelpiShapes.Panel )</ID>
     <ID>CyclomaticComplexMethod:ConversationScreen.kt$private fun instruccionDeEncuadre(state: SessionCoordinator.UiState): String?</ID>
-    <ID>CyclomaticComplexMethod:LandmarkOverlay.kt$private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawLandmarkGroup( landmarks: FloatArray?, firstLandmarkIndex: Int, landmarkCount: Int, connections: Array&lt;IntArray&gt;, transform: OverlayTransform, color: Color )</ID>
     <ID>CyclomaticComplexMethod:SequenceModelBundle.kt$SequenceModelBundle.Companion$fun load(context: Context): SequenceModelBundleResult</ID>
     <ID>CyclomaticComplexMethod:SessionCoordinator.kt$SessionCoordinator$fun finishPhraseCapture()</ID>
     <ID>CyclomaticComplexMethod:SessionCoordinator.kt$SessionCoordinator$fun prepare(autoStart: Boolean = false)</ID>
     <ID>CyclomaticComplexMethod:SessionCoordinator.kt$SessionCoordinator$private fun classifySegment(startMs: Long, endMs: Long)</ID>
     <ID>CyclomaticComplexMethod:SessionCoordinator.kt$SessionCoordinator$private fun processLandmarks(frame: LandmarkFrame)</ID>
-    <ID>FunctionNaming:AccountScreen.kt$@Composable internal fun AvisosDeCapacidades(state: SessionCoordinator.UiState)</ID>
-    <ID>FunctionNaming:AccountScreen.kt$@Composable internal fun ControlDeUmbral( state: SessionCoordinator.UiState, onThreshold: (Float) -&gt; Unit, modifier: Modifier = Modifier )</ID>
-    <ID>FunctionNaming:AccountScreen.kt$@Composable internal fun DialogoDeNombre( titulo: String, explicacion: String, inicial: String, confirmar: String, onConfirmar: (String) -&gt; Unit, onDismiss: () -&gt; Unit, omitir: String? = null, onOmitir: (() -&gt; Unit)? = null )</ID>
-    <ID>FunctionNaming:AccountScreen.kt$@Composable internal fun PantallaCuenta( state: SessionCoordinator.UiState, participantes: Participantes, onThreshold: (Float) -&gt; Unit, onRenombrarCuenta: (String) -&gt; Unit, modifier: Modifier = Modifier )</ID>
-    <ID>FunctionNaming:AccountScreen.kt$@Composable private fun Seccion(titulo: String, contenido: @Composable () -&gt; Unit)</ID>
-    <ID>FunctionNaming:AccountScreen.kt$@Composable private fun TarjetaDePerfil(nombre: String, onEditar: () -&gt; Unit)</ID>
-    <ID>FunctionNaming:ChatBubble.kt$@Composable fun NotaSistema(texto: String, modifier: Modifier = Modifier)</ID>
-    <ID>FunctionNaming:ChatBubble.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun TurnoMensaje( turn: Turn, autor: String, mostrarAutor: Boolean, propio: Boolean, onRepetir: (() -&gt; Unit)?, onMarcarIncorrecto: (() -&gt; Unit)?, modifier: Modifier = Modifier )</ID>
-    <ID>FunctionNaming:ConversationScreen.kt$@Composable fun ConversationScreen( viewModel: ConversationViewModel, onStart: () -&gt; Unit, cameraPreview: @Composable () -&gt; Unit = {} )</ID>
-    <ID>FunctionNaming:ConversationScreen.kt$@Composable internal fun ConversationContent( state: SessionCoordinator.UiState, actions: ConversationActions, participantes: Participantes = Participantes(), cameraPreview: @Composable () -&gt; Unit = {} )</ID>
-    <ID>FunctionNaming:ConversationScreen.kt$@Composable private fun AccionDeEncabezado( @DrawableRes icono: Int, etiqueta: String, onClick: () -&gt; Unit, tamano: androidx.compose.ui.unit.Dp = 22.dp )</ID>
-    <ID>FunctionNaming:ConversationScreen.kt$@Composable private fun Bienvenida( state: SessionCoordinator.UiState, onIniciar: () -&gt; Unit, onReanudar: () -&gt; Unit )</ID>
-    <ID>FunctionNaming:ConversationScreen.kt$@Composable private fun BotonDeVidrio( @DrawableRes icono: Int, etiqueta: String, activo: Boolean = false, habilitado: Boolean = true, tachado: Boolean = false, onClick: () -&gt; Unit )</ID>
-    <ID>FunctionNaming:ConversationScreen.kt$@Composable private fun Confirmacion( titulo: String, cuerpo: String, confirmar: String, onConfirmar: () -&gt; Unit, onCancelar: () -&gt; Unit )</ID>
-    <ID>FunctionNaming:ConversationScreen.kt$@Composable private fun DiagnosticoVisual(state: SessionCoordinator.UiState)</ID>
-    <ID>FunctionNaming:ConversationScreen.kt$@Composable private fun Encabezado( interlocutor: String, onNueva: () -&gt; Unit, onAjustes: () -&gt; Unit, onCerrar: () -&gt; Unit )</ID>
-    <ID>FunctionNaming:ConversationScreen.kt$@Composable private fun EncabezadoCompacto( interlocutor: String, onNueva: () -&gt; Unit, onAjustes: () -&gt; Unit, onCerrar: () -&gt; Unit )</ID>
-    <ID>FunctionNaming:ConversationScreen.kt$@Composable private fun EstadoDeDistancia(state: SigningDistanceGuide.State)</ID>
-    <ID>FunctionNaming:ConversationScreen.kt$@Composable private fun GuiaDeDistancia(state: SigningDistanceGuide.State, modifier: Modifier = Modifier)</ID>
-    <ID>FunctionNaming:ConversationScreen.kt$@Composable private fun Inicio( state: SessionCoordinator.UiState, actions: ConversationActions, participantes: Participantes )</ID>
-    <ID>FunctionNaming:ConversationScreen.kt$@Composable private fun ListaDeMensajes( state: SessionCoordinator.UiState, actions: ConversationActions, participantes: Participantes, modifier: Modifier = Modifier )</ID>
-    <ID>FunctionNaming:ConversationScreen.kt$@Composable private fun PanelDeCaptura( state: SessionCoordinator.UiState, actions: ConversationActions, teclado: Boolean, onTeclado: () -&gt; Unit, cameraPreview: @Composable () -&gt; Unit, modifier: Modifier = Modifier, forma: Shape = HelpiShapes.Panel )</ID>
-    <ID>FunctionNaming:ConversationScreen.kt$@Composable private fun PantallaInmersiva()</ID>
-    <ID>FunctionNaming:ConversationScreen.kt$@Composable private fun PrediccionesDeEva(feedback: SessionCoordinator.RecognitionFeedback)</ID>
-    <ID>FunctionNaming:ConversationScreen.kt$@Composable private fun Redactor(onEnviar: (String) -&gt; Unit, compacto: Boolean = false)</ID>
-    <ID>FunctionNaming:ConversationScreen.kt$@Composable private fun SalaDeConversacion( state: SessionCoordinator.UiState, actions: ConversationActions, participantes: Participantes, cameraPreview: @Composable () -&gt; Unit )</ID>
-    <ID>FunctionNaming:ConversationScreen.kt$@Composable private fun SelectorDeModo( state: SessionCoordinator.UiState, onRecognitionMode: (RecognitionMode) -&gt; Unit )</ID>
-    <ID>FunctionNaming:ConversationScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable private fun HojaDeAjustes( state: SessionCoordinator.UiState, onThreshold: (Float) -&gt; Unit, onRecognitionMode: (RecognitionMode) -&gt; Unit, onDismiss: () -&gt; Unit )</ID>
-    <ID>FunctionNaming:EvaOrb.kt$@Composable fun EvaOrb(estado: EvaEstado, modifier: Modifier = Modifier)</ID>
-    <ID>FunctionNaming:Hotbar.kt$@Composable fun Hotbar( seleccionada: SeccionHotbar, onSeleccionar: (SeccionHotbar) -&gt; Unit, modifier: Modifier = Modifier )</ID>
-    <ID>FunctionNaming:LandmarkOverlay.kt$@Composable internal fun LandmarkOverlay( frame: LandmarkFrame?, visualState: VisualChannelState, modifier: Modifier = Modifier )</ID>
-    <ID>FunctionNaming:MainActivity.kt$MainActivity$@Composable private fun CameraPreview()</ID>
-    <ID>FunctionNaming:Theme.kt$@Composable fun HelpiTheme(content: @Composable () -&gt; Unit)</ID>
     <ID>LargeClass:SessionCoordinator.kt$SessionCoordinator</ID>
-    <ID>LongMethod:AccountScreen.kt$@Composable internal fun PantallaCuenta( state: SessionCoordinator.UiState, participantes: Participantes, onThreshold: (Float) -&gt; Unit, onRenombrarCuenta: (String) -&gt; Unit, modifier: Modifier = Modifier )</ID>
-    <ID>LongMethod:ChatBubble.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun TurnoMensaje( turn: Turn, autor: String, mostrarAutor: Boolean, propio: Boolean, onRepetir: (() -&gt; Unit)?, onMarcarIncorrecto: (() -&gt; Unit)?, modifier: Modifier = Modifier )</ID>
-    <ID>LongMethod:ConversationScreen.kt$@Composable private fun Bienvenida( state: SessionCoordinator.UiState, onIniciar: () -&gt; Unit, onReanudar: () -&gt; Unit )</ID>
-    <ID>LongMethod:ConversationScreen.kt$@Composable private fun PanelDeCaptura( state: SessionCoordinator.UiState, actions: ConversationActions, teclado: Boolean, onTeclado: () -&gt; Unit, cameraPreview: @Composable () -&gt; Unit, modifier: Modifier = Modifier, forma: Shape = HelpiShapes.Panel )</ID>
-    <ID>LongMethod:ConversationScreen.kt$@Composable private fun SalaDeConversacion( state: SessionCoordinator.UiState, actions: ConversationActions, participantes: Participantes, cameraPreview: @Composable () -&gt; Unit )</ID>
     <ID>LongMethod:FrontCameraSource.kt$FrontCameraSource$fun start(lifecycleOwner: LifecycleOwner, surfaceProvider: Preview.SurfaceProvider?)</ID>
     <ID>LongMethod:SessionCoordinator.kt$SessionCoordinator$fun finishPhraseCapture()</ID>
     <ID>LongMethod:SessionCoordinator.kt$SessionCoordinator$fun prepare(autoStart: Boolean = false)</ID>
     <ID>LongMethod:SessionCoordinator.kt$SessionCoordinator$private fun classifySegment(startMs: Long, endMs: Long)</ID>
     <ID>LongMethod:SessionCoordinator.kt$SessionCoordinator$private fun processLandmarks(frame: LandmarkFrame)</ID>
-    <ID>LongParameterList:AccountScreen.kt$( titulo: String, explicacion: String, inicial: String, confirmar: String, onConfirmar: (String) -&gt; Unit, onDismiss: () -&gt; Unit, omitir: String? = null, onOmitir: (() -&gt; Unit)? = null )</ID>
-    <ID>LongParameterList:ChatBubble.kt$( turn: Turn, autor: String, mostrarAutor: Boolean, propio: Boolean, onRepetir: (() -&gt; Unit)?, onMarcarIncorrecto: (() -&gt; Unit)?, modifier: Modifier = Modifier )</ID>
-    <ID>LongParameterList:ConversationScreen.kt$( @DrawableRes icono: Int, etiqueta: String, activo: Boolean = false, habilitado: Boolean = true, tachado: Boolean = false, onClick: () -&gt; Unit )</ID>
-    <ID>LongParameterList:ConversationScreen.kt$( state: SessionCoordinator.UiState, actions: ConversationActions, teclado: Boolean, onTeclado: () -&gt; Unit, cameraPreview: @Composable () -&gt; Unit, modifier: Modifier = Modifier, forma: Shape = HelpiShapes.Panel )</ID>
-    <ID>LongParameterList:LandmarkOverlay.kt$( landmarks: FloatArray?, firstLandmarkIndex: Int, landmarkCount: Int, connections: Array&lt;IntArray&gt;, transform: OverlayTransform, color: Color )</ID>
     <ID>LoopWithTooManyJumpStatements:LandmarkOverlay.kt$for</ID>
     <ID>MagicNumber:AccountScreen.kt$100</ID>
     <ID>MagicNumber:AccountScreen.kt$30</ID>
@@ -178,11 +133,9 @@
     <ID>MatchingDeclarationName:EvaOrb.kt$EvaEstado</ID>
     <ID>MatchingDeclarationName:Hotbar.kt$SeccionHotbar</ID>
     <ID>MatchingDeclarationName:Shape.kt$HelpiShapes</ID>
-    <ID>ReturnCount:HolisticExtractor.kt$HolisticExtractor$private fun flatten( landmarks: List&lt;com.google.mediapipe.tasks.components.containers.NormalizedLandmark&gt;, expected: Int ): FloatArray?</ID>
     <ID>ReturnCount:ModelBundle.kt$ModelBundle.Companion$internal fun load(read: (String) -&gt; ByteArray?): ModelBundleResult</ID>
     <ID>ReturnCount:OfflineSpeechOutput.kt$OfflineSpeechOutput$fun speak(messageId: Long, text: String): Boolean</ID>
     <ID>ReturnCount:SequenceAcceptancePolicy.kt$SequenceAcceptancePolicy$fun evaluate(candidate: SequenceTranslationCandidate): SequenceAcceptanceDecision</ID>
-    <ID>ReturnCount:SequenceCaptureBuffer.kt$SequenceCaptureBuffer$fun append( timestampMs: Long, leftHand: FloatArray?, rightHand: FloatArray? ): SequenceAppendResult</ID>
     <ID>ReturnCount:SequenceModelBundle.kt$SequenceModelBundle.Companion$fun load(context: Context): SequenceModelBundleResult</ID>
     <ID>ReturnCount:SessionCoordinator.kt$SessionCoordinator$private fun classifySegment(startMs: Long, endMs: Long)</ID>
     <ID>ReturnCount:VoskModelStore.kt$VoskModelStore$fun install(context: Context): Result</ID>

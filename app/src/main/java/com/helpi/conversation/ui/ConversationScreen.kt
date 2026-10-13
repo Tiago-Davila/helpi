@@ -213,6 +213,8 @@ private fun Inicio(
     }
 }
 
+// Deuda previa registrada en el baseline de detekt de develop.
+@Suppress("LongMethod")
 @Composable
 private fun Bienvenida(
     state: SessionCoordinator.UiState,
@@ -319,6 +321,8 @@ private fun Bienvenida(
 // Conversación
 // ---------------------------------------------------------------------------
 
+// Deuda previa registrada en el baseline de detekt de develop.
+@Suppress("LongMethod")
 @Composable
 private fun SalaDeConversacion(
     state: SessionCoordinator.UiState,
@@ -639,6 +643,8 @@ private fun AccionDeEncabezado(
  * Los controles flotan encima, sobre un velo oscuro y con borde de vidrio, de
  * modo que se lean igual contra una pared blanca o contra una sombra.
  */
+// Deuda previa registrada en el baseline de detekt de develop.
+@Suppress("CyclomaticComplexMethod", "LongMethod", "LongParameterList")
 @Composable
 private fun PanelDeCaptura(
     state: SessionCoordinator.UiState,
@@ -962,6 +968,8 @@ private fun estadoDeEva(state: SessionCoordinator.UiState) = when {
     else -> EvaEstado.REPOSO
 }
 
+// Deuda previa registrada en el baseline de detekt de develop.
+@Suppress("LongParameterList")
 @Composable
 private fun BotonDeVidrio(
     @DrawableRes icono: Int,

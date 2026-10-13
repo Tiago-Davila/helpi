@@ -55,6 +55,8 @@ internal fun porcentaje(value: Float) = "${(value * 100).roundToInt()} %"
  * qué no puede hacer Helpi. Los límites del modelo están acá y no escondidos
  * en un «acerca de», porque condicionan cómo se usa la herramienta.
  */
+// Deuda previa registrada en el baseline de detekt de develop.
+@Suppress("LongMethod")
 @Composable
 internal fun PantallaCuenta(
     state: SessionCoordinator.UiState,
@@ -254,6 +256,8 @@ internal fun AvisosDeCapacidades(state: SessionCoordinator.UiState) {
  * Pedido de nombre. Se usa tanto para la cuenta como para la persona con la
  * que se va a conversar; cambian el título, la explicación y el botón.
  */
+// Deuda previa registrada en el baseline de detekt de develop.
+@Suppress("LongParameterList")
 @Composable
 internal fun DialogoDeNombre(
     titulo: String,
