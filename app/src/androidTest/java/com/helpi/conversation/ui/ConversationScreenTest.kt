@@ -21,6 +21,7 @@ import com.helpi.conversation.ui.theme.HelpiTheme
 import com.helpi.conversation.vision.FramingEvaluator
 import com.helpi.conversation.vision.SigningDistanceGuide
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -158,6 +159,19 @@ class ConversationScreenTest {
         compose.onNodeWithContentDescription("Tiago: Bien, gracias").assertIsDisplayed()
         compose.onNodeWithContentDescription("Activar cámara").performClick()
         compose.onNodeWithContentDescription("Apagar cámara").assertIsDisplayed()
+    }
+
+    @Test fun laFraseMuestraDebajoLasGlosasQueLaOriginaron() {
+        val turn = chat.open(Speaker.DEAF, 0)
+        chat.publishSentence(turn.id(), "La mujer sorda.", "MUJER SORDO")
+        render(active = true)
+        val frase = compose.onNodeWithText("La mujer sorda.", useUnmergedTree = true)
+        val glosas = compose.onNodeWithTag("glosas", useUnmergedTree = true)
+        frase.assertIsDisplayed()
+        glosas.assertIsDisplayed().assertTextEquals("MUJER SORDO")
+        assertTrue(glosas.getBoundsInRoot().top >= frase.getBoundsInRoot().bottom)
+        compose.onNodeWithContentDescription("Lucía: La mujer sorda. Señas: MUJER SORDO")
+            .assertIsDisplayed()
     }
 
     @Test fun muestraCuandoEstaReconociendoYProcesandoUnaSena() {

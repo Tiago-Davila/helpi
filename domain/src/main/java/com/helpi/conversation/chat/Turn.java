@@ -14,6 +14,7 @@ public final class Turn {
     private final long id;
     private final Speaker speaker;
     private final String text;
+    private final String glosses;
     private final TurnState state;
     private final VoiceState voiceState;
     private final long startTimestampMs;
@@ -21,11 +22,12 @@ public final class Turn {
     private final int revision;
     private final boolean markedIncorrect;
 
-    /** Crea una revisión inmutable de un turno de conversación. */
+    /** Crea una revisión inmutable de un turno; glosses vacío si no proviene de señas. */
     public Turn(
             long id,
             Speaker speaker,
             String text,
+            String glosses,
             TurnState state,
             VoiceState voiceState,
             long startTimestampMs,
@@ -35,6 +37,7 @@ public final class Turn {
         this.id = id;
         this.speaker = Objects.requireNonNull(speaker);
         this.text = Objects.requireNonNull(text);
+        this.glosses = Objects.requireNonNull(glosses);
         this.state = Objects.requireNonNull(state);
         this.voiceState = Objects.requireNonNull(voiceState);
         this.startTimestampMs = startTimestampMs;
@@ -56,6 +59,11 @@ public final class Turn {
     /** Devuelve el texto visible del turno. */
     public String text() {
         return text;
+    }
+
+    /** Glosas que originaron el texto, para que la persona sorda verifique la frase. */
+    public String glosses() {
+        return glosses;
     }
 
     /** Devuelve el estado textual del turno. */
@@ -89,22 +97,27 @@ public final class Turn {
     }
 
     Turn withText(String newText, TurnState newState) {
-        return new Turn(id, speaker, newText, newState, voiceState,
+        return new Turn(id, speaker, newText, glosses, newState, voiceState,
+                startTimestampMs, sequence, revision + 1, markedIncorrect);
+    }
+
+    Turn withSentence(String newText, String newGlosses) {
+        return new Turn(id, speaker, newText, newGlosses, TurnState.FINAL, voiceState,
                 startTimestampMs, sequence, revision + 1, markedIncorrect);
     }
 
     Turn withState(TurnState newState) {
-        return new Turn(id, speaker, text, newState, voiceState,
+        return new Turn(id, speaker, text, glosses, newState, voiceState,
                 startTimestampMs, sequence, revision + 1, markedIncorrect);
     }
 
     Turn withVoiceState(VoiceState newVoiceState) {
-        return new Turn(id, speaker, text, state, newVoiceState,
+        return new Turn(id, speaker, text, glosses, state, newVoiceState,
                 startTimestampMs, sequence, revision + 1, markedIncorrect);
     }
 
     Turn asIncorrect() {
-        return new Turn(id, speaker, text, state, voiceState,
+        return new Turn(id, speaker, text, glosses, state, voiceState,
                 startTimestampMs, sequence, revision + 1, true);
     }
 }

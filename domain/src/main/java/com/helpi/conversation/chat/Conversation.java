@@ -26,7 +26,7 @@ public final class Conversation {
     /** Crea una reserva para el inicio detectado de voz o de seña. */
     public Turn open(Speaker speaker, long startTimestampMs) {
         requireCapacity();
-        Turn turn = new Turn(nextId++, speaker, "", TurnState.PENDING,
+        Turn turn = new Turn(nextId++, speaker, "", "", TurnState.PENDING,
                 VoiceState.NONE, startTimestampMs, nextSequence++, 0, false);
         turns.put(turn.id(), turn);
         return turn;
@@ -46,6 +46,15 @@ public final class Conversation {
     public Turn publishSign(long turnId, String recognizedText) {
         Turn t = get(turnId).withText(recognizedText, TurnState.FINAL)
                 .withVoiceState(VoiceState.PENDING);
+        return replace(t);
+    }
+
+    /** Publica la frase de una oración cerrada junto a sus glosas; la voz queda pendiente. */
+    public Turn publishSentence(long turnId, String phrase, String glosses) {
+        if (phrase == null || phrase.trim().isEmpty() || glosses == null || glosses.trim().isEmpty()) {
+            throw new IllegalArgumentException("una oración necesita frase y glosas");
+        }
+        Turn t = get(turnId).withSentence(phrase, glosses).withVoiceState(VoiceState.PENDING);
         return replace(t);
     }
 
@@ -79,7 +88,7 @@ public final class Conversation {
         Turn marked = replace(get(turnId).asIncorrect());
         requireCapacity();
         Turn note = new Turn(nextId++, Speaker.SYSTEM,
-                "La traducción anterior fue marcada como incorrecta",
+                "La traducción anterior fue marcada como incorrecta", "",
                 TurnState.FINAL, VoiceState.PENDING, nowMs, nextSequence++, 0, false);
         turns.put(note.id(), note);
         return marked;
@@ -88,7 +97,7 @@ public final class Conversation {
     /** Mensaje del sistema sin voz asociada. */
     public Turn systemNote(String text, long nowMs) {
         requireCapacity();
-        Turn note = new Turn(nextId++, Speaker.SYSTEM, text, TurnState.FINAL,
+        Turn note = new Turn(nextId++, Speaker.SYSTEM, text, "", TurnState.FINAL,
                 VoiceState.NONE, nowMs, nextSequence++, 0, false);
         turns.put(note.id(), note);
         return note;

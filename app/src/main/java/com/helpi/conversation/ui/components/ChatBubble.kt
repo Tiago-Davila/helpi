@@ -28,6 +28,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
@@ -127,7 +128,7 @@ fun TurnoMensaje(
                         )
                         .padding(horizontal = 16.dp, vertical = 12.dp)
                         .semantics {
-                            contentDescription = "$autor: ${turn.text()}"
+                            contentDescription = descripcion(autor, turn)
                             liveRegion = LiveRegionMode.Polite
                         }
                 ) {
@@ -136,6 +137,16 @@ fun TurnoMensaje(
                         style = HelpiType.BodyChat,
                         color = HelpiColors.LedSoft
                     )
+                    // Debajo de la frase, las señas que la originaron: la persona
+                    // sorda verifica qué se tradujo en su nombre.
+                    if (turn.glosses().isNotEmpty()) {
+                        Text(
+                            text = turn.glosses(),
+                            style = HelpiType.BodyS,
+                            color = HelpiColors.LedMuted,
+                            modifier = Modifier.padding(top = 4.dp).testTag("glosas")
+                        )
+                    }
                 }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     onRepetir?.let { repetir ->
@@ -252,4 +263,11 @@ fun NotaSistema(texto: String, modifier: Modifier = Modifier) {
             }
         }
     }
+}
+
+/** Lectura para TalkBack: la frase y, si las hay, las señas que la originaron. */
+private fun descripcion(autor: String, turn: Turn): String = if (turn.glosses().isEmpty()) {
+    "$autor: ${turn.text()}"
+} else {
+    "$autor: ${turn.text()} Señas: ${turn.glosses()}"
 }

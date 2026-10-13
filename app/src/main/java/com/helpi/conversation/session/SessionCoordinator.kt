@@ -17,6 +17,7 @@ import com.helpi.conversation.chat.VoiceState
 import com.helpi.conversation.keypoints.KeypointContract
 import com.helpi.conversation.lsa.ModelBundle
 import com.helpi.conversation.lsa.ModelBundleResult
+import com.helpi.conversation.lsa.PhraseAssets
 import com.helpi.conversation.lsa.SignAcceptancePolicy
 import com.helpi.conversation.lsa.SignClassifier
 import com.helpi.conversation.lsa.SignDecision
@@ -31,6 +32,9 @@ import com.helpi.conversation.lsa.sequence.SequenceTranslationCandidate
 import com.helpi.conversation.lsa.sequence.SequenceTranslator
 import com.helpi.conversation.observation.NoResultCause
 import com.helpi.conversation.observation.RecognitionObserver
+import com.helpi.conversation.phrase.PhraseBuilder
+import com.helpi.conversation.phrase.PhraseResult
+import com.helpi.conversation.phrase.RecognizedSign
 import com.helpi.conversation.vision.CameraCaptureMetrics
 import com.helpi.conversation.vision.FramingEvaluator
 import com.helpi.conversation.vision.LandmarkExtractionMetrics
@@ -142,6 +146,7 @@ class SessionCoordinator(
     private var classifier: SignClassifier? = null
     private var acceptancePolicy: SignAcceptancePolicy? = null
     private var bundle: ModelBundle? = null
+    private var phraseAssets: PhraseAssets = PhraseAssets.Disabled(PHRASES_WITHOUT_MODEL)
     private var speech: VoskSpeechSource? = null
     private var speechOutput: OfflineSpeechOutput? = null
     private var classifying = false
@@ -253,6 +258,11 @@ class SessionCoordinator(
             when (val result = ModelBundle.load(context)) {
                 is ModelBundleResult.Ready -> {
                     bundle = result.bundle
+                    phraseAssets = PhraseAssets.load(
+                        context,
+                        result.bundle.manifest,
+                        result.bundle.catalog
+                    )
                     try {
                         classifier = SignClassifier(result.bundle)
                         acceptancePolicy = SignAcceptancePolicy(
@@ -517,6 +527,7 @@ class SessionCoordinator(
         signingDistance = SigningDistanceGuide.State.UNKNOWN
         acceptancePolicy = null
         bundle = null
+        phraseAssets = PhraseAssets.Disabled(PHRASES_WITHOUT_MODEL)
         lastRecognition = null
         visionMetrics = VisionMetrics()
         samplingProfile = SamplingProfile.IDLE
@@ -1158,11 +1169,38 @@ class SessionCoordinator(
         publish()
     }
 
+    /**
+     * Publica una oración ya cerrada como frase con sus glosas debajo. La voz
+     * dice la frase recién ahora; si alguna seña quedó como hueco, no se
+     * pronuncia nada para no decir en voz alta una oración incompleta.
+     */
+    fun publishSentence(signs: List<RecognizedSign>, startMs: Long) = submit(generation) {
+        if (!isActive() || deliveryMode == DeliveryMode.OBSERVER_ONLY || signs.isEmpty()) {
+            return@submit
+        }
+        val result = phraseAssets.builder(confidenceThreshold).build(signs)
+        val turn = conversation.open(Speaker.DEAF, startMs)
+        conversation.publishSentence(turn.id(), result.text(), result.glosses().joinToString(" "))
+        val spoken = sentenceVoice(result)
+        if (capabilities.tts && spoken != null) {
+            arbiter.enqueue(turn.id(), spoken, now())
+        } else {
+            conversation.updateVoice(turn.id(), VoiceState.NOT_SPOKEN)
+        }
+        publish()
+    }
+
+    /** Reemplaza léxico y plantillas, para probar el armado sin cargar el modelo. */
+    internal fun usePhraseAssets(assets: PhraseAssets) = submit(generation) {
+        phraseAssets = assets
+    }
+
     /** Repite por voz un turno final de la persona sorda. */
     fun repeatTurn(turnId: Long) = submit(generation) {
         if (!isActive() || !capabilities.tts) return@submit
         val turn = runCatching { conversation.get(turnId) }.getOrNull() ?: return@submit
         if (turn.speaker() != Speaker.DEAF || turn.text().isBlank()) return@submit
+        if (PhraseBuilder.GAP in turn.glosses()) return@submit
         val spoken = turn.text().removePrefix("Seña reconocida: ")
         conversation.updateVoice(turnId, VoiceState.PENDING)
         arbiter.enqueue(turnId, spoken, now())
@@ -1286,6 +1324,11 @@ class SessionCoordinator(
     companion object {
         /** Umbral inicial de laboratorio (D03); no aprobado de producción. */
         const val DEFAULT_THRESHOLD = 0.90f
+        private const val PHRASES_WITHOUT_MODEL = "modelo LSA no cargado"
+
+        /** Texto que la voz dice para una oración: la frase, o nada si tiene huecos. */
+        internal fun sentenceVoice(result: PhraseResult): String? =
+            result.text().takeIf { PhraseBuilder.GAP !in result.glosses() }
         const val MIN_THRESHOLD = 0.50f
         const val MAX_THRESHOLD = 0.99f
 
