@@ -7,11 +7,11 @@ package com.helpi.conversation.vision
 enum class SamplingProfile(
     val targetFps: Int,
     val minimumIntervalMs: Long,
-    val displayName: String,
+    val displayName: String
 ) {
     IDLE(targetFps = 12, minimumIntervalMs = 83, displayName = "reposo"),
     ARMED(targetFps = 16, minimumIntervalMs = 62, displayName = "armado"),
-    ACTIVE(targetFps = 24, minimumIntervalMs = 42, displayName = "captura"),
+    ACTIVE(targetFps = 24, minimumIntervalMs = 42, displayName = "captura")
 }
 
 /**
@@ -23,7 +23,7 @@ data class CameraCaptureMetrics(
     val targetFps: Int,
     val analyzerFps: Float,
     val analyzedFrames: Long,
-    val rateLimitedFrames: Long,
+    val rateLimitedFrames: Long
 )
 
 /** Resultado acumulado del extractor MediaPipe para la sesión actual. */
@@ -34,7 +34,7 @@ data class LandmarkExtractionMetrics(
     val poseFrames: Long,
     val leftHandFrames: Long,
     val rightHandFrames: Long,
-    val lastLatencyMs: Long,
+    val lastLatencyMs: Long
 )
 
 /**
@@ -56,5 +56,5 @@ data class VisionMetrics(
     val segmentsCompleted: Long = 0,
     val segmentsAborted: Long = 0,
     val classifierRuns: Long = 0,
-    val lastClassifierLatencyMs: Long = 0,
+    val lastClassifierLatencyMs: Long = 0
 )

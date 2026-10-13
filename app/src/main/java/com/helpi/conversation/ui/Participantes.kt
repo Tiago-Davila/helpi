@@ -29,5 +29,5 @@ internal data class Participantes(
     val cuenta: String = CUENTA_DEMO,
     val interlocutor: String = SIN_NOMBRE,
     /** La pantalla de inicio debe abrir sola el pedido de nombre. */
-    val solicitarNombre: Boolean = false,
+    val solicitarNombre: Boolean = false
 )

@@ -58,7 +58,8 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
     }
 
     fun onCameraMetrics(metrics: CameraCaptureMetrics) = coordinator.onCameraMetrics(metrics)
-    fun onLandmarkMetrics(metrics: LandmarkExtractionMetrics) = coordinator.onLandmarkMetrics(metrics)
+    fun onLandmarkMetrics(metrics: LandmarkExtractionMetrics) =
+        coordinator.onLandmarkMetrics(metrics)
 
     fun clearLandmarks() {
         _landmarks.value = null

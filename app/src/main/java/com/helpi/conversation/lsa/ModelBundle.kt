@@ -2,11 +2,11 @@ package com.helpi.conversation.lsa
 
 import android.content.Context
 import com.helpi.conversation.keypoints.KeypointContract
-import org.json.JSONObject
 import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.security.MessageDigest
+import org.json.JSONObject
 
 /**
  * Unidad modelo-catálogo. Ambos artefactos se versionan y verifican JUNTOS
@@ -27,7 +27,7 @@ sealed class ModelBundleResult {
 class ModelBundle private constructor(
     val model: ByteBuffer,
     val catalog: SignCatalog,
-    val manifest: Manifest,
+    val manifest: Manifest
 ) {
     data class Manifest(
         val modelVersion: String,
@@ -40,7 +40,7 @@ class ModelBundle private constructor(
         val frames: Int,
         val coords: Int,
         /** Versión del contrato de keypoints con el que se entrenó el modelo. */
-        val contractVersion: Int,
+        val contractVersion: Int
     )
 
     companion object {
@@ -65,13 +65,15 @@ class ModelBundle private constructor(
             if (manifest.contractVersion != KeypointContract.CONTRACT_VERSION) {
                 return ModelBundleResult.Invalid(
                     "contrato de keypoints v${manifest.contractVersion}, " +
-                        "la app implementa v${KeypointContract.CONTRACT_VERSION}",
+                        "la app implementa v${KeypointContract.CONTRACT_VERSION}"
                 )
             }
-            if (manifest.frames != KeypointContract.FRAMES || manifest.coords != KeypointContract.COORDS) {
+            if (manifest.frames != KeypointContract.FRAMES ||
+                manifest.coords != KeypointContract.COORDS
+            ) {
                 return ModelBundleResult.Invalid(
                     "contrato incompatible: ${manifest.frames}x${manifest.coords}, " +
-                        "se esperaba ${KeypointContract.FRAMES}x${KeypointContract.COORDS}",
+                        "se esperaba ${KeypointContract.FRAMES}x${KeypointContract.COORDS}"
                 )
             }
 
@@ -96,12 +98,12 @@ class ModelBundle private constructor(
 
             if (catalog.version != manifest.catalogVersion) {
                 return ModelBundleResult.Invalid(
-                    "versión de catálogo ${catalog.version} != manifiesto ${manifest.catalogVersion}",
+                    "versión de catálogo ${catalog.version} != manifiesto ${manifest.catalogVersion}"
                 )
             }
             if (catalog.size != manifest.numClasses) {
                 return ModelBundleResult.Invalid(
-                    "catálogo con ${catalog.size} glosas, el modelo emite ${manifest.numClasses} clases",
+                    "catálogo con ${catalog.size} glosas, el modelo emite ${manifest.numClasses} clases"
                 )
             }
 
@@ -124,16 +126,15 @@ class ModelBundle private constructor(
                 frames = o.getInt("frames"),
                 coords = o.getInt("coords"),
                 // Los manifiestos anteriores a v3 no declaraban versión: eran v2.
-                contractVersion = o.optInt("contractVersion", 2),
+                contractVersion = o.optInt("contractVersion", 2)
             )
         }
 
-        private fun readAsset(context: Context, path: String): ByteArray? =
-            try {
-                context.assets.open(path).use { it.readBytes() }
-            } catch (_: IOException) {
-                null
-            }
+        private fun readAsset(context: Context, path: String): ByteArray? = try {
+            context.assets.open(path).use { it.readBytes() }
+        } catch (_: IOException) {
+            null
+        }
 
         private fun sha256(bytes: ByteArray): String =
             MessageDigest.getInstance("SHA-256").digest(bytes)

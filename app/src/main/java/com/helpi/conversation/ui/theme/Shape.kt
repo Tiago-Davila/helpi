@@ -48,7 +48,7 @@ object HelpiShapes {
         topStart = 22.dp,
         topEnd = 22.dp,
         bottomEnd = 6.dp,
-        bottomStart = 22.dp,
+        bottomStart = 22.dp
     )
 
     /** Turno de la otra persona: la cola apunta abajo a la izquierda. */
@@ -56,7 +56,7 @@ object HelpiShapes {
         topStart = 22.dp,
         topEnd = 22.dp,
         bottomEnd = 22.dp,
-        bottomStart = 6.dp,
+        bottomStart = 6.dp
     )
 }
 
@@ -85,7 +85,7 @@ private class BurbujaShape : Shape {
     override fun createOutline(
         size: Size,
         layoutDirection: LayoutDirection,
-        density: Density,
+        density: Density
     ): Outline = Outline.Generic(rutaBurbuja(size, escala = 0.5f / EXTENSION_BURBUJA))
 }
 
@@ -112,8 +112,8 @@ fun rutaBurbuja(size: Size, escala: Float = 1f): Path {
                 topLeftCornerRadius = CornerRadius(lado * RADIO_SUP_IZQ),
                 topRightCornerRadius = CornerRadius(lado * RADIO_SUP_DER),
                 bottomRightCornerRadius = CornerRadius(lado * RADIO_INF_DER),
-                bottomLeftCornerRadius = CornerRadius(lado * RADIO_INF_IZQ),
-            ),
+                bottomLeftCornerRadius = CornerRadius(lado * RADIO_INF_IZQ)
+            )
         )
     }
 

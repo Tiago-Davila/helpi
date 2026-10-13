@@ -4,16 +4,16 @@ import android.content.Context
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helpi.conversation.keypoints.SequenceKeypointContract
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.util.Base64
+import kotlin.math.abs
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
-import java.util.Base64
-import kotlin.math.abs
 
 /**
  * ETAPA 2 — contrato de keypoints sin modelo.
@@ -64,7 +64,7 @@ class SequenceContractFixtureTest {
             for (floatIndex in actual.indices) {
                 assertTrue(
                     "$name: float $floatIndex esperado=${expected[floatIndex]} actual=${actual[floatIndex]}",
-                    abs(expected[floatIndex] - actual[floatIndex]) <= 1e-6f,
+                    abs(expected[floatIndex] - actual[floatIndex]) <= 1e-6f
                 )
             }
 
@@ -72,7 +72,11 @@ class SequenceContractFixtureTest {
             val actualIndices = SequenceKeypointContract.sampleIndices(rawFrames)
             assertEquals("$name: índices", expectedIndices.length(), actualIndices.size)
             for (sample in actualIndices.indices) {
-                assertEquals("$name: índice $sample", expectedIndices.getInt(sample), actualIndices[sample])
+                assertEquals(
+                    "$name: índice $sample",
+                    expectedIndices.getInt(sample),
+                    actualIndices[sample]
+                )
             }
         }
     }

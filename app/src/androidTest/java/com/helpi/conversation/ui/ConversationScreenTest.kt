@@ -51,15 +51,17 @@ class ConversationScreenTest {
                             close = { cerrar() },
                             microphone = {
                                 state.value = state.value.copy(
-                                    microphoneEnabled = !state.value.microphoneEnabled,
+                                    microphoneEnabled = !state.value.microphoneEnabled
                                 )
                             },
                             camera = {
                                 state.value = state.value.copy(
-                                    cameraEnabled = !state.value.cameraEnabled,
+                                    cameraEnabled = !state.value.cameraEnabled
                                 )
                             },
-                            threshold = { state.value = state.value.copy(confidenceThreshold = it) },
+                            threshold = {
+                                state.value = state.value.copy(confidenceThreshold = it)
+                            },
                             send = {
                                 val turn = chat.open(Speaker.DEAF, 0)
                                 chat.publishTyped(turn.id(), it)
@@ -72,7 +74,7 @@ class ConversationScreenTest {
                             nombrarInterlocutor = { nombre ->
                                 participantes.value = participantes.value.copy(
                                     interlocutor = nombre.trim().ifBlank { SIN_NOMBRE },
-                                    solicitarNombre = false,
+                                    solicitarNombre = false
                                 )
                             },
                             renombrarCuenta = { nombre ->
@@ -81,9 +83,9 @@ class ConversationScreenTest {
                             cancelarPedidoDeNombre = {
                                 participantes.value =
                                     participantes.value.copy(solicitarNombre = false)
-                            },
+                            }
                         ),
-                        participantes.value,
+                        participantes.value
                     )
                 }
             }
@@ -99,7 +101,7 @@ class ConversationScreenTest {
     private fun activeState() = SessionCoordinator.UiState(
         session = SessionState.ACTIVA,
         capabilities = SessionCoordinator.Capabilities(vision = true, stt = true, tts = true),
-        turns = chat.ordered(),
+        turns = chat.ordered()
     )
 
     private fun empezarConversacion(nombre: String) {
@@ -163,7 +165,7 @@ class ConversationScreenTest {
         compose.runOnIdle {
             state.value = state.value.copy(
                 framing = FramingEvaluator.Issue.OK,
-                visual = VisualChannelState.CAPTURANDO_SENA,
+                visual = VisualChannelState.CAPTURANDO_SENA
             )
         }
         compose.onNodeWithText("Reconociendo tu seña…").assertIsDisplayed()
@@ -186,9 +188,9 @@ class ConversationScreenTest {
                     predictions = listOf(
                         SessionCoordinator.RecognitionPrediction("Gracias", 0.74f),
                         SessionCoordinator.RecognitionPrediction("Ayuda", 0.18f),
-                        SessionCoordinator.RecognitionPrediction("Aceptar", 0.06f),
-                    ),
-                ),
+                        SessionCoordinator.RecognitionPrediction("Aceptar", 0.06f)
+                    )
+                )
             )
         }
 

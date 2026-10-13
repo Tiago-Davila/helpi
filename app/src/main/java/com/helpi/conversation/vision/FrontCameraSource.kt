@@ -28,7 +28,7 @@ class FrontCameraSource(
     private val context: Context,
     private val onFrame: (android.graphics.Bitmap, Long) -> Unit,
     private val onUnavailable: (String) -> Unit,
-    private val onMetrics: (CameraCaptureMetrics) -> Unit = {},
+    private val onMetrics: (CameraCaptureMetrics) -> Unit = {}
 ) {
     private val analysisExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     private val lastSentMs = AtomicLong(0)
@@ -64,8 +64,8 @@ class FrontCameraSource(
                 val preview = Preview.Builder()
                     .setResolutionSelector(previewResolutionSelector)
                     .build().also {
-                    if (surfaceProvider != null) it.surfaceProvider = surfaceProvider
-                }
+                        if (surfaceProvider != null) it.surfaceProvider = surfaceProvider
+                    }
 
                 val analysis = ImageAnalysis.Builder()
                     // 960×540 (16:9) conserva detalle suficiente de manos y evita pedir
@@ -74,14 +74,16 @@ class FrontCameraSource(
                     // usa el tamaño real de cada cuadro.
                     .setResolutionSelector(
                         ResolutionSelector.Builder()
-                            .setAspectRatioStrategy(AspectRatioStrategy.RATIO_16_9_FALLBACK_AUTO_STRATEGY)
+                            .setAspectRatioStrategy(
+                                AspectRatioStrategy.RATIO_16_9_FALLBACK_AUTO_STRATEGY
+                            )
                             .setResolutionStrategy(
                                 ResolutionStrategy(
                                     Size(960, 540),
-                                    ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER,
-                                ),
+                                    ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER
+                                )
                             )
-                            .build(),
+                            .build()
                     )
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
@@ -104,9 +106,17 @@ class FrontCameraSource(
                         // el overlay, incluso en teléfonos en vertical.
                         val rotation = imageProxy.imageInfo.rotationDegrees
                         val upright = if (rotation != 0) {
-                            val matrix = android.graphics.Matrix().apply { postRotate(rotation.toFloat()) }
+                            val matrix = android.graphics.Matrix().apply {
+                                postRotate(rotation.toFloat())
+                            }
                             android.graphics.Bitmap.createBitmap(
-                                bitmap, 0, 0, bitmap.width, bitmap.height, matrix, false,
+                                bitmap,
+                                0,
+                                0,
+                                bitmap.width,
+                                bitmap.height,
+                                matrix,
+                                false
                             )
                         } else {
                             bitmap
@@ -125,7 +135,7 @@ class FrontCameraSource(
                     lifecycleOwner,
                     CameraSelector.DEFAULT_FRONT_CAMERA,
                     preview,
-                    analysis,
+                    analysis
                 )
             } catch (e: Exception) {
                 onUnavailable("cámara frontal no disponible: ${e.message}")
@@ -155,7 +165,13 @@ class FrontCameraSource(
 
     private fun reportMetricsIfDue(nowMs: Long) {
         if (lastMetricsReportMs != 0L && nowMs - lastMetricsReportMs < METRICS_INTERVAL_MS) return
-        val elapsedMs = if (lastMetricsReportMs == 0L) METRICS_INTERVAL_MS else nowMs - lastMetricsReportMs
+        val elapsedMs = if (lastMetricsReportMs ==
+            0L
+        ) {
+            METRICS_INTERVAL_MS
+        } else {
+            nowMs - lastMetricsReportMs
+        }
         val fps = framesSinceReport * 1000f / elapsedMs
         onMetrics(
             CameraCaptureMetrics(
@@ -163,8 +179,8 @@ class FrontCameraSource(
                 targetFps = samplingProfile.targetFps,
                 analyzerFps = fps,
                 analyzedFrames = analyzedFrames,
-                rateLimitedFrames = rateLimitedFrames,
-            ),
+                rateLimitedFrames = rateLimitedFrames
+            )
         )
         framesSinceReport = 0L
         lastMetricsReportMs = nowMs

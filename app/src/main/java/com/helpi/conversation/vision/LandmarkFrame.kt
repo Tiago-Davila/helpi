@@ -15,7 +15,7 @@ data class LandmarkFrame(
      * la preview y el contrato v3 las usa para pasar los landmarks a píxeles.
      */
     val imageWidth: Int,
-    val imageHeight: Int,
+    val imageHeight: Int
 ) {
     override fun equals(other: Any?): Boolean = this === other
     override fun hashCode(): Int = timestampMs.hashCode()

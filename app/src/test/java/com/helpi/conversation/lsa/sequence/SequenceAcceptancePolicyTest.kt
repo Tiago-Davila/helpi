@@ -11,7 +11,7 @@ class SequenceAcceptancePolicyTest {
     @Test
     fun `rechaza candidato vacío aunque el decoder haya terminado`() {
         val decision = policy.evaluate(
-            SequenceTranslationCandidate("", listOf(2), terminatedByEos = true),
+            SequenceTranslationCandidate("", listOf(2), terminatedByEos = true)
         )
 
         assertFalse(decision.accepted)
@@ -20,7 +20,7 @@ class SequenceAcceptancePolicyTest {
     @Test
     fun `rechaza salida truncada sin EOS`() {
         val decision = policy.evaluate(
-            SequenceTranslationCandidate("hola", listOf(4), terminatedByEos = false),
+            SequenceTranslationCandidate("hola", listOf(4), terminatedByEos = false)
         )
 
         assertFalse(decision.accepted)
@@ -29,7 +29,7 @@ class SequenceAcceptancePolicyTest {
     @Test
     fun `acepta solo un candidato completo y no vacío`() {
         val decision = policy.evaluate(
-            SequenceTranslationCandidate("hola", listOf(4, 2), terminatedByEos = true),
+            SequenceTranslationCandidate("hola", listOf(4, 2), terminatedByEos = true)
         )
 
         assertTrue(decision.accepted)

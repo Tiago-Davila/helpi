@@ -23,7 +23,7 @@ class HolisticExtractor(
     modelAssetPath: String = "vision/holistic_landmarker.task",
     private val onFrame: (LandmarkFrame) -> Unit,
     private val onError: (RuntimeException) -> Unit,
-    private val onMetrics: (LandmarkExtractionMetrics) -> Unit = {},
+    private val onMetrics: (LandmarkExtractionMetrics) -> Unit = {}
 ) : Closeable {
 
     private val landmarker: HolisticLandmarker
@@ -68,7 +68,7 @@ class HolisticExtractor(
     private fun recordResult(
         frame: LandmarkFrame,
         nowMs: Long,
-        latencyMs: Long,
+        latencyMs: Long
     ): LandmarkExtractionMetrics? = synchronized(metricsLock) {
         resultFrames++
         if (frame.pose != null) poseFrames++
@@ -79,7 +79,13 @@ class HolisticExtractor(
         if (lastMetricsReportMs != 0L && nowMs - lastMetricsReportMs < METRICS_INTERVAL_MS) {
             return@synchronized null
         }
-        val elapsedMs = if (lastMetricsReportMs == 0L) METRICS_INTERVAL_MS else nowMs - lastMetricsReportMs
+        val elapsedMs = if (lastMetricsReportMs ==
+            0L
+        ) {
+            METRICS_INTERVAL_MS
+        } else {
+            nowMs - lastMetricsReportMs
+        }
         val snapshot = LandmarkExtractionMetrics(
             resultFps = resultsSinceReport * 1000f / elapsedMs,
             submittedFrames = submittedFrames,
@@ -87,7 +93,7 @@ class HolisticExtractor(
             poseFrames = poseFrames,
             leftHandFrames = leftHandFrames,
             rightHandFrames = rightHandFrames,
-            lastLatencyMs = latencyMs.coerceAtLeast(0L),
+            lastLatencyMs = latencyMs.coerceAtLeast(0L)
         )
         resultsSinceReport = 0L
         lastMetricsReportMs = nowMs
@@ -101,7 +107,7 @@ class HolisticExtractor(
     private fun toLandmarkFrame(
         result: HolisticLandmarkerResult,
         imageWidth: Int,
-        imageHeight: Int,
+        imageHeight: Int
     ): LandmarkFrame {
         val ts = result.timestampMs()
         return LandmarkFrame(
@@ -110,13 +116,13 @@ class HolisticExtractor(
             rightHand = flatten(result.rightHandLandmarks(), 21),
             pose = flatten(result.poseLandmarks(), 33),
             imageWidth = imageWidth,
-            imageHeight = imageHeight,
+            imageHeight = imageHeight
         )
     }
 
     private fun flatten(
         landmarks: List<com.google.mediapipe.tasks.components.containers.NormalizedLandmark>,
-        expected: Int,
+        expected: Int
     ): FloatArray? {
         if (landmarks.isEmpty()) return null // no detectado -> ceros en el contrato
         if (landmarks.size != expected) return null // resultado anómalo: se descarta

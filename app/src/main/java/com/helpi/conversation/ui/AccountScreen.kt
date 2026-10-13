@@ -61,7 +61,7 @@ internal fun PantallaCuenta(
     participantes: Participantes,
     onThreshold: (Float) -> Unit,
     onRenombrarCuenta: (String) -> Unit,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     var editando by remember { mutableStateOf(false) }
 
@@ -70,7 +70,7 @@ internal fun PantallaCuenta(
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Spacer(Modifier.height(10.dp))
         TarjetaDePerfil(participantes.cuenta) { editando = true }
@@ -85,20 +85,20 @@ internal fun PantallaCuenta(
                     "video salga del teléfono. Una seña que no esté en esas 64 se informa como " +
                     "no reconocida: Helpi no la fuerza a la más parecida.",
                 style = HelpiType.BodyS,
-                color = HelpiColors.LedMuted,
+                color = HelpiColors.LedMuted
             )
             Text(
                 "El modelo aprendió de personas oyentes y diestras grabadas en un laboratorio, " +
                     "así que todavía falla de forma sistemática con señantes zurdos y puede " +
                     "comportarse distinto fuera de esas condiciones.",
                 style = HelpiType.BodyS,
-                color = HelpiColors.LedMuted,
+                color = HelpiColors.LedMuted
             )
             Text(
                 "Helpi ayuda a comunicarse. No reemplaza a una persona intérprete y no sirve " +
                     "para una emergencia: su vocabulario no incluye ninguna seña de auxilio.",
                 style = HelpiType.BodyS,
-                color = HelpiColors.Warning,
+                color = HelpiColors.Warning
             )
         }
 
@@ -108,7 +108,7 @@ internal fun PantallaCuenta(
                     "comercial. Vosk español 0.42 · Apache 2.0. Atkinson Hyperlegible Next y " +
                     "Lexend · SIL Open Font License.",
                 style = HelpiType.CaptionDisclaimer,
-                color = HelpiColors.LedMuted,
+                color = HelpiColors.LedMuted
             )
         }
         com.helpi.conversation.VariantBindings.validationMenuEntry()
@@ -120,8 +120,11 @@ internal fun PantallaCuenta(
             explicacion = "Aparece arriba de los mensajes que decís por el micrófono.",
             inicial = participantes.cuenta,
             confirmar = "Guardar",
-            onConfirmar = { onRenombrarCuenta(it); editando = false },
-            onDismiss = { editando = false },
+            onConfirmar = {
+                onRenombrarCuenta(it)
+                editando = false
+            },
+            onDismiss = { editando = false }
         )
     }
 }
@@ -135,7 +138,7 @@ private fun TarjetaDePerfil(nombre: String, onEditar: () -> Unit) {
             .border(1.dp, HelpiColors.Divider, HelpiShapes.Tarjeta)
             .padding(start = 14.dp, top = 12.dp, bottom = 12.dp, end = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         EvaOrb(EvaEstado.REPOSO, Modifier.size(46.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -143,7 +146,7 @@ private fun TarjetaDePerfil(nombre: String, onEditar: () -> Unit) {
             Text(
                 "Persona oyente · cuenta de demostración",
                 style = HelpiType.BodyS,
-                color = HelpiColors.LedMuted,
+                color = HelpiColors.LedMuted
             )
         }
         IconButton(onClick = onEditar, modifier = Modifier.size(48.dp)) {
@@ -151,7 +154,7 @@ private fun TarjetaDePerfil(nombre: String, onEditar: () -> Unit) {
                 painterResource(R.drawable.ic_editar),
                 contentDescription = "Cambiar tu nombre",
                 tint = HelpiColors.LedMuted,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(20.dp)
             )
         }
     }
@@ -165,7 +168,7 @@ private fun Seccion(titulo: String, contenido: @Composable () -> Unit) {
             titulo,
             style = HelpiType.LabelBoton,
             color = HelpiColors.LedSoft,
-            modifier = Modifier.padding(top = 6.dp),
+            modifier = Modifier.padding(top = 6.dp)
         )
         contenido()
     }
@@ -181,38 +184,38 @@ private fun Seccion(titulo: String, contenido: @Composable () -> Unit) {
 internal fun ControlDeUmbral(
     state: SessionCoordinator.UiState,
     onThreshold: (Float) -> Unit,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Text("Umbral de confianza", style = HelpiType.BodyM, color = HelpiColors.LedSoft)
             Text(
                 porcentaje(state.confidenceThreshold),
                 style = HelpiType.BodyM.copy(fontWeight = FontWeight.Bold),
-                color = HelpiColors.LedSoft,
+                color = HelpiColors.LedSoft
             )
         }
         Slider(
             value = state.confidenceThreshold,
             onValueChange = onThreshold,
             valueRange = SessionCoordinator.MIN_THRESHOLD..SessionCoordinator.MAX_THRESHOLD,
-            modifier = Modifier.semantics { contentDescription = "Umbral de confianza" },
+            modifier = Modifier.semantics { contentDescription = "Umbral de confianza" }
         )
         Text(
             "Subí el umbral para exigir más confianza antes de comunicar una seña.",
             style = HelpiType.BodyS,
-            color = HelpiColors.LedMuted,
+            color = HelpiColors.LedMuted
         )
         state.lastRecognition?.let {
             Text(
                 "Último intento: ${porcentaje(it.confidence)}. " +
                     "Umbral utilizado: ${porcentaje(it.threshold)}.",
                 style = HelpiType.BodyS,
-                color = HelpiColors.LedMuted,
+                color = HelpiColors.LedMuted
             )
         }
     }
@@ -226,7 +229,7 @@ internal fun AvisosDeCapacidades(state: SessionCoordinator.UiState) {
             "Permití el acceso al micrófono en los ajustes del teléfono y volvé a iniciar la " +
                 "conversación.",
             style = HelpiType.BodyS,
-            color = HelpiColors.Warning,
+            color = HelpiColors.Warning
         )
     }
     if (!state.capabilities.tts) {
@@ -234,7 +237,7 @@ internal fun AvisosDeCapacidades(state: SessionCoordinator.UiState) {
             "Instalá una voz española en los ajustes de texto a voz del teléfono para escuchar " +
                 "los mensajes.",
             style = HelpiType.BodyS,
-            color = HelpiColors.Warning,
+            color = HelpiColors.Warning
         )
     }
     if (!state.capabilities.phraseVision) {
@@ -242,7 +245,7 @@ internal fun AvisosDeCapacidades(state: SessionCoordinator.UiState) {
             "El modo frase experimental todavía no está disponible: " +
                 state.capabilities.phraseVisionDetail.ifBlank { "falta su paquete de modelo." },
             style = HelpiType.BodyS,
-            color = HelpiColors.LedMuted,
+            color = HelpiColors.LedMuted
         )
     }
 }
@@ -260,7 +263,7 @@ internal fun DialogoDeNombre(
     onConfirmar: (String) -> Unit,
     onDismiss: () -> Unit,
     omitir: String? = null,
-    onOmitir: (() -> Unit)? = null,
+    onOmitir: (() -> Unit)? = null
 ) {
     var texto by remember { mutableStateOf(if (inicial == SIN_NOMBRE) "" else inicial) }
     AlertDialog(
@@ -280,13 +283,13 @@ internal fun DialogoDeNombre(
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .testTag("nameInput"),
+                        .testTag("nameInput")
                 )
             }
         },
         confirmButton = { TextButton(onClick = { onConfirmar(texto) }) { Text(confirmar) } },
         dismissButton = omitir?.let {
             { TextButton(onClick = { onOmitir?.invoke() }) { Text(it) } }
-        },
+        }
     )
 }

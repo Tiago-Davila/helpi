@@ -52,6 +52,7 @@ object KeypointContract {
 
     /** Pose 11 pasa a ser el primer landmark del bloque reducido. */
     const val LEFT_SHOULDER_OFFSET: Int = POSE_OFFSET
+
     /** Pose 12 pasa a ser el segundo landmark del bloque reducido. */
     const val RIGHT_SHOULDER_OFFSET: Int = POSE_OFFSET + 3
 
@@ -65,11 +66,7 @@ object KeypointContract {
      * La pose puede traer 33 landmarks o los primeros 25. Se copian solamente
      * los índices de origen 11..24.
      */
-    fun flattenFrame(
-        leftHand: FloatArray?,
-        rightHand: FloatArray?,
-        pose: FloatArray?,
-    ): FloatArray {
+    fun flattenFrame(leftHand: FloatArray?, rightHand: FloatArray?, pose: FloatArray?): FloatArray {
         val frame = FloatArray(COORDS)
         copyBlock(leftHand, frame, LEFT_HAND_OFFSET, HAND_LANDMARKS * 3, "mano izquierda")
         copyBlock(rightHand, frame, RIGHT_HAND_OFFSET, HAND_LANDMARKS * 3, "mano derecha")
@@ -82,7 +79,7 @@ object KeypointContract {
                 POSE_SOURCE_START * 3,
                 frame,
                 POSE_OFFSET,
-                POSE_LANDMARKS * 3,
+                POSE_LANDMARKS * 3
             )
         }
         return frame
@@ -145,7 +142,11 @@ object KeypointContract {
      *
      * @throws IllegalArgumentException si ningún cuadro tiene ambos hombros.
      */
-    fun normalizeSequence(frames: List<FloatArray>, imageWidth: Int, imageHeight: Int): List<FloatArray> {
+    fun normalizeSequence(
+        frames: List<FloatArray>,
+        imageWidth: Int,
+        imageHeight: Int
+    ): List<FloatArray> {
         require(imageWidth > 0 && imageHeight > 0) { "imagen inválida: ${imageWidth}x$imageHeight" }
         require(frames.isNotEmpty()) { "secuencia vacía" }
         val w = imageWidth.toFloat()
@@ -184,7 +185,9 @@ object KeypointContract {
                 widths.add(sqrt(dx * dx + dy * dy))
             }
         }
-        require(widths.isNotEmpty()) { "secuencia sin hombros en ningún cuadro: no se puede normalizar" }
+        require(widths.isNotEmpty()) {
+            "secuencia sin hombros en ningún cuadro: no se puede normalizar"
+        }
         val scale = median(widths)
         require(scale.isFinite() && scale > MIN_SCALE) { "ancho de hombros inválido: $scale" }
 

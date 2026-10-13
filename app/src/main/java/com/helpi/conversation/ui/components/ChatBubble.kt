@@ -70,18 +70,18 @@ fun TurnoMensaje(
     propio: Boolean,
     onRepetir: (() -> Unit)?,
     onMarcarIncorrecto: (() -> Unit)?,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     var menu by remember { mutableStateOf(false) }
     val hayAcciones = onRepetir != null || onMarcarIncorrecto != null
 
     Row(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = if (propio) Arrangement.End else Arrangement.Start,
+        horizontalArrangement = if (propio) Arrangement.End else Arrangement.Start
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(ANCHO_BURBUJA),
-            horizontalAlignment = if (propio) Alignment.End else Alignment.Start,
+            horizontalAlignment = if (propio) Alignment.End else Alignment.Start
         ) {
             if (mostrarAutor) {
                 Text(
@@ -90,15 +90,23 @@ fun TurnoMensaje(
                     color = HelpiColors.LedMuted,
                     modifier = Modifier
                         .padding(start = 6.dp, end = 6.dp, bottom = 5.dp)
-                        .clearAndSetSemantics { },
+                        .clearAndSetSemantics { }
                 )
             }
             Box {
                 Column(
                     modifier = Modifier
                         .background(
-                            color = if (propio) HelpiColors.BrandCore else HelpiColors.SurfaceRaised,
-                            shape = if (propio) HelpiShapes.BurbujaPropia else HelpiShapes.BurbujaAjena,
+                            color = if (propio) {
+                                HelpiColors.BrandCore
+                            } else {
+                                HelpiColors.SurfaceRaised
+                            },
+                            shape = if (propio) {
+                                HelpiShapes.BurbujaPropia
+                            } else {
+                                HelpiShapes.BurbujaAjena
+                            }
                         )
                         .then(
                             if (propio) {
@@ -107,39 +115,45 @@ fun TurnoMensaje(
                                 Modifier.border(
                                     1.dp,
                                     HelpiColors.Divider,
-                                    HelpiShapes.BurbujaAjena,
+                                    HelpiShapes.BurbujaAjena
                                 )
-                            },
+                            }
                         )
                         .combinedClickable(
                             enabled = hayAcciones,
                             onClick = {},
                             onLongClick = { menu = true },
-                            onLongClickLabel = "Opciones del mensaje",
+                            onLongClickLabel = "Opciones del mensaje"
                         )
                         .padding(horizontal = 16.dp, vertical = 12.dp)
                         .semantics {
                             contentDescription = "$autor: ${turn.text()}"
                             liveRegion = LiveRegionMode.Polite
-                        },
+                        }
                 ) {
                     Text(
                         text = turn.text(),
                         style = HelpiType.BodyChat,
-                        color = HelpiColors.LedSoft,
+                        color = HelpiColors.LedSoft
                     )
                 }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     onRepetir?.let { repetir ->
                         DropdownMenuItem(
                             text = { Text("Repetir en voz alta") },
-                            onClick = { menu = false; repetir() },
+                            onClick = {
+                                menu = false
+                                repetir()
+                            }
                         )
                     }
                     onMarcarIncorrecto?.let { marcar ->
                         DropdownMenuItem(
                             text = { Text("La traducción no es correcta") },
-                            onClick = { menu = false; marcar() },
+                            onClick = {
+                                menu = false
+                                marcar()
+                            }
                         )
                     }
                 }
@@ -149,7 +163,7 @@ fun TurnoMensaje(
                     text = it,
                     style = HelpiType.BodyS,
                     color = HelpiColors.LedMuted,
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
                 )
             }
         }
@@ -208,12 +222,12 @@ fun NotaSistema(texto: String, modifier: Modifier = Modifier) {
                 .padding(horizontal = 14.dp, vertical = 10.dp)
                 .animateContentSize(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Box(
                 modifier = Modifier
                     .size(7.dp)
-                    .background(HelpiColors.Warning, HelpiShapes.Pastilla),
+                    .background(HelpiColors.Warning, HelpiShapes.Pastilla)
             )
             Text(
                 text = texto,
@@ -224,7 +238,7 @@ fun NotaSistema(texto: String, modifier: Modifier = Modifier) {
                 onTextLayout = { if (!expandido) desbordado = it.hasVisualOverflow },
                 modifier = Modifier
                     .weight(1f)
-                    .clearAndSetSemantics { },
+                    .clearAndSetSemantics { }
             )
             if (desplegable) {
                 Icon(
@@ -233,7 +247,7 @@ fun NotaSistema(texto: String, modifier: Modifier = Modifier) {
                     tint = HelpiColors.LedMuted,
                     modifier = Modifier
                         .size(20.dp)
-                        .rotate(giro),
+                        .rotate(giro)
                 )
             }
         }

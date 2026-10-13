@@ -1,9 +1,9 @@
 package com.helpi.conversation.lsa
 
-import org.tensorflow.lite.Interpreter
 import java.io.Closeable
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import org.tensorflow.lite.Interpreter
 
 /**
  * Runner LiteRT del clasificador de señas (Eva). Devuelve la salida numérica
@@ -19,7 +19,7 @@ class SignClassifier(bundle: ModelBundle) : Closeable {
 
     private val interpreter = Interpreter(
         bundle.model,
-        Interpreter.Options().apply { numThreads = 2 },
+        Interpreter.Options().apply { numThreads = 2 }
     )
     private val frames = bundle.manifest.frames
     private val coords = bundle.manifest.coords
