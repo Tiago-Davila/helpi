@@ -5,6 +5,11 @@ buildscript {
         // AGP y plugins de análisis arrastran BouncyCastle 1.77/1.78 (GHSA-574f-3g2m-x479,
         // GHSA-9pwp-9qqc-pr26, GHSA-qp49-qgx5-5m26, corregidos en 1.85).
         constraints {
+            // dependency-check arrastra jackson-core 2.22.1 (GHSA-p6pp-m3f8-5c89,
+            // GHSA-7hhh-6rmp-j9qf, corregidos en 2.22.3).
+            classpath("com.fasterxml.jackson.core:jackson-core:2.22.3") {
+                because("denegación de servicio en versiones < 2.22.3")
+            }
             listOf("bcprov", "bcpkix", "bcutil").forEach {
                 classpath("org.bouncycastle:$it-jdk18on:1.86") {
                     because("vulnerabilidades críticas en versiones < 1.85")
