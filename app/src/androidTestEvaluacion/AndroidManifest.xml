@@ -3,5 +3,5 @@
     <instrumentation
         android:name="androidx.test.runner.AndroidJUnitRunner"
         android:targetPackage="${applicationId}"
-        android:targetProcesses="com.helpi.conversation.evaluacion:test-runner" />
+        android:targetProcesses="com.helpi.conversation.evaluacion:pruebas" />
 </manifest>

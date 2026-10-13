@@ -52,6 +52,8 @@ class SequenceCaptureBuffer(private val maxDurationMs: Long = DEFAULT_MAX_DURATI
         validFrameCount = 0
     }
 
+    // Deuda previa registrada en el baseline de detekt de develop.
+    @Suppress("ReturnCount")
     fun append(
         timestampMs: Long,
         leftHand: FloatArray?,

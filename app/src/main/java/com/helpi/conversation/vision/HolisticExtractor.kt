@@ -120,6 +120,8 @@ class HolisticExtractor(
         )
     }
 
+    // Deuda previa registrada en el baseline de detekt de develop.
+    @Suppress("ReturnCount")
     private fun flatten(
         landmarks: List<com.google.mediapipe.tasks.components.containers.NormalizedLandmark>,
         expected: Int

@@ -64,4 +64,13 @@
         <packageUrl>pkg:maven/org.jetbrains.kotlin/kotlin-stdlib@2.0.21</packageUrl>
         <cve>CVE-2020-29582</cve>
     </suppress>
+    <suppress until="2026-12-31Z">
+        <notes><![CDATA[
+        finding: CVE-2026-53914
+        owner: @Tiago-Davila
+        reason: The flaw is unsafe deserialization of Kotlin build cache metadata in the Kotlin Gradle plugin, fixed in Kotlin 2.4.20. kotlin-stdlib is matched only through the generic jetbrains:kotlin CPE and ships no build cache code. Short expiry: upgrade the Kotlin toolchain to 2.4.20 before it lapses.
+        ]]></notes>
+        <packageUrl>pkg:maven/org.jetbrains.kotlin/kotlin-stdlib@2.1.20</packageUrl>
+        <cve>CVE-2026-53914</cve>
+    </suppress>
 </suppressions>

@@ -62,6 +62,8 @@ private const val ANCHO_BURBUJA = 0.86f
  * `mostrarAutor` es falso cuando el turno anterior es de la misma persona: el
  * nombre se escribe una vez por tanda, no una vez por mensaje.
  */
+// Deuda previa registrada en el baseline de detekt de develop.
+@Suppress("LongMethod", "LongParameterList")
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TurnoMensaje(

@@ -110,6 +110,8 @@ internal fun overlayTransform(
     )
 }
 
+// Deuda previa registrada en el baseline de detekt de develop.
+@Suppress("CyclomaticComplexMethod", "LongParameterList")
 private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawLandmarkGroup(
     landmarks: FloatArray?,
     firstLandmarkIndex: Int,

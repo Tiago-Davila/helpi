@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- En evaluación la instrumentación corre en :pruebas para poder matar el
+             proceso de la app (SesionInterrumpidaTest). El host genérico de Compose
+             tiene que vivir en ese mismo proceso o no se puede lanzar. El nombre va
+             sin guion: con ":test-runner" el instalador rechaza el APK. -->
+        <activity
+            android:name="androidx.activity.ComponentActivity"
+            android:process=":pruebas" />
+    </application>
+</manifest>

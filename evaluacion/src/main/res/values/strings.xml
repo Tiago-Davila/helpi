@@ -14,7 +14,6 @@
     <string name="aviso_reproducir_video">Reproducir video en LSA</string>
     <string name="aviso_video_atribucion">LSA64 · LIDI, UNLP · CC BY-NC-SA 4.0</string>
     <string name="aviso_aceptar">Acepto que se registre</string>
-    <string name="aviso_consentimiento_vigente">Consentimiento vigente</string>
     <string name="aviso_continuar">Continuar a condiciones de la prueba</string>
     <string name="aviso_aceptacion_fallo">No se pudo guardar el consentimiento. Inténtalo de nuevo.</string>
     <string name="aviso_volver">Volver</string>
