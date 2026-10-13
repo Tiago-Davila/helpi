@@ -12,6 +12,8 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import com.helpi.conversation.chat.Conversation
 import com.helpi.conversation.chat.Speaker
 import com.helpi.conversation.session.SessionCoordinator
@@ -21,8 +23,11 @@ import com.helpi.conversation.ui.theme.HelpiTheme
 import com.helpi.conversation.vision.FramingEvaluator
 import com.helpi.conversation.vision.SigningDistanceGuide
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+
+private const val VISIBILIDAD_MS = 5_000L
 
 /** Prueba el flujo completo de UI sin depender de una cámara o voz presente en el AVD. */
 class ConversationScreenTest {
@@ -51,15 +56,17 @@ class ConversationScreenTest {
                             close = { cerrar() },
                             microphone = {
                                 state.value = state.value.copy(
-                                    microphoneEnabled = !state.value.microphoneEnabled,
+                                    microphoneEnabled = !state.value.microphoneEnabled
                                 )
                             },
                             camera = {
                                 state.value = state.value.copy(
-                                    cameraEnabled = !state.value.cameraEnabled,
+                                    cameraEnabled = !state.value.cameraEnabled
                                 )
                             },
-                            threshold = { state.value = state.value.copy(confidenceThreshold = it) },
+                            threshold = {
+                                state.value = state.value.copy(confidenceThreshold = it)
+                            },
                             send = {
                                 val turn = chat.open(Speaker.DEAF, 0)
                                 chat.publishTyped(turn.id(), it)
@@ -72,7 +79,7 @@ class ConversationScreenTest {
                             nombrarInterlocutor = { nombre ->
                                 participantes.value = participantes.value.copy(
                                     interlocutor = nombre.trim().ifBlank { SIN_NOMBRE },
-                                    solicitarNombre = false,
+                                    solicitarNombre = false
                                 )
                             },
                             renombrarCuenta = { nombre ->
@@ -81,13 +88,30 @@ class ConversationScreenTest {
                             cancelarPedidoDeNombre = {
                                 participantes.value =
                                     participantes.value.copy(solicitarNombre = false)
-                            },
+                            }
                         ),
-                        participantes.value,
+                        participantes.value
                     )
                 }
             }
         }
+        // Cada test arranca sin teclado: el de un test anterior achica la pantalla de CI.
+        ocultarTeclado()
+    }
+
+    /** Oculta el teclado: en la pantalla de 640x320 de CI tapa casi toda la conversación. */
+    private fun ocultarTeclado() {
+        compose.activityRule.scenario.onActivity {
+            WindowCompat.getInsetsController(it.window, it.window.decorView)
+                .hide(WindowInsetsCompat.Type.ime())
+        }
+        compose.waitForIdle()
+    }
+
+    /** Espera a que el nodo quede visible; ocultar el teclado se anima de forma asíncrona. */
+    private fun esperarVisible(nodo: SemanticsNodeInteraction) {
+        compose.waitUntil(VISIBILIDAD_MS) { runCatching { nodo.assertIsDisplayed() }.isSuccess }
+        nodo.assertIsDisplayed()
     }
 
     private fun cerrar() {
@@ -99,7 +123,7 @@ class ConversationScreenTest {
     private fun activeState() = SessionCoordinator.UiState(
         session = SessionState.ACTIVA,
         capabilities = SessionCoordinator.Capabilities(vision = true, stt = true, tts = true),
-        turns = chat.ordered(),
+        turns = chat.ordered()
     )
 
     private fun empezarConversacion(nombre: String) {
@@ -133,15 +157,18 @@ class ConversationScreenTest {
         compose.onNodeWithContentDescription("Escribir mensaje").performClick()
         compose.onNodeWithTag("messageInput").performTextInput("Hola, ¿cómo estás?")
         compose.onNodeWithContentDescription("Enviar y leer en voz alta").performClick()
+        ocultarTeclado()
         // La atribución llega a la tecnología de asistencia, no solo al color.
-        compose.onNodeWithContentDescription("Lucía: Hola, ¿cómo estás?").assertIsDisplayed()
+        esperarVisible(compose.onNodeWithContentDescription("Lucía: Hola, ¿cómo estás?"))
         compose.onNodeWithTag("camera").assertIsDisplayed()
         compose.onNodeWithContentDescription("Configuración").performClick()
         compose.onNodeWithContentDescription("Umbral de confianza")
             .performSemanticsAction(SemanticsActions.SetProgress) { it(0.85f) }
         compose.runOnIdle { assertEquals(0.85f, state.value.confidenceThreshold, 0.001f) }
         compose.onNodeWithText("Listo").performClick()
-        compose.onNodeWithContentDescription("Lucía: Hola, ¿cómo estás?").assertIsDisplayed()
+        // Al cerrar la hoja el foco vuelve al campo de texto y el teclado puede reabrirse.
+        ocultarTeclado()
+        esperarVisible(compose.onNodeWithContentDescription("Lucía: Hola, ¿cómo estás?"))
         compose.onNodeWithTag("camera").assertIsDisplayed()
     }
 
@@ -158,12 +185,25 @@ class ConversationScreenTest {
         compose.onNodeWithContentDescription("Apagar cámara").assertIsDisplayed()
     }
 
+    @Test fun laFraseMuestraDebajoLasGlosasQueLaOriginaron() {
+        val turn = chat.open(Speaker.DEAF, 0)
+        chat.publishSentence(turn.id(), "La mujer sorda.", "MUJER SORDO")
+        render(active = true)
+        val frase = compose.onNodeWithText("La mujer sorda.", useUnmergedTree = true)
+        val glosas = compose.onNodeWithTag("glosas", useUnmergedTree = true)
+        frase.assertIsDisplayed()
+        glosas.assertIsDisplayed().assertTextEquals("MUJER SORDO")
+        assertTrue(glosas.getBoundsInRoot().top >= frase.getBoundsInRoot().bottom)
+        compose.onNodeWithContentDescription("Lucía: La mujer sorda. Señas: MUJER SORDO")
+            .assertIsDisplayed()
+    }
+
     @Test fun muestraCuandoEstaReconociendoYProcesandoUnaSena() {
         render(active = true)
         compose.runOnIdle {
             state.value = state.value.copy(
                 framing = FramingEvaluator.Issue.OK,
-                visual = VisualChannelState.CAPTURANDO_SENA,
+                visual = VisualChannelState.CAPTURANDO_SENA
             )
         }
         compose.onNodeWithText("Reconociendo tu seña…").assertIsDisplayed()
@@ -186,9 +226,9 @@ class ConversationScreenTest {
                     predictions = listOf(
                         SessionCoordinator.RecognitionPrediction("Gracias", 0.74f),
                         SessionCoordinator.RecognitionPrediction("Ayuda", 0.18f),
-                        SessionCoordinator.RecognitionPrediction("Aceptar", 0.06f),
-                    ),
-                ),
+                        SessionCoordinator.RecognitionPrediction("Aceptar", 0.06f)
+                    )
+                )
             )
         }
 

@@ -26,6 +26,20 @@ android {
         }
     }
 
+    flavorDimensions += "registro"
+
+    productFlavors {
+        create("evaluacion") {
+            dimension = "registro"
+            applicationIdSuffix = ".evaluacion"
+            versionNameSuffix = "-evaluacion"
+            resValue("string", "app_name", "Helpi Evaluación")
+        }
+        create("produccion") {
+            dimension = "registro"
+        }
+    }
+
     // Obligatorio: sin esto Gradle comprime los modelos en el APK y
     // LiteRT/MediaPipe no pueden mapearlos a memoria (falla poco descriptiva).
     androidResources {
@@ -81,6 +95,11 @@ android {
 
 dependencies {
     implementation(project(":domain"))
+    add("evaluacionImplementation", project(":evaluacion"))
+
+    if (providers.gradleProperty("canarioEvaluacion").orNull == "true") {
+        add("produccionImplementation", project(":evaluacion"))
+    }
 
     implementation(libs.kotlinx.coroutines.android)
 
@@ -128,6 +147,7 @@ dependencies {
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.espresso.core)
     androidTestImplementation(libs.compose.ui.test.junit4)
+    add("androidTestEvaluacionImplementation", libs.room.runtime)
     debugImplementation(libs.compose.ui.test.manifest)
 }
 
@@ -151,15 +171,15 @@ tasks.withType<Test>().configureEach {
     }
 }
 
-tasks.register<JacocoReport>("jacocoDebugReport") {
-    dependsOn("testDebugUnitTest")
+tasks.register<JacocoReport>("jacocoProduccionDebugReport") {
+    dependsOn("testProduccionDebugUnitTest")
     executionData.setFrom(
         layout.buildDirectory.file(
-            "outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec"
+            "outputs/unit_test_code_coverage/produccionDebugUnitTest/testProduccionDebugUnitTest.exec"
         )
     )
     classDirectories.setFrom(
-        fileTree(layout.buildDirectory.dir("tmp/kotlin-classes/debug")) {
+        fileTree(layout.buildDirectory.dir("tmp/kotlin-classes/produccionDebug")) {
             exclude("**/R.class", "**/R$*.class", "**/BuildConfig.*", "**/Manifest*.*")
         }
     )
@@ -167,5 +187,72 @@ tasks.register<JacocoReport>("jacocoDebugReport") {
     reports {
         xml.required.set(true)
         html.required.set(true)
+    }
+}
+
+tasks.register<JacocoReport>("jacocoEvaluacionDebugReport") {
+    dependsOn("testEvaluacionDebugUnitTest")
+    executionData.setFrom(
+        layout.buildDirectory.file(
+            "outputs/unit_test_code_coverage/evaluacionDebugUnitTest/testEvaluacionDebugUnitTest.exec"
+        )
+    )
+    classDirectories.setFrom(
+        fileTree(layout.buildDirectory.dir("tmp/kotlin-classes/evaluacionDebug")) {
+            exclude("**/R.class", "**/R$*.class", "**/BuildConfig.*", "**/Manifest*.*")
+        }
+    )
+    sourceDirectories.setFrom(files("src/main/java"))
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+    }
+}
+
+tasks.register("verificarProduccionSinEvaluacion") {
+    group = "verification"
+    description = "Ensures the production runtime classpath excludes evaluation-only dependencies."
+
+    doLast {
+        val forbiddenProjectPaths = setOf(":evaluacion", ":evaluacion-dominio")
+
+        fun forbiddenDependencies(configurationName: String): Set<String> =
+            configurations.getByName(configurationName)
+                .incoming.resolutionResult.allComponents
+                .mapNotNull { component ->
+                    when (val id = component.id) {
+                        is org.gradle.api.artifacts.component.ProjectComponentIdentifier ->
+                            id.projectPath.takeIf { it in forbiddenProjectPaths }
+
+                        is org.gradle.api.artifacts.component.ModuleComponentIdentifier -> {
+                            when {
+                                id.group == "androidx.room" && id.module.startsWith("room-") ->
+                                    "${id.group}:${id.module}"
+
+                                id.group == "androidx.work" && id.module.startsWith("work-") ->
+                                    "${id.group}:${id.module}"
+
+                                id.group == "com.google.android.datatransport" &&
+                                    id.module == "transport-backend-cct" ->
+                                    "${id.group}:${id.module}"
+
+                                else -> null
+                            }
+                        }
+
+                        else -> null
+                    }
+                }.toSet()
+
+        val productionForbidden = forbiddenDependencies("produccionReleaseRuntimeClasspath")
+        check(productionForbidden.isEmpty()) {
+            "Forbidden production dependency: ${productionForbidden.sorted().joinToString()}"
+        }
+
+        val evaluationCct = forbiddenDependencies("evaluacionReleaseRuntimeClasspath")
+            .filter { it == "com.google.android.datatransport:transport-backend-cct" }
+        check(evaluationCct.isEmpty()) {
+            "Forbidden evaluation telemetry dependency: ${evaluationCct.sorted().joinToString()}"
+        }
     }
 }

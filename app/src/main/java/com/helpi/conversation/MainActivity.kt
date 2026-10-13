@@ -6,9 +6,9 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.SystemBarStyle
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.camera.view.PreviewView
@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.helpi.conversation.lsa.sequence.RecognitionMode
 import com.helpi.conversation.ui.ConversationScreen
 import com.helpi.conversation.ui.ConversationViewModel
 import com.helpi.conversation.ui.components.LandmarkOverlay
@@ -45,10 +46,13 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
-            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
         )
         if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE == 0) {
-            window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+            window.setFlags(
+                WindowManager.LayoutParams.FLAG_SECURE,
+                WindowManager.LayoutParams.FLAG_SECURE
+            )
         }
         setContent {
             HelpiTheme {
@@ -56,11 +60,20 @@ class MainActivity : ComponentActivity() {
                     // Cada pantalla aplica sus propios márgenes seguros: en la
                     // conversación horizontal la cámara llega hasta el borde
                     // físico y solo sus controles esquivan barras y recortes.
-                    Box(Modifier.fillMaxSize()) {
+                    VariantBindings.applicationContent(
+                        modifier = Modifier.fillMaxSize(),
+                        sessionCoordinator = viewModel.coordinator,
+                        cameraPreview = { CameraPreview() },
+                        onStartRecognition = {
+                            if (!viewModel.uiState.value.cameraEnabled) viewModel.toggleCamera()
+                            viewModel.setRecognitionMode(RecognitionMode.SINGLE_SIGN)
+                            requestPermissionsAndPrepare()
+                        }
+                    ) {
                         ConversationScreen(
                             viewModel = viewModel,
                             onStart = ::requestPermissionsAndPrepare,
-                            cameraPreview = { CameraPreview() },
+                            cameraPreview = { CameraPreview() }
                         )
                     }
                 }
@@ -89,12 +102,12 @@ class MainActivity : ComponentActivity() {
                 onRelease = {
                     cameraSource?.stop()
                     viewModel.clearLandmarks()
-                },
+                }
             )
             LandmarkOverlay(
                 frame = landmarks,
                 visualState = state.visual,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize()
             )
         }
     }
@@ -110,19 +123,23 @@ class MainActivity : ComponentActivity() {
                 context = this,
                 onFrame = viewModel::onLandmarks,
                 onError = {
-                    viewModel.coordinator.reportVisionUnavailable("No se pudo analizar la cámara. Finalizá y volvé a iniciar.")
+                    viewModel.coordinator.reportVisionUnavailable(
+                        "No se pudo analizar la cámara. Finalizá y volvé a iniciar."
+                    )
                 },
-                onMetrics = viewModel::onLandmarkMetrics,
+                onMetrics = viewModel::onLandmarkMetrics
             ).also { extractor = it }
         } catch (_: Throwable) {
-            viewModel.coordinator.reportVisionUnavailable("No se pudo iniciar la cámara. Podés continuar escribiendo.")
+            viewModel.coordinator.reportVisionUnavailable(
+                "No se pudo iniciar la cámara. Podés continuar escribiendo."
+            )
             return
         }
         cameraSource = FrontCameraSource(
             context = this,
             onFrame = { bitmap, ts -> ext.analyze(bitmap, ts) },
             onUnavailable = viewModel.coordinator::reportVisionUnavailable,
-            onMetrics = viewModel::onCameraMetrics,
+            onMetrics = viewModel::onCameraMetrics
         ).also {
             it.setSamplingProfile(samplingProfile)
             it.start(this, previewView.surfaceProvider)
@@ -131,8 +148,17 @@ class MainActivity : ComponentActivity() {
 
     private fun requestPermissionsAndPrepare() {
         val needed = listOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)
-            .filter { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
-        if (needed.isEmpty()) viewModel.prepare() else permissionLauncher.launch(needed.toTypedArray())
+            .filter {
+                ContextCompat.checkSelfPermission(this, it) !=
+                    PackageManager.PERMISSION_GRANTED
+            }
+        if (needed.isEmpty()) {
+            viewModel.prepare()
+        } else {
+            permissionLauncher.launch(
+                needed.toTypedArray()
+            )
+        }
     }
 
     override fun onPause() {

@@ -2,3 +2,7 @@ build:
   maxIssues: 0
 config:
   validation: true
+naming:
+  FunctionNaming:
+    # Los composables se nombran en PascalCase por convención de Compose.
+    ignoreAnnotated: ['Composable']

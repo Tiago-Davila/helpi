@@ -13,7 +13,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 REPORTS = {
     'domain': ROOT / 'domain/build/reports/jacoco/test/jacocoTestReport.xml',
-    'app': ROOT / 'app/build/reports/jacoco/jacocoDebugReport/jacocoDebugReport.xml',
+    'appProduccion': ROOT / 'app/build/reports/jacoco/jacocoProduccionDebugReport/jacocoProduccionDebugReport.xml',
+    'appEvaluacion': ROOT / 'app/build/reports/jacoco/jacocoEvaluacionDebugReport/jacocoEvaluacionDebugReport.xml',
 }
 BASELINE = ROOT / 'config/quality/coverage.json'
 
@@ -33,10 +34,12 @@ def coverage(initialize=False):
         measured[module] = {'covered': covered, 'total': covered + missed}
     if initialize:
         require(not BASELINE.exists(), 'Initial coverage already recorded; cannot overwrite')
-        BASELINE.write_text(json.dumps(measured, indent=2) + '\n')
+        baseline = {'domain': measured['domain'], 'app': measured['appProduccion']}
+        BASELINE.write_text(json.dumps(baseline, indent=2) + '\n')
     expected = json.loads(BASELINE.read_text())
     for module, actual in measured.items():
-        minimum = expected[module]
+        baseline_module = 'app' if module.startswith('app') else module
+        minimum = expected[baseline_module]
         require(Fraction(actual['covered'], actual['total']) >=
                 Fraction(minimum['covered'], minimum['total']), f'{module}: coverage regressed: {actual} < {minimum}')
         print(f"{module}: {100 * actual['covered'] / actual['total']:.2f}% lines")
@@ -76,17 +79,68 @@ def apk(path, apkanalyzer):
     manifest = subprocess.check_output([apkanalyzer, 'manifest', 'print', path], text=True)
     root = ET.fromstring(manifest)
     android = '{http://schemas.android.com/apk/res/android}'
-    require(not any(n.get(android + 'name') == 'android.permission.INTERNET'
-                    for n in root if n.tag.startswith('uses-permission')), 'APK requests INTERNET')
+    permissions = {
+        node.get(android + 'name')
+        for node in root
+        if node.tag.startswith('uses-permission')
+    }
+    for permission in ('android.permission.INTERNET', 'android.permission.ACCESS_NETWORK_STATE'):
+        require(permission not in permissions, f'APK requests {permission}')
+
+    dex_packages = subprocess.check_output([apkanalyzer, 'dex', 'packages', path], text=True)
+    package_names = {
+        fields[-1]
+        for line in dex_packages.splitlines()
+        if len(fields := line.strip().split()) > 1 and fields[0] == 'P'
+    }
+    for prohibited in ('com.helpi.evaluacion', 'androidx.room', 'androidx.work'):
+        require(not any(
+            package == prohibited or package.startswith(f'{prohibited}.')
+            for package in package_names
+        ), f'APK contains forbidden package {prohibited}')
+
     application = root.find('application')
     require(application is not None and application.get(android + 'allowBackup') == 'false', 'Backup must be disabled')
     if 'release' in Path(path).name:
         require(application.get(android + 'debuggable', 'false') == 'false', 'Release is debuggable')
     with zipfile.ZipFile(path) as archive:
+        evaluation_assets = [
+            info.filename
+            for info in archive.infolist()
+            if info.filename.startswith('assets/evaluacion/')
+        ]
+        require(not evaluation_assets, f'APK contains evaluation assets: {evaluation_assets}')
         models = [i for i in archive.infolist() if i.filename.endswith(('.tflite', '.task'))]
         require(len(models) >= 2, 'Missing packaged model/extractor')
         require(all(i.compress_type == zipfile.ZIP_STORED for i in models), 'Models are compressed')
     print(f'{path}: offline, backup and model packaging verified')
+
+
+def apk_evaluacion(path, apkanalyzer):
+    manifest = subprocess.check_output([apkanalyzer, 'manifest', 'print', path], text=True)
+    root = ET.fromstring(manifest)
+    android = '{http://schemas.android.com/apk/res/android}'
+    permissions = {
+        node.get(android + 'name')
+        for node in root
+        if node.tag.startswith('uses-permission')
+    }
+    require('android.permission.INTERNET' in permissions,
+            'Evaluation APK must request android.permission.INTERNET')
+
+    application = root.find('application')
+    require(application is not None, 'Evaluation APK has no application manifest element')
+    require(application.get(android + 'usesCleartextTraffic', 'false') == 'false',
+            'Evaluation APK must not allow cleartext traffic')
+
+    dex_contents = subprocess.check_output([apkanalyzer, 'dex', 'packages', path], text=True)
+    backend_markers = (
+        'com.google.android.datatransport.cct.CctTransportBackend',
+        'com.google.android.datatransport.cct.CctBackendFactory',
+    )
+    require(not any(marker in dex_contents for marker in backend_markers),
+            'Evaluation APK contains forbidden transport-backend-cct classes')
+    print(f'{path}: evaluation network permissions and transport backend verified')
 
 
 def sarif(directory):
@@ -155,13 +209,14 @@ def exceptions():
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('command', choices=['coverage', 'init-coverage', 'junit', 'bundle', 'apk', 'ratchet', 'exceptions', 'sarif'])
+    parser.add_argument('command', choices=['coverage', 'init-coverage', 'junit', 'bundle', 'apk',
+                                             'apk-evaluacion', 'ratchet', 'exceptions', 'sarif'])
     parser.add_argument('args', nargs='*')
     args = parser.parse_args()
     if args.command == 'init-coverage':
         coverage(True)
     else:
-        globals()[args.command](*args.args)
+        globals()[args.command.replace('-', '_')](*args.args)
 
 
 if __name__ == '__main__':

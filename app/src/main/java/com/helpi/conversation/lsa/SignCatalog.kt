@@ -8,18 +8,14 @@ import org.json.JSONObject
  * significar otra cosa y la app traduce mal sin arrojar ningún error.
  * Por eso el catálogo se valida contra el manifiesto (versión y clases).
  */
-class SignCatalog private constructor(
-    val version: String,
-    private val glosses: List<String>,
-) {
+class SignCatalog private constructor(val version: String, private val glosses: List<String>) {
     val size: Int get() = glosses.size
 
     /** Glosa para un índice de clase; null si el índice no existe. */
     fun gloss(classIndex: Int): String? = glosses.getOrNull(classIndex)
 
     /** Texto determinístico autorizado: no se inventan frases. */
-    fun displayText(classIndex: Int): String? =
-        gloss(classIndex)?.let { "Seña reconocida: $it" }
+    fun displayText(classIndex: Int): String? = gloss(classIndex)?.let { "Seña reconocida: $it" }
 
     fun all(): List<String> = glosses
 

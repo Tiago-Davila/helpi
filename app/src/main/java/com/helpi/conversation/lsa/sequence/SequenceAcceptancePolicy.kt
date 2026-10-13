@@ -1,10 +1,7 @@
 package com.helpi.conversation.lsa.sequence
 
 /** Decisión estructural del motor experimental, independiente de Eva. */
-data class SequenceAcceptanceDecision(
-    val accepted: Boolean,
-    val reason: String? = null,
-)
+data class SequenceAcceptanceDecision(val accepted: Boolean, val reason: String? = null)
 
 /**
  * Compuerta conservadora para un decoder cuya confianza todavía no está
@@ -17,13 +14,13 @@ class SequenceAcceptancePolicy {
         if (candidate.text.isBlank() || candidate.tokenIds.isEmpty()) {
             return SequenceAcceptanceDecision(
                 accepted = false,
-                reason = "No pude formar una frase con esa captura.",
+                reason = "No pude formar una frase con esa captura."
             )
         }
         if (!candidate.terminatedByEos) {
             return SequenceAcceptanceDecision(
                 accepted = false,
-                reason = "La frase quedó incompleta. Volvé a intentarlo.",
+                reason = "La frase quedó incompleta. Volvé a intentarlo."
             )
         }
         return SequenceAcceptanceDecision(accepted = true)

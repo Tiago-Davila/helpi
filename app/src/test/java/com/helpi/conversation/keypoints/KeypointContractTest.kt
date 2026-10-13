@@ -1,5 +1,6 @@
 package com.helpi.conversation.keypoints
 
+import kotlin.math.abs
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -7,7 +8,6 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
-import kotlin.math.abs
 
 /**
  * Test de contrato — bloqueante de CI.
@@ -37,13 +37,17 @@ class KeypointContractTest {
     fun `orden intercalado por landmark, no por eje`() {
         // landmark 0 = (10, 20, 30), landmark 1 = (11, 21, 31)
         val left = FloatArray(63)
-        left[0] = 10f; left[1] = 20f; left[2] = 30f
-        left[3] = 11f; left[4] = 21f; left[5] = 31f
+        left[0] = 10f
+        left[1] = 20f
+        left[2] = 30f
+        left[3] = 11f
+        left[4] = 21f
+        left[5] = 31f
         val frame = KeypointContract.flattenFrame(left, null, null)
         assertArrayEquals(
             floatArrayOf(10f, 20f, 30f, 11f, 21f, 31f),
             frame.copyOfRange(0, 6),
-            0f,
+            0f
         )
     }
 
@@ -70,7 +74,13 @@ class KeypointContractTest {
      * Cuadro de una escena física en metros proyectada a una cámara:
      * hombros a ±0,20 m y un landmark de mano en (-0,25, 0,10, z=0,02).
      */
-    private fun cameraFrame(width: Int, height: Int, pxPerMeter: Float, cx: Float, cy: Float): FloatArray {
+    private fun cameraFrame(
+        width: Int,
+        height: Int,
+        pxPerMeter: Float,
+        cx: Float,
+        cy: Float
+    ): FloatArray {
         val f = FloatArray(KeypointContract.COORDS)
         fun put(offset: Int, x: Float, y: Float, z: Float) {
             f[offset] = (x * pxPerMeter + cx) / width
@@ -93,7 +103,9 @@ class KeypointContractTest {
     @Test
     fun `mano queda en anchos de hombro y centrada`() {
         val out = KeypointContract.normalizeSequence(
-            listOf(cameraFrame(1280, 720, 1000f, 640f, 360f)), 1280, 720,
+            listOf(cameraFrame(1280, 720, 1000f, 640f, 360f)),
+            1280,
+            720
         )[0]
         assertEquals(-0.625f, out[0], 1e-5f) // -0,25 m / 0,40 m
         assertEquals(0.25f, out[1], 1e-5f)
@@ -104,14 +116,26 @@ class KeypointContractTest {
 
     @Test
     fun `no depende de la distancia ni de la orientacion`() {
-        val cerca = KeypointContract.normalizeSequence(listOf(cameraFrame(480, 640, 900f, 240f, 300f)), 480, 640)[0]
-        val lejos = KeypointContract.normalizeSequence(listOf(cameraFrame(1920, 1080, 300f, 900f, 500f)), 1920, 1080)[0]
+        val cerca = KeypointContract.normalizeSequence(
+            listOf(cameraFrame(480, 640, 900f, 240f, 300f)),
+            480,
+            640
+        )[0]
+        val lejos = KeypointContract.normalizeSequence(
+            listOf(cameraFrame(1920, 1080, 300f, 900f, 500f)),
+            1920,
+            1080
+        )[0]
         assertArrayEquals(cerca, lejos, 1e-4f)
     }
 
     @Test
     fun `landmarks ausentes conservan ceros`() {
-        val out = KeypointContract.normalizeSequence(listOf(cameraFrame(960, 540, 500f, 480f, 270f)), 960, 540)[0]
+        val out = KeypointContract.normalizeSequence(
+            listOf(cameraFrame(960, 540, 500f, 480f, 270f)),
+            960,
+            540
+        )[0]
         for (i in 3 until 126) assertEquals(0f, out[i], 0f)
     }
 
@@ -221,7 +245,10 @@ class KeypointContractTest {
         assertNotNull("falta contract_v3_fixture.json en src/test/resources", stream)
         @Suppress("UNCHECKED_CAST")
         val fixture = MiniJson.parse(stream!!.bufferedReader().readText()) as Map<String, Any?>
-        assertEquals(KeypointContract.CONTRACT_VERSION, (fixture["contractVersion"] as Double).toInt())
+        assertEquals(
+            KeypointContract.CONTRACT_VERSION,
+            (fixture["contractVersion"] as Double).toInt()
+        )
         val tolerance = (fixture["tolerancia"] as Double).toFloat()
         val cases = fixture["casos"] as List<*>
         assertTrue("fixture sin casos", cases.isNotEmpty())
@@ -251,8 +278,10 @@ class KeypointContractTest {
             assertEquals("$name: tamaño", expected.size, actual.size)
             for (i in actual.indices) {
                 if (abs(actual[i] - expected[i]) > tolerance) {
-                    fail("$name: índice $i (cuadro ${i / 168}, coord ${i % 168}) " +
-                        "Kotlin ${actual[i]} != Python ${expected[i]}")
+                    fail(
+                        "$name: índice $i (cuadro ${i / 168}, coord ${i % 168}) " +
+                            "Kotlin ${actual[i]} != Python ${expected[i]}"
+                    )
                 }
             }
         }
@@ -279,9 +308,18 @@ private object MiniJson {
                 '{' -> obj()
                 '[' -> arr()
                 '"' -> str()
-                't' -> { i += 4; true }
-                'f' -> { i += 5; false }
-                'n' -> { i += 4; null }
+                't' -> {
+                    i += 4
+                    true
+                }
+                'f' -> {
+                    i += 5
+                    false
+                }
+                'n' -> {
+                    i += 4
+                    null
+                }
                 else -> if (c == '-' || c.isDigit()) num() else error("JSON inválido en $i: '$c'")
             }
         }
@@ -290,11 +328,15 @@ private object MiniJson {
             val out = LinkedHashMap<String, Any?>()
             i++
             skipWs()
-            if (s[i] == '}') { i++; return out }
+            if (s[i] == '}') {
+                i++
+                return out
+            }
             while (true) {
                 skipWs()
                 val key = str()
-                skipWs(); i++ // ':'
+                skipWs()
+                i++ // ':'
                 out[key] = value()
                 skipWs()
                 if (s[i++] == '}') return out
@@ -305,7 +347,10 @@ private object MiniJson {
             val out = ArrayList<Any?>()
             i++
             skipWs()
-            if (s[i] == ']') { i++; return out }
+            if (s[i] == ']') {
+                i++
+                return out
+            }
             while (true) {
                 out.add(value())
                 skipWs()
@@ -322,7 +367,10 @@ private object MiniJson {
                     when (val e = s[i]) {
                         'n' -> sb.append('\n')
                         't' -> sb.append('\t')
-                        'u' -> { sb.append(s.substring(i + 1, i + 5).toInt(16).toChar()); i += 4 }
+                        'u' -> {
+                            sb.append(s.substring(i + 1, i + 5).toInt(16).toChar())
+                            i += 4
+                        }
                         else -> sb.append(e)
                     }
                 } else {

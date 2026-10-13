@@ -10,11 +10,15 @@ java {
 }
 
 dependencies {
+    // En Android org.json lo provee la plataforma; en la JVM, el artefacto.
+    compileOnly(libs.org.json)
+    testImplementation(libs.org.json)
     testImplementation(libs.junit)
 }
 
 tasks.test {
     useJUnit()
+    systemProperty("lsa.assets", rootProject.file("app/src/main/assets/lsa").path)
 }
 
 jacoco { toolVersion = "0.8.12" }

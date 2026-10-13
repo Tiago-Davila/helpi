@@ -40,7 +40,9 @@ object SequenceKeypointContract {
         require(source.size == HAND_COORDS) {
             "$name debe tener $HAND_COORDS floats, llegaron ${source.size}"
         }
-        source.forEach { value -> require(value.isFinite()) { "$name contiene un valor no finito" } }
+        source.forEach { value ->
+            require(value.isFinite()) { "$name contiene un valor no finito" }
+        }
         System.arraycopy(source, 0, destination, offset, HAND_COORDS)
     }
 
@@ -58,7 +60,9 @@ object SequenceKeypointContract {
             require(frame.size == COORDS) {
                 "cuadro $index tiene ${frame.size} coords, se esperaban $COORDS"
             }
-            frame.forEach { value -> require(value.isFinite()) { "valor no finito en cuadro $index" } }
+            frame.forEach { value ->
+                require(value.isFinite()) { "valor no finito en cuadro $index" }
+            }
         }
 
         val normalized = normalize(frames)
@@ -91,7 +95,8 @@ object SequenceKeypointContract {
             while (offset < COORDS) {
                 frame[offset] -= centerX
                 frame[offset + 1] -= centerY
-                scale = maxOf(scale, kotlin.math.abs(frame[offset]), kotlin.math.abs(frame[offset + 1]))
+                scale =
+                    maxOf(scale, kotlin.math.abs(frame[offset]), kotlin.math.abs(frame[offset + 1]))
                 offset += 3
             }
         }

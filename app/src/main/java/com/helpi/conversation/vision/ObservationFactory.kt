@@ -16,7 +16,7 @@ class ObservationFactory(
     /** Distancia normalizada al borde bajo la cual una mano está "al borde". */
     private val edgeMargin: Float = 0.05f,
     /** Ancho/alto del cuadro analizado, para corregir relación de aspecto. */
-    private val aspectRatio: Float = 4f / 3f,
+    private val aspectRatio: Float = 4f / 3f
 ) {
     private var previous: LandmarkFrame? = null
 
@@ -47,7 +47,8 @@ class ObservationFactory(
                 val prev = previous
                 val dtSec = prev?.let { (frame.timestampMs - it.timestampMs) / 1000f } ?: 0f
                 left = handObservation(frame.leftHand, prev?.leftHand, dtSec, midY, shoulderWidth)
-                right = handObservation(frame.rightHand, prev?.rightHand, dtSec, midY, shoulderWidth)
+                right =
+                    handObservation(frame.rightHand, prev?.rightHand, dtSec, midY, shoulderWidth)
             }
         }
 
@@ -60,7 +61,7 @@ class ObservationFactory(
         prevHand: FloatArray?,
         dtSec: Float,
         shoulderMidY: Float,
-        shoulderWidth: Float,
+        shoulderWidth: Float
     ): HandObservation {
         if (hand == null) return HandObservation.ABSENT
 

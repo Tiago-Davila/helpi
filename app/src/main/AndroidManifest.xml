@@ -1,19 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!-- Sin permiso INTERNET: todo corre en el dispositivo (R07). -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
-
-    <!-- MediaPipe incluye un backend de telemetría transitivo. Helpi es offline:
-         se eliminan explícitamente sus permisos del manifiesto final. -->
-    <uses-permission
-        android:name="android.permission.INTERNET"
-        tools:node="remove" />
-    <uses-permission
-        android:name="android.permission.ACCESS_NETWORK_STATE"
-        tools:node="remove" />
 
     <!-- Todos los sensores son opcionales: el modo teclado sigue funcionando. -->
     <uses-feature

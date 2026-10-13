@@ -118,4 +118,36 @@ public class ConversationTest {
         c.clear();
         assertEquals(0, c.size());
     }
+
+    @Test
+    public void unaOracionPublicaFraseYGlosasConVozPendiente() {
+        Conversation c = new Conversation();
+        Turn t = c.open(Speaker.DEAF, 100);
+        Turn sentence = c.publishSentence(t.id(), "La mujer sorda.", "MUJER SORDO");
+
+        assertEquals(TurnState.FINAL, sentence.state());
+        assertEquals("La mujer sorda.", sentence.text());
+        assertEquals("MUJER SORDO", sentence.glosses());
+        assertEquals(VoiceState.PENDING, sentence.voiceState());
+        // las glosas sobreviven a los cambios posteriores del turno
+        assertEquals("MUJER SORDO", c.updateVoice(t.id(), VoiceState.SPOKEN).glosses());
+        assertEquals("MUJER SORDO", c.markIncorrect(t.id(), 200).glosses());
+    }
+
+    @Test
+    public void unaOracionSinFraseOSinGlosasSeRechaza() {
+        Conversation c = new Conversation();
+        Turn t = c.open(Speaker.DEAF, 100);
+        assertThrows(IllegalArgumentException.class, () -> c.publishSentence(t.id(), " ", "MUJER"));
+        assertThrows(IllegalArgumentException.class, () -> c.publishSentence(t.id(), "Mujer.", ""));
+        assertThrows(IllegalArgumentException.class, () -> c.publishSentence(t.id(), null, "MUJER"));
+    }
+
+    @Test
+    public void losTurnosQueNoVienenDeSenasNoTienenGlosas() {
+        Conversation c = new Conversation();
+        Turn typed = c.publishTyped(c.open(Speaker.DEAF, 1).id(), "hola");
+        assertEquals("", typed.glosses());
+        assertEquals("", c.systemNote("nota", 2).glosses());
+    }
 }

@@ -20,7 +20,7 @@ class SequenceModelBundleTest {
     @Test
     fun `manifiesto con muestreo float se rechaza`() {
         val invalid = manifest().copy(
-            temporalDescription = "uniform linspace; zero-pad at end to 75 frames",
+            temporalDescription = "uniform linspace; zero-pad at end to 75 frames"
         )
 
         try {
@@ -38,7 +38,7 @@ class SequenceModelBundleTest {
             bosId = 1,
             eosId = 2,
             padId = 0,
-            unkId = 3,
+            unkId = 3
         )
 
         assertEquals("hola mundo", vocabulary.decode(listOf(1, 4, 5, 2)))
@@ -63,6 +63,6 @@ class SequenceModelBundleTest {
         eosId = 2,
         padId = 0,
         unkId = 3,
-        maxTokens = 64,
+        maxTokens = 64
     )
 }

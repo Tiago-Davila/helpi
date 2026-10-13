@@ -44,7 +44,7 @@ enum class EvaEstado {
     PENSANDO,
 
     /** Reproduciendo voz. Burbuja grande, muy iluminada, dos anillos. */
-    HABLANDO,
+    HABLANDO
 }
 
 /**
@@ -65,18 +65,18 @@ fun EvaOrb(estado: EvaEstado, modifier: Modifier = Modifier) {
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
             animation = tween(durationMillis = 1800, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse,
+            repeatMode = RepeatMode.Reverse
         ),
-        label = "pulso",
+        label = "pulso"
     )
     val giro by transicion.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
             animation = tween(durationMillis = 2600, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart,
+            repeatMode = RepeatMode.Restart
         ),
-        label = "giro",
+        label = "giro"
     )
 
     val pulsoEfectivo = if (animar) pulso else 0.5f
@@ -144,9 +144,9 @@ private fun DrawScope.dibujarEva(estado: EvaEstado, pulso: Float, giro: Float) {
                     style = Stroke(
                         width = lado * 0.014f,
                         pathEffect = PathEffect.dashPathEffect(
-                            floatArrayOf(lado * 0.05f, lado * 0.035f),
-                        ),
-                    ),
+                            floatArrayOf(lado * 0.05f, lado * 0.035f)
+                        )
+                    )
                 )
             }
         }
@@ -158,25 +158,20 @@ private fun DrawScope.dibujarEva(estado: EvaEstado, pulso: Float, giro: Float) {
  * Halo de marca. Es la burbuja agrandada y desvanecida, no un círculo: si el
  * resplandor fuera redondo delataría la forma que la silueta justamente evita.
  */
-private fun DrawScope.dibujarResplandor(
-    escala: Float,
-    alfa: Float,
-    centro: Offset,
-    lado: Float,
-) {
+private fun DrawScope.dibujarResplandor(escala: Float, alfa: Float, centro: Offset, lado: Float) {
     drawPath(
         path = rutaBurbuja(size, escala * 1.85f),
         brush = Brush.radialGradient(
             colorStops = arrayOf(
                 0.00f to HelpiColors.BrandCore.copy(alpha = alfa),
                 0.48f to HelpiColors.BrandCore.copy(alpha = alfa * 0.62f),
-                1.00f to Color.Transparent,
+                1.00f to Color.Transparent
             ),
             center = centro,
             // El halo se apaga antes del borde del marco: si llegara hasta el
             // recorte del lienzo se vería el corte en vez de un desvanecido.
-            radius = lado * escala * 0.85f,
-        ),
+            radius = lado * escala * 0.85f
+        )
     )
 }
 
@@ -197,11 +192,11 @@ private fun DrawScope.dibujarCuerpo(escala: Float, luz: Float, centro: Offset, l
                 0.00f to HelpiColors.LedSoft,
                 luz to HelpiColors.LedSoft,
                 (luz + (1f - luz) * 0.58f) to HelpiColors.BrandCore,
-                1.00f to lerp(HelpiColors.BrandCore, HelpiColors.BgBase, 0.62f),
+                1.00f to lerp(HelpiColors.BrandCore, HelpiColors.BgBase, 0.62f)
             ),
             startY = centro.y - alto / 2f,
-            endY = centro.y + alto / 2f,
-        ),
+            endY = centro.y + alto / 2f
+        )
     )
 }
 
@@ -214,7 +209,7 @@ private fun DrawScope.dibujarBrilloEspecular(
     escala: Float,
     centro: Offset,
     lado: Float,
-    estado: EvaEstado,
+    estado: EvaEstado
 ) {
     // Con mucha luz la burbuja ya es casi blanca arriba y el reflejo se pierde.
     val intensidad = if (estado == EvaEstado.HABLANDO) 0.30f else 0.55f
@@ -229,13 +224,13 @@ private fun DrawScope.dibujarBrilloEspecular(
                 colorStops = arrayOf(
                     0.00f to Color.White.copy(alpha = intensidad),
                     0.55f to Color.White.copy(alpha = intensidad * 0.35f),
-                    1.00f to Color.Transparent,
+                    1.00f to Color.Transparent
                 ),
                 center = foco,
-                radius = radio,
+                radius = radio
             ),
             radius = radio,
-            center = foco,
+            center = foco
         )
     }
 }
@@ -245,7 +240,7 @@ private fun DrawScope.dibujarContornoDeLuz(escala: Float, lado: Float) {
     drawPath(
         path = rutaBurbuja(size, escala),
         color = HelpiColors.LedSoft.copy(alpha = 0.85f),
-        style = Stroke(width = lado * 0.006f),
+        style = Stroke(width = lado * 0.006f)
     )
 }
 
@@ -253,6 +248,6 @@ private fun DrawScope.dibujarAnillo(escala: Float, lado: Float, alfa: Float) {
     drawPath(
         path = rutaBurbuja(size, escala),
         color = HelpiColors.LedSoft.copy(alpha = alfa.coerceIn(0f, 1f)),
-        style = Stroke(width = lado * 0.0074f),
+        style = Stroke(width = lado * 0.0074f)
     )
 }

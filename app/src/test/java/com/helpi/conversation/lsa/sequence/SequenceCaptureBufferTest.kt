@@ -35,7 +35,7 @@ class SequenceCaptureBufferTest {
 
         assertEquals(
             SequenceAppendResult.TOO_LONG,
-            buffer.append(1_101, FloatArray(63), null),
+            buffer.append(1_101, FloatArray(63), null)
         )
         assertEquals(0, buffer.frameCount)
         assertNull(buffer.stop())

@@ -21,7 +21,7 @@ import com.helpi.conversation.R
  * funciona sin red por diseño y la tipografía no puede ser la excepción.
  */
 private val Atkinson = FontFamily(
-    Font(R.font.atkinson_hyperlegible_next, FontWeight.Normal),
+    Font(R.font.atkinson_hyperlegible_next, FontWeight.Normal)
 )
 
 /**
@@ -33,8 +33,8 @@ private val Lexend = FontFamily(
     Font(
         resId = R.font.lexend,
         weight = FontWeight.Medium,
-        variationSettings = FontVariation.Settings(FontVariation.weight(500)),
-    ),
+        variationSettings = FontVariation.Settings(FontVariation.weight(500))
+    )
 )
 
 /**
@@ -50,7 +50,7 @@ object HelpiType {
         fontWeight = FontWeight.Normal,
         fontSize = 14.sp,
         lineHeight = 21.sp,
-        letterSpacing = 0.1.sp,
+        letterSpacing = 0.1.sp
     )
 
     /** `Body/M` — 17/26. Estado de Eva. */
@@ -59,7 +59,7 @@ object HelpiType {
         fontWeight = FontWeight.Normal,
         fontSize = 17.sp,
         lineHeight = 26.sp,
-        letterSpacing = 0.sp,
+        letterSpacing = 0.sp
     )
 
     /** `Body/Chat` — 20/30. Contenido de la conversación. */
@@ -68,7 +68,7 @@ object HelpiType {
         fontWeight = FontWeight.Normal,
         fontSize = 20.sp,
         lineHeight = 30.sp,
-        letterSpacing = 0.sp,
+        letterSpacing = 0.sp
     )
 
     /** `Caption/Disclaimer` — 13/18, +0.2. Aviso de límites. */
@@ -77,7 +77,7 @@ object HelpiType {
         fontWeight = FontWeight.Normal,
         fontSize = 13.sp,
         lineHeight = 18.sp,
-        letterSpacing = 0.2.sp,
+        letterSpacing = 0.2.sp
     )
 
     /** `Label/Boton` — Lexend Medium 18/24, +0.2. */
@@ -86,7 +86,7 @@ object HelpiType {
         fontWeight = FontWeight.Medium,
         fontSize = 18.sp,
         lineHeight = 24.sp,
-        letterSpacing = 0.2.sp,
+        letterSpacing = 0.2.sp
     )
 
     /** `Label/Hotbar` — Lexend Medium 12/16, +0.4. */
@@ -95,7 +95,7 @@ object HelpiType {
         fontWeight = FontWeight.Medium,
         fontSize = 12.sp,
         lineHeight = 16.sp,
-        letterSpacing = 0.4.sp,
+        letterSpacing = 0.4.sp
     )
 
     /**
@@ -108,7 +108,7 @@ object HelpiType {
         fontWeight = FontWeight.Medium,
         fontSize = 34.sp,
         lineHeight = 40.sp,
-        letterSpacing = (-0.5).sp,
+        letterSpacing = (-0.5).sp
     )
 
     /** Título de sección y de encabezado. */
@@ -117,7 +117,7 @@ object HelpiType {
         fontWeight = FontWeight.Medium,
         fontSize = 16.sp,
         lineHeight = 22.sp,
-        letterSpacing = 0.sp,
+        letterSpacing = 0.sp
     )
 
     /**
@@ -129,7 +129,7 @@ object HelpiType {
         fontWeight = FontWeight.Medium,
         fontSize = 13.sp,
         lineHeight = 16.sp,
-        letterSpacing = 0.1.sp,
+        letterSpacing = 0.1.sp
     )
 }
 
@@ -138,5 +138,5 @@ internal val HelpiTypography = Typography(
     bodyMedium = HelpiType.BodyM,
     bodySmall = HelpiType.BodyS,
     labelLarge = HelpiType.LabelBoton,
-    labelSmall = HelpiType.LabelHotbar,
+    labelSmall = HelpiType.LabelHotbar
 )
