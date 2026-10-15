@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.util.Log
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -112,6 +113,9 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // MediaPipe falla con errores de enlace (NoClassDefFoundError) además de
+    // excepciones: cualquiera debe degradar a texto y quedar registrado.
+    @Suppress("TooGenericExceptionCaught")
     private fun startVision(previewView: PreviewView, samplingProfile: SamplingProfile) {
         cameraSource?.let { existing ->
             existing.setSamplingProfile(samplingProfile)
@@ -129,7 +133,9 @@ class MainActivity : ComponentActivity() {
                 },
                 onMetrics = viewModel::onLandmarkMetrics
             ).also { extractor = it }
-        } catch (_: Throwable) {
+        } catch (e: Throwable) {
+            // Sin este registro la causa real (p. ej. una clase faltante) queda oculta.
+            Log.e(TAG, "HolisticExtractor no pudo iniciarse", e)
             viewModel.coordinator.reportVisionUnavailable(
                 "No se pudo iniciar la cámara. Podés continuar escribiendo."
             )
@@ -170,5 +176,9 @@ class MainActivity : ComponentActivity() {
         cameraSource?.shutdown()
         extractor?.close()
         super.onDestroy()
+    }
+
+    private companion object {
+        const val TAG = "MainActivity"
     }
 }

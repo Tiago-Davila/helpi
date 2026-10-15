@@ -70,8 +70,8 @@ jobs:
       - run: |
           python3 scripts/ci/verify.py coverage
           python3 scripts/ci/verify.py junit domain/build/test-results/test
-          python3 scripts/ci/verify.py junit app/build/test-results/testProduccionDebugUnitTest
-          python3 scripts/ci/verify.py junit app/build/test-results/testEvaluacionDebugUnitTest
+          python3 scripts/ci/verify.py junit app/build/test-results/testProduccionDebugUnitTest com.helpi.conversation.vision.MediaPipeTelemetryDependencyTest
+          python3 scripts/ci/verify.py junit app/build/test-results/testEvaluacionDebugUnitTest com.helpi.conversation.vision.MediaPipeTelemetryDependencyTest
           python3 scripts/ci/verify.py junit evaluacion/build/test-results/testDebugUnitTest com.helpi.evaluacion.contrato.ContratoSesionTest
           python3 scripts/ci/verify.py bundle
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
