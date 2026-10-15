@@ -16,6 +16,17 @@ for flavor in Produccion Evaluacion; do
   python3 scripts/ci/verify.py junit "$results" com.helpi.conversation.lsa.ModelReferenceTest
   cp -r "$results" "$reports/model-${lower_flavor}"
 done
+# MediaPipe must start on the device: a missing runtime class only surfaces
+# there, as "No se pudo iniciar la cámara".
+for flavor in Produccion Evaluacion; do
+  lower_flavor="${flavor,,}"
+  rm -rf "$results" "$reports/vision-${lower_flavor}"
+  ./gradlew ":app:connected${flavor}DebugAndroidTest" \
+    '-Pandroid.testInstrumentationRunnerArguments.class=com.helpi.conversation.vision.HolisticExtractorStartupTest' \
+    --rerun-tasks --stacktrace
+  python3 scripts/ci/verify.py junit "$results" com.helpi.conversation.vision.HolisticExtractorStartupTest
+  cp -r "$results" "$reports/vision-${lower_flavor}"
+done
 for flavor in Produccion Evaluacion; do
   lower_flavor="${flavor,,}"
   rm -rf "$results"

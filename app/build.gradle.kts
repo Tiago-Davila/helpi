@@ -13,7 +13,9 @@ android {
 
     defaultConfig {
         applicationId = "com.helpi.conversation"
-        minSdk = 26
+        // MediaPipe Tasks 0.10.32 usa aligned_alloc, que bionic expone desde
+        // API 28: en Android 8.x la librería nativa no carga y no hay cámara.
+        minSdk = 28
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"

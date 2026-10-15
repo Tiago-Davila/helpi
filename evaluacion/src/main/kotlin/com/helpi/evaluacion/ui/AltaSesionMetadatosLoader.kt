@@ -38,12 +38,7 @@ internal object AltaSesionMetadatosLoader {
         require(hashModelo.equals(manifiesto.getString("modelSha256"), ignoreCase = true))
         require(hashCatalogo.equals(manifiesto.getString("catalogSha256"), ignoreCase = true))
         val informacionPaquete = context.packageManager.getPackageInfo(context.packageName, 0)
-        val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            informacionPaquete.longVersionCode.toInt()
-        } else {
-            @Suppress("DEPRECATION")
-            informacionPaquete.versionCode
-        }
+        val versionCode = informacionPaquete.longVersionCode.toInt()
         return MetadatosAltaSesion(
             appVersionName = informacionPaquete.versionName.orEmpty(),
             appVersionCode = versionCode,

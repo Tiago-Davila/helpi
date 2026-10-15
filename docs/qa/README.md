@@ -21,7 +21,7 @@ python3 -m unittest discover -s scripts/ci -p 'test_*.py'
 ./gradlew :app:assembleDebug :app:assembleRelease
 bash scripts/ci/gitleaks.sh
 ./gradlew dependencyCheckAggregate
-# Con un emulador x86_64 iniciado (API 26 y luego 35):
+# Con un emulador x86_64 iniciado (API 28 y luego 35):
 bash scripts/ci/android-tests.sh
 ```
 
@@ -37,7 +37,7 @@ pull_request_target ni workflow_run.
   puede abrirse, pero no integrarse. Usa únicamente metadatos del evento.
 - `quality`: ktlint, detekt, Android Lint, SpotBugs y baseline sin crecimiento.
 - `unit-contract`: tests JVM, contrato, paquete Eva y cobertura por módulo.
-- `android-tests`: modelo real y UI en API 26/35; falla ante tests omitidos.
+- `android-tests`: modelo real y UI en API 28/35; falla ante tests omitidos.
 - `build`: debug y release, sin Internet, sin backup y modelos sin comprimir.
 - `security`: secretos, excepciones y dependencias con CVSS >= 7 bloqueante.
 - `codeql`: Java/Kotlin y Actions; los rulesets también exigen resultados del
