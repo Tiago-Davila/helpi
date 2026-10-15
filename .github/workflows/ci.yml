@@ -89,7 +89,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        api: [26, 35]
+        # minSdk: MediaPipe no carga por debajo de API 28.
+        api: [28, 35]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:

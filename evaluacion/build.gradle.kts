@@ -40,7 +40,7 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        minSdk = 26
+        minSdk = 28
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "URL_RECEPTOR", javaStringLiteral(urlReceptor))
         buildConfigField("String", "CLAVE_ENVIO", javaStringLiteral(claveEnvio))

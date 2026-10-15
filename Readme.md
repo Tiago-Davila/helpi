@@ -22,7 +22,7 @@ repetirlo en voz alta o corregirlo; la cruz finaliza y borra la conversación
 después de confirmar.
 
 Abrí el proyecto con Android Studio, concedé los permisos de cámara y
-micrófono y ejecutá la configuración `app` en Android 8.0 (API 26) o posterior.
+micrófono y ejecutá la configuración `app` en Android 9 (API 28) o posterior.
 La primera preparación copia el modelo de Vosk al almacenamiento privado y
 puede tardar unos segundos.
 

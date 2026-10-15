@@ -3,7 +3,6 @@ package com.helpi.evaluacion.envio
 import android.content.Context
 import android.content.pm.PackageManager
 import android.database.SQLException
-import android.os.Build
 import android.util.Log
 import androidx.room.withTransaction
 import androidx.work.BackoffPolicy
@@ -39,12 +38,7 @@ class EnvioWorker(appContext: Context, params: WorkerParameters) :
                 urlReceptor = BuildConfig.URL_RECEPTOR,
                 claveEnvio = BuildConfig.CLAVE_ENVIO,
                 appVersionName = packageInfo.versionName.orEmpty(),
-                appVersionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    packageInfo.longVersionCode.toInt()
-                } else {
-                    @Suppress("DEPRECATION")
-                    packageInfo.versionCode
-                }
+                appVersionCode = packageInfo.longVersionCode.toInt()
             )
             when (
                 EnvioColaProcesador(
