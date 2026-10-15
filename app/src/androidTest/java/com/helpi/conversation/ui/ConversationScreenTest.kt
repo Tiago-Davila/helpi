@@ -198,6 +198,14 @@ class ConversationScreenTest {
             .assertIsDisplayed()
     }
 
+    @Test fun laOracionEnCursoApareceEnElChatMientrasSeArma() {
+        val turn = chat.open(Speaker.DEAF, 0)
+        chat.updatePartial(turn.id(), "MUJER SORDO")
+        render(active = true)
+        compose.onNodeWithText("MUJER SORDO", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("Armando la frase…", useUnmergedTree = true).assertIsDisplayed()
+    }
+
     @Test fun muestraCuandoEstaReconociendoYProcesandoUnaSena() {
         render(active = true)
         compose.runOnIdle {

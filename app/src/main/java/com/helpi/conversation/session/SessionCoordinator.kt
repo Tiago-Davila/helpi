@@ -13,6 +13,7 @@ import com.helpi.conversation.audio.VoskSpeechSource
 import com.helpi.conversation.chat.Conversation
 import com.helpi.conversation.chat.Speaker
 import com.helpi.conversation.chat.Turn
+import com.helpi.conversation.chat.TurnState
 import com.helpi.conversation.chat.VoiceState
 import com.helpi.conversation.keypoints.KeypointContract
 import com.helpi.conversation.lsa.ModelBundle
@@ -35,6 +36,7 @@ import com.helpi.conversation.observation.RecognitionObserver
 import com.helpi.conversation.phrase.PhraseBuilder
 import com.helpi.conversation.phrase.PhraseResult
 import com.helpi.conversation.phrase.RecognizedSign
+import com.helpi.conversation.phrase.SentenceAssembler
 import com.helpi.conversation.vision.CameraCaptureMetrics
 import com.helpi.conversation.vision.FramingEvaluator
 import com.helpi.conversation.vision.LandmarkExtractionMetrics
@@ -127,6 +129,10 @@ class SessionCoordinator(
     private val signingDistanceGuide = SigningDistanceGuide()
     private val observationFactory = ObservationFactory()
     private val phraseBuffer = SequenceCaptureBuffer()
+    private val sentence = SentenceAssembler(SENTENCE_PAUSE_MS)
+
+    /** Burbuja de la oración en curso; -1 si todavía no hubo ningún intento. */
+    private var sentenceTurnId: Long = -1
 
     /**
      * Cuadro del segmento en curso: 168 coords crudas más el tamaño de la
@@ -442,6 +448,7 @@ class SessionCoordinator(
         stateMachine.transition(SessionState.PAUSADA)
         speechOutput?.stop()
         speech?.stop()
+        closeSentence()
         conversation.ordered().filter { it.voiceState() == VoiceState.PENDING }.forEach {
             conversation.updateVoice(it.id(), VoiceState.NOT_SPOKEN)
         }
@@ -520,6 +527,8 @@ class SessionCoordinator(
         sequenceBundle = null
         sequenceClassifying = false
         partialTurnId = -1
+        sentence.reset()
+        sentenceTurnId = -1
         visionRevision++
         segmenter = SignSegmenter(SegmenterConfig.defaults())
         observationFactory.reset()
@@ -681,6 +690,7 @@ class SessionCoordinator(
                 }
             }
         }
+        if (!classifying && !segmenter.isCapturing()) closeSentenceAfterPause(frame.timestampMs)
         updateSamplingProfile()
         publish()
     }
@@ -764,7 +774,7 @@ class SessionCoordinator(
         }
 
         val turn = if (deliveryMode == DeliveryMode.CONVERSATION) {
-            conversation.open(Speaker.DEAF, startMs)
+            sentenceTurn(startMs)
         } else {
             null
         }
@@ -785,7 +795,7 @@ class SessionCoordinator(
                     lastClassifierLatencyMs = (now() - startedAt).coerceAtLeast(0L)
                 )
                 if (!isActive() || !cameraEnabled || revision != visionRevision) {
-                    turn?.let { conversation.markRejected(it.id()) }
+                    turn?.let { abandonAttempt(it.id()) }
                     publish()
                     return@submit
                 }
@@ -809,22 +819,18 @@ class SessionCoordinator(
                             predictions = predictions
                         )
                         dispatchDecision(decision, thresholdUsed, endMs) {
-                            if (decision.accepted) {
-                                val text = catalog.displayText(decision.classIndex)
-                                if (text == null) {
-                                    turn?.let { conversation.markRejected(it.id()) }
-                                } else {
-                                    turn?.let {
-                                        conversation.publishSign(it.id(), text)
-                                        arbiter.enqueue(
-                                            it.id(),
-                                            catalog.gloss(decision.classIndex)!!,
-                                            now()
-                                        )
-                                    }
-                                }
+                            if (decision.accepted && acceptedGloss != null) {
+                                addToSentence(
+                                    RecognizedSign(
+                                        decision.classIndex,
+                                        acceptedGloss,
+                                        decision.confidence
+                                    ),
+                                    decision.classIndex,
+                                    endMs
+                                )
                             } else {
-                                turn?.let { conversation.markRejected(it.id()) }
+                                addToSentence(null, decision.classIndex, endMs)
                                 turn?.let {
                                     val confidencePercent = (decision.confidence * 100).roundToInt()
                                     val thresholdPercent = (thresholdUsed * 100).roundToInt()
@@ -841,7 +847,7 @@ class SessionCoordinator(
                     },
                     onFailure = {
                         reportNoResult(NoResultCause.ERROR_MODELO)
-                        turn?.let { conversation.markRejected(it.id()) }
+                        turn?.let { abandonAttempt(it.id()) }
                         notice =
                             "No se pudo ejecutar el modelo LSA: ${it.message ?: "error desconocido"}"
                     }
@@ -880,6 +886,7 @@ class SessionCoordinator(
             publish()
             return@submit
         }
+        closeSentence()
         visionRevision++
         phraseBuffer.cancel()
         phraseCandidate = null
@@ -1116,6 +1123,7 @@ class SessionCoordinator(
 
     fun toggleCamera() = submit(generation) {
         if (!isActive() || !activeVisionAvailable()) return@submit
+        closeSentence()
         cameraEnabled = !cameraEnabled
         visionRevision++
         frameBuffer.clear()
@@ -1178,16 +1186,81 @@ class SessionCoordinator(
         if (!isActive() || deliveryMode == DeliveryMode.OBSERVER_ONLY || signs.isEmpty()) {
             return@submit
         }
+        deliverSentence(conversation.open(Speaker.DEAF, startMs).id(), signs)
+        publish()
+    }
+
+    /** Suma un intento a la oración en curso; para probar el armado sin modelo ni cámara. */
+    internal fun recognizeForSentence(
+        sign: RecognizedSign?,
+        classIndex: Int,
+        startMs: Long,
+        endMs: Long
+    ) = submit(generation) {
+        if (!isActive() || deliveryMode == DeliveryMode.OBSERVER_ONLY) return@submit
+        sentenceTurn(startMs)
+        addToSentence(sign, classIndex, endMs)
+        publish()
+    }
+
+    /** Avanza el reloj de la cámara sin cuadros; para probar el cierre por pausa. */
+    internal fun advanceVisionClock(timestampMs: Long) = submit(generation) {
+        closeSentenceAfterPause(timestampMs)
+        publish()
+    }
+
+    /** Turno de la oración en curso, o una reserva nueva si es el primer intento. */
+    private fun sentenceTurn(startMs: Long): Turn {
+        if (sentenceTurnId >= 0 && hasTurn(sentenceTurnId)) return conversation.get(sentenceTurnId)
+        return conversation.open(Speaker.DEAF, startMs).also { sentenceTurnId = it.id() }
+    }
+
+    /** Suma una seña (o un hueco, si es null) y muestra las glosas en la burbuja, sin voz. */
+    private fun addToSentence(sign: RecognizedSign?, classIndex: Int, segmentEndMs: Long) {
+        if (sentenceTurnId < 0 || !hasTurn(sentenceTurnId)) return
+        if (sign == null) {
+            sentence.addGap(classIndex, segmentEndMs)
+        } else {
+            sentence.add(sign, segmentEndMs)
+        }
+        val glosses = phraseAssets.builder(confidenceThreshold).build(sentence.signs()).glosses()
+        conversation.updatePartial(sentenceTurnId, glosses.joinToString(" "))
+    }
+
+    /** Un intento que no llegó a decisión solo se descarta si la oración seguía vacía. */
+    private fun abandonAttempt(turnId: Long) {
+        if (!hasTurn(turnId) || conversation.get(turnId).state() != TurnState.PENDING) return
+        conversation.markRejected(turnId)
+        if (turnId == sentenceTurnId) sentenceTurnId = -1
+    }
+
+    /** Cierra la oración si pasó la pausa sin señas nuevas. */
+    private fun closeSentenceAfterPause(nowMs: Long) {
+        if (sentence.pauseElapsed(nowMs)) closeSentence()
+    }
+
+    /** Publica la oración en curso como frase; la reserva vacía queda para su intento. */
+    private fun closeSentence() {
+        val turnId = sentenceTurnId
+        if (sentence.isEmpty() || turnId < 0 || !hasTurn(turnId)) {
+            sentence.reset()
+            sentenceTurnId = -1
+            return
+        }
+        sentenceTurnId = -1
+        deliverSentence(turnId, sentence.close())
+    }
+
+    /** Arma la frase, la publica con sus glosas y la ofrece a voz si no tiene huecos. */
+    private fun deliverSentence(turnId: Long, signs: List<RecognizedSign>) {
         val result = phraseAssets.builder(confidenceThreshold).build(signs)
-        val turn = conversation.open(Speaker.DEAF, startMs)
-        conversation.publishSentence(turn.id(), result.text(), result.glosses().joinToString(" "))
+        conversation.publishSentence(turnId, result.text(), result.glosses().joinToString(" "))
         val spoken = sentenceVoice(result)
         if (capabilities.tts && spoken != null) {
-            arbiter.enqueue(turn.id(), spoken, now())
+            arbiter.enqueue(turnId, spoken, now())
         } else {
-            conversation.updateVoice(turn.id(), VoiceState.NOT_SPOKEN)
+            conversation.updateVoice(turnId, VoiceState.NOT_SPOKEN)
         }
-        publish()
     }
 
     /** Reemplaza léxico y plantillas, para probar el armado sin cargar el modelo. */
@@ -1209,6 +1282,7 @@ class SessionCoordinator(
 
     /** Un fallo real de CameraX/MediaPipe inhabilita el canal con causa. */
     fun reportVisionUnavailable(detail: String) = submit(generation) {
+        closeSentence()
         capabilities = capabilities.copy(
             vision = false,
             visionDetail = detail,
@@ -1324,6 +1398,9 @@ class SessionCoordinator(
     companion object {
         /** Umbral inicial de laboratorio (D03); no aprobado de producción. */
         const val DEFAULT_THRESHOLD = 0.90f
+
+        /** Sin señas nuevas durante este tiempo, la oración se da por terminada. */
+        const val SENTENCE_PAUSE_MS = 2_500L
         private const val PHRASES_WITHOUT_MODEL = "modelo LSA no cargado"
 
         /** Texto que la voz dice para una oración: la frase, o nada si tiene huecos. */
