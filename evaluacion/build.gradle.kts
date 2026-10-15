@@ -94,6 +94,10 @@ dependencies {
         testImplementation("org.bouncycastle:bcprov-jdk18on:1.86") {
             because("vulnerabilidades críticas en versiones < 1.85")
         }
+        // json-schema-validator trae jackson-core 3.2.1 (GHSA-p6pp-m3f8-5c89, GHSA-7hhh-6rmp-j9qf).
+        testImplementation("tools.jackson.core:jackson-core:3.2.3") {
+            because("denegación de servicio en versiones < 3.2.3")
+        }
     }
     testImplementation(libs.room.testing)
     testImplementation(libs.work.testing)

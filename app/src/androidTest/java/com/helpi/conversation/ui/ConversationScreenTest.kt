@@ -299,7 +299,9 @@ class ConversationScreenTest {
         render()
         compose.onNodeWithText("Cuenta").performClick()
         compose.onNodeWithText("Tiago").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Umbral de confianza").assertIsDisplayed()
+        // La cuenta se desplaza: en la pantalla de 640x320 de CI el umbral queda abajo.
+        compose.onNodeWithContentDescription("Umbral de confianza").performScrollTo()
+            .assertIsDisplayed()
         compose.onNodeWithText("LSA64", substring = true).performScrollTo().assertIsDisplayed()
     }
 
