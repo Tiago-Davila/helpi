@@ -2,6 +2,7 @@ package com.helpi.conversation.session
 
 import android.Manifest
 import com.helpi.conversation.chat.Speaker
+import com.helpi.conversation.chat.TurnState
 import com.helpi.conversation.chat.VoiceState
 import com.helpi.conversation.lsa.ModelBundle
 import com.helpi.conversation.lsa.PhraseAssets
@@ -123,6 +124,81 @@ class SessionCoordinatorTest {
         val turn = awaitState { it.turns.size == 1 }.turns.single()
         assertEquals("MUJER ¿?", turn.text())
         assertEquals("MUJER ¿?", turn.glosses())
+    }
+
+    private fun startSentenceSession() {
+        coordinator.prepare(autoStart = true)
+        awaitState { it.session == SessionState.ACTIVA_LIMITADA }
+        coordinator.usePhraseAssets(realPhraseAssets())
+    }
+
+    /** El executor es serial: cuando aparece este umbral, todo lo anterior ya corrió. */
+    private fun barrier(threshold: Float): SessionCoordinator.UiState {
+        coordinator.setConfidenceThreshold(threshold)
+        return awaitState { it.confidenceThreshold == threshold }
+    }
+
+    @Test
+    fun recognizedSignsReachTheChatAsOnePhraseAfterThePause() {
+        startSentenceSession()
+        coordinator.recognizeForSentence(RecognizedSign(8, "Mujer", 0.95f), 8, 1_000L, 1_500L)
+        coordinator.recognizeForSentence(RecognizedSign(41, "Sordo", 0.95f), 41, 2_000L, 2_500L)
+
+        val building = awaitState { it.turns.singleOrNull()?.text() == "MUJER SORDO" }
+            .turns.single()
+        assertEquals(Speaker.DEAF, building.speaker())
+        assertEquals(TurnState.PARTIAL, building.state())
+        assertEquals("sin voz mientras se arma", VoiceState.NONE, building.voiceState())
+
+        coordinator.advanceVisionClock(2_500L + SessionCoordinator.SENTENCE_PAUSE_MS - 1)
+        val beforePause = barrier(0.91f).turns.single()
+        assertEquals("todavía no pasó la pausa", TurnState.PARTIAL, beforePause.state())
+
+        coordinator.advanceVisionClock(2_500L + SessionCoordinator.SENTENCE_PAUSE_MS)
+        val closed = awaitState { it.turns.singleOrNull()?.state() == TurnState.FINAL }
+            .turns.single()
+        assertEquals("La mujer sorda.", closed.text())
+        assertEquals("MUJER SORDO", closed.glosses())
+        assertEquals(building.id(), closed.id())
+    }
+
+    @Test
+    fun aSignAfterThePauseStartsANewPhrase() {
+        startSentenceSession()
+        coordinator.recognizeForSentence(RecognizedSign(8, "Mujer", 0.95f), 8, 1_000L, 1_500L)
+        coordinator.advanceVisionClock(1_500L + SessionCoordinator.SENTENCE_PAUSE_MS)
+        coordinator.recognizeForSentence(RecognizedSign(41, "Sordo", 0.95f), 41, 9_000L, 9_500L)
+
+        val turns = awaitState { it.turns.size == 2 }.turns
+        assertEquals(TurnState.FINAL, turns[0].state())
+        assertEquals(TurnState.PARTIAL, turns[1].state())
+        assertEquals("SORDO", turns[1].text())
+    }
+
+    @Test
+    fun anUnrecognizedSignIsAGapAndThePhraseIsNotSpoken() {
+        startSentenceSession()
+        coordinator.recognizeForSentence(RecognizedSign(8, "Mujer", 0.95f), 8, 1_000L, 1_500L)
+        // rechazada aunque la confianza fuera alta: nunca se muestra la adivinanza
+        coordinator.recognizeForSentence(null, 41, 2_000L, 2_500L)
+        coordinator.advanceVisionClock(10_000L)
+
+        val closed = awaitState { it.turns.singleOrNull()?.state() == TurnState.FINAL }
+            .turns.single()
+        assertEquals("MUJER ¿?", closed.text())
+        assertEquals(VoiceState.NOT_SPOKEN, closed.voiceState())
+    }
+
+    @Test
+    fun pausingTheSessionPublishesTheSentenceInsteadOfLosingIt() {
+        startSentenceSession()
+        coordinator.recognizeForSentence(RecognizedSign(8, "Mujer", 0.95f), 8, 1_000L, 1_500L)
+        coordinator.recognizeForSentence(RecognizedSign(41, "Sordo", 0.95f), 41, 2_000L, 2_500L)
+        coordinator.pause()
+
+        val paused = awaitState { it.session == SessionState.PAUSADA }
+        assertEquals("La mujer sorda.", paused.turns.single().text())
+        assertEquals(TurnState.FINAL, paused.turns.single().state())
     }
 
     @Test

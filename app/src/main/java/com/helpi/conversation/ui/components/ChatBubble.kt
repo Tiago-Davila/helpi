@@ -41,6 +41,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.helpi.conversation.R
+import com.helpi.conversation.chat.Speaker
 import com.helpi.conversation.chat.Turn
 import com.helpi.conversation.chat.TurnState
 import com.helpi.conversation.chat.VoiceState
@@ -190,6 +191,7 @@ fun TurnoMensaje(
  */
 private fun estadoDelTurno(turn: Turn): String? = when {
     turn.markedIncorrect() -> "Marcado como incorrecto"
+    turn.state() == TurnState.PARTIAL && turn.speaker() == Speaker.DEAF -> "Armando la frase…"
     turn.state() == TurnState.PARTIAL -> "Transcribiendo…"
     turn.state() == TurnState.INCOMPLETE -> "Incompleto"
     turn.voiceState() == VoiceState.NOT_SPOKEN -> "No se pudo leer en voz alta"
