@@ -114,6 +114,17 @@ class ConversationScreenTest {
         nodo.assertIsDisplayed()
     }
 
+    /**
+     * Espera el nodo de un diálogo: su ventana se abre de forma asíncrona y, hasta
+     * que recibe el foco, Compose no la incluye entre las raíces que busca.
+     */
+    private fun enDialogo(matcher: SemanticsMatcher): SemanticsNodeInteraction {
+        compose.waitUntil(VISIBILIDAD_MS) {
+            compose.onAllNodes(matcher).fetchSemanticsNodes().size == 1
+        }
+        return compose.onNode(matcher)
+    }
+
     private fun cerrar() {
         chat.clear()
         state.value = SessionCoordinator.UiState(session = SessionState.CERRADA)
@@ -128,8 +139,8 @@ class ConversationScreenTest {
 
     private fun empezarConversacion(nombre: String) {
         compose.onNodeWithText("Iniciar conversación").performClick()
-        compose.onNodeWithTag("nameInput").performTextInput(nombre)
-        compose.onNodeWithText("Empezar").performClick()
+        enDialogo(hasTestTag("nameInput")).performTextInput(nombre)
+        enDialogo(hasText("Empezar")).performClick()
     }
 
     @Test fun inicioSimpleYUnaSolaAccionParaConversar() {
@@ -256,10 +267,10 @@ class ConversationScreenTest {
         chat.finalize(turn.id(), "Mensaje privado")
         render(active = true)
         compose.onNodeWithContentDescription("Finalizar conversación").performClick()
-        compose.onNodeWithText("Continuar").performClick()
+        enDialogo(hasText("Continuar")).performClick()
         compose.onNodeWithText("Mensaje privado").assertIsDisplayed()
         compose.onNodeWithContentDescription("Finalizar conversación").performClick()
-        compose.onNodeWithText("Finalizar", substring = false).performClick()
+        enDialogo(hasText("Finalizar")).performClick()
         compose.onNodeWithTag("welcome").assertIsDisplayed()
         compose.onNodeWithText("Mensaje privado").assertDoesNotExist()
         empezarConversacion("Ana")
@@ -276,7 +287,7 @@ class ConversationScreenTest {
         chat.finalize(turn.id(), "Charla anterior")
         render(active = true)
         compose.onNodeWithContentDescription("Nueva conversación").performClick()
-        compose.onNodeWithText("Empezar de nuevo").performClick()
+        enDialogo(hasText("Empezar de nuevo")).performClick()
         compose.onNodeWithTag("welcome").assertIsDisplayed()
         compose.onNodeWithText("Charla anterior").assertDoesNotExist()
         compose.onNodeWithTag("nameInput").assertIsDisplayed()
