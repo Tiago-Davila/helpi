@@ -14,7 +14,7 @@ dependencies {
     // SpotBugs 4.8.6 trae httpclient5/httpcore5 5.1.3 vía Saxon y xmlresolver
     // (GHSA-hf6x-8p5f-cgmf, corregido en 5.4.3). Solo afecta al classpath de análisis.
     constraints {
-        spotbugs("org.apache.httpcomponents.client5:httpclient5:5.6.3") {
+        spotbugs("org.apache.httpcomponents.client5:httpclient5:5.6.5") {
             because("arrastra httpcore5 sin la denegación de servicio")
         }
         listOf("httpcore5", "httpcore5-h2").forEach {
