@@ -347,7 +347,10 @@ jobs:
           python3 scripts/ci/verify.py apk app/build/outputs/apk/produccion/debug/app-produccion-debug.apk "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer"
           python3 scripts/ci/verify.py apk app/build/outputs/apk/produccion/release/app-produccion-release-unsigned.apk "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer"
           git rev-parse HEAD > app/build/outputs/apk/SOURCE_SHA.txt
-          sha256sum app/build/outputs/apk/*/*.apk > app/build/outputs/apk/SHA256SUMS
+          # Con flavors los APK quedan en apk/<flavor>/<tipo>/: se listan explícitos.
+          sha256sum app/build/outputs/apk/produccion/debug/app-produccion-debug.apk \
+            app/build/outputs/apk/produccion/release/app-produccion-release-unsigned.apk \
+            > app/build/outputs/apk/SHA256SUMS
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: qa-${{ github.ref_name }}-${{ github.sha }}
