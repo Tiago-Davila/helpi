@@ -10,6 +10,11 @@ buildscript {
             classpath("com.fasterxml.jackson.core:jackson-core:2.22.3") {
                 because("denegación de servicio en versiones < 2.22.3")
             }
+            // dependency-check arrastra jsoup 1.23.1 (GHSA-65r4-943x-97jj, agotamiento de memoria
+            // con namespaces anidados en XmlTreeBuilder, corregido en 1.23.2).
+            classpath("org.jsoup:jsoup:1.23.2") {
+                because("agotamiento de memoria en versiones < 1.23.2")
+            }
             listOf("bcprov", "bcpkix", "bcutil").forEach {
                 classpath("org.bouncycastle:$it-jdk18on:1.86") {
                     because("vulnerabilidades críticas en versiones < 1.85")
