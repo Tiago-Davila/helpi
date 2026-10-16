@@ -1,5 +1,8 @@
 package com.helpi.conversation.ui
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import androidx.activity.compose.BackHandler
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.core.animateFloatAsState
@@ -26,15 +29,22 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helpi.conversation.R
 import com.helpi.conversation.chat.Speaker
@@ -79,14 +89,14 @@ internal data class ConversationActions(
     val nuevaConversacion: () -> Unit = {},
     val nombrarInterlocutor: (String) -> Unit = {},
     val renombrarCuenta: (String) -> Unit = {},
-    val cancelarPedidoDeNombre: () -> Unit = {},
+    val cancelarPedidoDeNombre: () -> Unit = {}
 )
 
 @Composable
 fun ConversationScreen(
     viewModel: ConversationViewModel,
     onStart: () -> Unit,
-    cameraPreview: @Composable () -> Unit = {},
+    cameraPreview: @Composable () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val participantes by viewModel.participantes.collectAsStateWithLifecycle()
@@ -112,10 +122,10 @@ fun ConversationScreen(
             nuevaConversacion = viewModel::nuevaConversacion,
             nombrarInterlocutor = viewModel::nombrarInterlocutor,
             renombrarCuenta = viewModel::renombrarCuenta,
-            cancelarPedidoDeNombre = viewModel::cancelarPedidoDeNombre,
+            cancelarPedidoDeNombre = viewModel::cancelarPedidoDeNombre
         ),
         participantes,
-        cameraPreview,
+        cameraPreview
     )
 }
 
@@ -124,7 +134,7 @@ internal fun ConversationContent(
     state: SessionCoordinator.UiState,
     actions: ConversationActions,
     participantes: Participantes = Participantes(),
-    cameraPreview: @Composable () -> Unit = {},
+    cameraPreview: @Composable () -> Unit = {}
 ) {
     when (state.session) {
         SessionState.ACTIVA, SessionState.ACTIVA_LIMITADA ->
@@ -146,7 +156,7 @@ internal fun ConversationContent(
 private fun Inicio(
     state: SessionCoordinator.UiState,
     actions: ConversationActions,
-    participantes: Participantes,
+    participantes: Participantes
 ) {
     var seccion by rememberSaveable { mutableStateOf(SeccionHotbar.TRADUCTOR) }
     var pidiendoNombre by rememberSaveable { mutableStateOf(false) }
@@ -158,19 +168,19 @@ private fun Inicio(
         }
     }
 
-    Column(Modifier.fillMaxSize().testTag("welcome")) {
+    Column(Modifier.fillMaxSize().safeDrawingPadding().testTag("welcome")) {
         Box(Modifier.weight(1f)) {
             when (seccion) {
                 SeccionHotbar.TRADUCTOR -> Bienvenida(
                     state = state,
                     onIniciar = { pidiendoNombre = true },
-                    onReanudar = actions.resume,
+                    onReanudar = actions.resume
                 )
                 SeccionHotbar.CUENTA -> PantallaCuenta(
                     state = state,
                     participantes = participantes,
                     onThreshold = actions.threshold,
-                    onRenombrarCuenta = actions.renombrarCuenta,
+                    onRenombrarCuenta = actions.renombrarCuenta
                 )
             }
         }
@@ -198,32 +208,31 @@ private fun Inicio(
             onDismiss = {
                 pidiendoNombre = false
                 actions.cancelarPedidoDeNombre()
-            },
+            }
         )
     }
 }
 
+// Deuda previa registrada en el baseline de detekt de develop.
+@Suppress("LongMethod")
 @Composable
 private fun Bienvenida(
     state: SessionCoordinator.UiState,
     onIniciar: () -> Unit,
-    onReanudar: () -> Unit,
+    onReanudar: () -> Unit
 ) {
     val pausada = state.session == SessionState.PAUSADA
     val preparando = state.session == SessionState.PREPARANDO ||
         state.session == SessionState.LISTA ||
         state.session == SessionState.CERRANDO
 
-    Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 28.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Spacer(Modifier.weight(1f))
+    val orbe = @Composable { tamano: Dp ->
         EvaOrb(
             if (preparando) EvaEstado.PENSANDO else EvaEstado.REPOSO,
-            Modifier.size(200.dp).semantics { contentDescription = "Helpi" },
+            Modifier.size(tamano).semantics { contentDescription = "Helpi" }
         )
-        Spacer(Modifier.height(12.dp))
+    }
+    val textos = @Composable {
         Text("Helpi", style = HelpiType.Display, color = HelpiColors.LedSoft)
         Spacer(Modifier.height(10.dp))
         Text(
@@ -235,20 +244,21 @@ private fun Bienvenida(
             },
             style = HelpiType.BodyM,
             color = HelpiColors.LedMuted,
-            textAlign = TextAlign.Center,
+            textAlign = TextAlign.Center
         )
-        Spacer(Modifier.weight(1f))
+    }
+    val accion = @Composable {
         Button(
             onClick = if (pausada) onReanudar else onIniciar,
             enabled = !preparando,
             shape = HelpiShapes.Pastilla,
-            modifier = Modifier.widthIn(max = 380.dp).fillMaxWidth().heightIn(min = 58.dp),
+            modifier = Modifier.widthIn(max = 380.dp).fillMaxWidth().heightIn(min = 58.dp)
         ) {
             if (preparando) {
                 CircularProgressIndicator(
                     Modifier.size(20.dp),
                     color = HelpiColors.BgBase,
-                    strokeWidth = 2.dp,
+                    strokeWidth = 2.dp
                 )
                 Spacer(Modifier.width(12.dp))
             }
@@ -258,7 +268,7 @@ private fun Bienvenida(
                     pausada -> "Reanudar conversación"
                     else -> "Iniciar conversación"
                 },
-                style = HelpiType.LabelBoton,
+                style = HelpiType.LabelBoton
             )
         }
         Spacer(Modifier.height(14.dp))
@@ -266,9 +276,44 @@ private fun Bienvenida(
             "Helpi ayuda a comunicarse. No reemplaza a una persona intérprete.",
             style = HelpiType.CaptionDisclaimer,
             color = HelpiColors.LedMuted,
-            textAlign = TextAlign.Center,
+            textAlign = TextAlign.Center
         )
-        Spacer(Modifier.height(20.dp))
+    }
+
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val orbeApaisado = (maxHeight * 0.6f).coerceAtMost(200.dp)
+        if (maxWidth > maxHeight) {
+            // Horizontal (la app está fija así): el orbe a la izquierda y el
+            // texto con la acción a la derecha, para que todo entre en ~300 dp.
+            Row(
+                Modifier.fillMaxSize().padding(horizontal = 28.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(32.dp)
+            ) {
+                orbe(orbeApaisado)
+                Column(
+                    Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    textos()
+                    Spacer(Modifier.height(20.dp))
+                    accion()
+                }
+            }
+        } else {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 28.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Spacer(Modifier.weight(1f))
+                orbe(200.dp)
+                Spacer(Modifier.height(12.dp))
+                textos()
+                Spacer(Modifier.weight(1f))
+                accion()
+                Spacer(Modifier.height(20.dp))
+            }
+        }
     }
 }
 
@@ -276,12 +321,14 @@ private fun Bienvenida(
 // Conversación
 // ---------------------------------------------------------------------------
 
+// Deuda previa registrada en el baseline de detekt de develop.
+@Suppress("LongMethod")
 @Composable
 private fun SalaDeConversacion(
     state: SessionCoordinator.UiState,
     actions: ConversationActions,
     participantes: Participantes,
-    cameraPreview: @Composable () -> Unit,
+    cameraPreview: @Composable () -> Unit
 ) {
     var ajustes by remember { mutableStateOf(false) }
     var finalizando by remember { mutableStateOf(false) }
@@ -298,77 +345,113 @@ private fun SalaDeConversacion(
         }
     }
 
-    Column(Modifier.fillMaxSize().imePadding().testTag("conversation")) {
-        Encabezado(
-            interlocutor = participantes.interlocutor,
-            onNueva = { empezandoDeNuevo = true },
-            onAjustes = { ajustes = true },
-            onCerrar = { finalizando = true },
+    val panel = @Composable { modificador: Modifier, forma: Shape ->
+        PanelDeCaptura(
+            state = state,
+            actions = actions,
+            teclado = teclado,
+            onTeclado = {
+                teclado = !teclado
+                if (!teclado) controlTeclado?.hide()
+            },
+            cameraPreview = cameraPreview,
+            modifier = modificador,
+            forma = forma
         )
-        BoxWithConstraints(Modifier.weight(1f).padding(horizontal = 14.dp)) {
-            val apaisado = maxWidth > maxHeight && maxWidth >= 600.dp
-            // La cámara cede altura cuando se abre el teclado: escribir es una
-            // actividad de lectura, y con el teclado arriba la conversación
-            // necesita el espacio más que la imagen.
-            val fraccion by animateFloatAsState(if (teclado) 0.36f else 0.58f, label = "camara")
-            val alturaCamara = (maxHeight * fraccion).coerceIn(180.dp, 520.dp)
-            val panel = @Composable { modificador: Modifier ->
-                PanelDeCaptura(
-                    state = state,
-                    actions = actions,
-                    teclado = teclado,
-                    onTeclado = {
-                        teclado = !teclado
-                        if (!teclado) controlTeclado?.hide()
-                    },
-                    cameraPreview = cameraPreview,
-                    modifier = modificador,
-                )
-            }
-            if (apaisado) {
-                Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    panel(Modifier.weight(0.46f).fillMaxHeight())
-                    ListaDeMensajes(
-                        state,
-                        actions,
-                        participantes,
-                        Modifier.weight(0.54f).fillMaxHeight(),
-                    )
-                }
-            } else {
-                Column(Modifier.fillMaxSize()) {
-                    panel(Modifier.fillMaxWidth().height(alturaCamara))
-                    ListaDeMensajes(
-                        state,
-                        actions,
-                        participantes,
-                        Modifier.weight(1f).fillMaxWidth(),
-                    )
-                }
-            }
-        }
+    }
+    val aviso = @Composable {
         state.notice?.let {
             Row(
-                Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                Modifier.fillMaxWidth().padding(start = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     it,
                     style = HelpiType.BodyS,
                     color = HelpiColors.Warning,
-                    modifier = Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite },
+                    modifier = Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite }
                 )
                 IconButton(onClick = actions.dismissNotice) {
                     Icon(
                         painterResource(R.drawable.ic_close),
                         "Cerrar aviso",
-                        tint = HelpiColors.LedMuted,
+                        tint = HelpiColors.LedMuted
                     )
                 }
             }
         }
-        if (teclado) Redactor(actions.send)
-        Spacer(Modifier.height(8.dp))
+    }
+
+    BoxWithConstraints(Modifier.fillMaxSize().testTag("conversation")) {
+        if (maxWidth > maxHeight) {
+            // Horizontal (la app está fija así): la cámara ocupa todo el alto y
+            // llega a los bordes; la conversación es una columna angosta a la
+            // derecha con sus propios controles. La imagen es lo que la persona
+            // que hace señas necesita ver para saber si entra en el cuadro.
+            PantallaInmersiva()
+            val anchoChat = (maxWidth * 0.3f).coerceIn(240.dp, 340.dp)
+            Row(Modifier.fillMaxSize()) {
+                panel(Modifier.weight(1f).fillMaxHeight(), RectangleShape)
+                Column(
+                    Modifier
+                        .width(anchoChat)
+                        .fillMaxHeight()
+                        .windowInsetsPadding(
+                            WindowInsets.safeDrawing.only(
+                                WindowInsetsSides.End + WindowInsetsSides.Vertical
+                            )
+                        )
+                        .imePadding()
+                        .padding(start = 8.dp, end = 4.dp, bottom = 6.dp)
+                ) {
+                    EncabezadoCompacto(
+                        interlocutor = participantes.interlocutor,
+                        onNueva = { empezandoDeNuevo = true },
+                        onAjustes = { ajustes = true },
+                        onCerrar = { finalizando = true }
+                    )
+                    ListaDeMensajes(
+                        state,
+                        actions,
+                        participantes,
+                        Modifier.weight(1f).fillMaxWidth()
+                    )
+                    aviso()
+                    if (teclado) Redactor(actions.send, compacto = true)
+                }
+            }
+        } else {
+            Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
+                Encabezado(
+                    interlocutor = participantes.interlocutor,
+                    onNueva = { empezandoDeNuevo = true },
+                    onAjustes = { ajustes = true },
+                    onCerrar = { finalizando = true }
+                )
+                BoxWithConstraints(Modifier.weight(1f).padding(horizontal = 14.dp)) {
+                    // La cámara cede altura cuando se abre el teclado: escribir es una
+                    // actividad de lectura, y con el teclado arriba la conversación
+                    // necesita el espacio más que la imagen.
+                    val fraccion by animateFloatAsState(
+                        if (teclado) 0.36f else 0.58f,
+                        label = "camara"
+                    )
+                    val alturaCamara = (maxHeight * fraccion).coerceIn(180.dp, 520.dp)
+                    Column(Modifier.fillMaxSize()) {
+                        panel(Modifier.fillMaxWidth().height(alturaCamara), HelpiShapes.Panel)
+                        ListaDeMensajes(
+                            state,
+                            actions,
+                            participantes,
+                            Modifier.weight(1f).fillMaxWidth()
+                        )
+                    }
+                }
+                Box(Modifier.padding(start = 12.dp)) { aviso() }
+                if (teclado) Redactor(actions.send)
+                Spacer(Modifier.height(8.dp))
+            }
+        }
     }
 
     if (ajustes) {
@@ -387,19 +470,19 @@ private fun SalaDeConversacion(
                     textStyle = HelpiType.BodyM,
                     minLines = 2,
                     maxLines = 5,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth()
                 )
             },
             confirmButton = {
                 TextButton(
                     onClick = { actions.confirmPhrase(candidateText.trim()) },
-                    enabled = candidateText.isNotBlank(),
+                    enabled = candidateText.isNotBlank()
                 ) { Text("Confirmar") }
             },
             dismissButton = {
                 TextButton(onClick = actions.rejectPhrase) { Text("Descartar") }
             },
-            containerColor = HelpiColors.Surface,
+            containerColor = HelpiColors.Surface
         )
     }
     if (finalizando) {
@@ -412,7 +495,7 @@ private fun SalaDeConversacion(
                 actions.close()
                 finalizando = false
             },
-            onCancelar = { finalizando = false },
+            onCancelar = { finalizando = false }
         )
     }
     if (empezandoDeNuevo) {
@@ -426,7 +509,7 @@ private fun SalaDeConversacion(
                 actions.nuevaConversacion()
                 empezandoDeNuevo = false
             },
-            onCancelar = { empezandoDeNuevo = false },
+            onCancelar = { empezandoDeNuevo = false }
         )
     }
 }
@@ -437,7 +520,7 @@ private fun Confirmacion(
     cuerpo: String,
     confirmar: String,
     onConfirmar: () -> Unit,
-    onCancelar: () -> Unit,
+    onCancelar: () -> Unit
 ) {
     AlertDialog(
         onDismissRequest = onCancelar,
@@ -445,7 +528,7 @@ private fun Confirmacion(
         text = { Text(cuerpo) },
         confirmButton = { TextButton(onClick = onConfirmar) { Text(confirmar) } },
         dismissButton = { TextButton(onClick = onCancelar) { Text("Continuar") } },
-        containerColor = HelpiColors.Surface,
+        containerColor = HelpiColors.Surface
     )
 }
 
@@ -454,11 +537,11 @@ private fun Encabezado(
     interlocutor: String,
     onNueva: () -> Unit,
     onAjustes: () -> Unit,
-    onCerrar: () -> Unit,
+    onCerrar: () -> Unit
 ) {
     Row(
         Modifier.fillMaxWidth().height(56.dp).padding(start = 20.dp, end = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
             Text("Helpi", style = HelpiType.TitleM, color = HelpiColors.LedSoft)
@@ -467,7 +550,7 @@ private fun Encabezado(
                 style = HelpiType.BodyS,
                 color = HelpiColors.LedMuted,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+                overflow = TextOverflow.Ellipsis
             )
         }
         AccionDeEncabezado(R.drawable.ic_nueva_conversacion, "Nueva conversación", onNueva)
@@ -476,15 +559,74 @@ private fun Encabezado(
     }
 }
 
+/**
+ * Encabezado de la columna de conversación en horizontal: el nombre del
+ * interlocutor y las acciones, sin el título de la app, para dejarle el
+ * espacio a la cámara.
+ */
+@Composable
+private fun EncabezadoCompacto(
+    interlocutor: String,
+    onNueva: () -> Unit,
+    onAjustes: () -> Unit,
+    onCerrar: () -> Unit
+) {
+    Row(
+        Modifier.fillMaxWidth().height(48.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            interlocutor,
+            style = HelpiType.BodyS,
+            color = HelpiColors.LedMuted,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f).padding(start = 8.dp)
+        )
+        AccionDeEncabezado(R.drawable.ic_nueva_conversacion, "Nueva conversación", onNueva)
+        AccionDeEncabezado(R.drawable.ic_settings, "Configuración", onAjustes, tamano = 21.dp)
+        AccionDeEncabezado(R.drawable.ic_close, "Finalizar conversación", onCerrar)
+    }
+}
+
+/**
+ * Oculta las barras del sistema mientras dura la conversación en horizontal,
+ * para que la cámara use toda la pantalla. Se ven un momento deslizando desde
+ * el borde y vuelven al salir de la conversación.
+ */
+@Composable
+private fun PantallaInmersiva() {
+    val view = LocalView.current
+    DisposableEffect(view) {
+        val window = view.context.buscarActivity()?.window
+        val controller = window?.let { WindowCompat.getInsetsController(it, view) }
+        controller?.systemBarsBehavior =
+            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        controller?.hide(WindowInsetsCompat.Type.systemBars())
+        onDispose { controller?.show(WindowInsetsCompat.Type.systemBars()) }
+    }
+}
+
+private tailrec fun Context.buscarActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.buscarActivity()
+    else -> null
+}
+
 @Composable
 private fun AccionDeEncabezado(
     @DrawableRes icono: Int,
     etiqueta: String,
     onClick: () -> Unit,
-    tamano: androidx.compose.ui.unit.Dp = 22.dp,
+    tamano: androidx.compose.ui.unit.Dp = 22.dp
 ) {
     IconButton(onClick = onClick, modifier = Modifier.size(48.dp)) {
-        Icon(painterResource(icono), etiqueta, tint = HelpiColors.LedMuted, modifier = Modifier.size(tamano))
+        Icon(
+            painterResource(icono),
+            etiqueta,
+            tint = HelpiColors.LedMuted,
+            modifier = Modifier.size(tamano)
+        )
     }
 }
 
@@ -501,6 +643,8 @@ private fun AccionDeEncabezado(
  * Los controles flotan encima, sobre un velo oscuro y con borde de vidrio, de
  * modo que se lean igual contra una pared blanca o contra una sombra.
  */
+// Deuda previa registrada en el baseline de detekt de develop.
+@Suppress("CyclomaticComplexMethod", "LongMethod", "LongParameterList")
 @Composable
 private fun PanelDeCaptura(
     state: SessionCoordinator.UiState,
@@ -509,6 +653,7 @@ private fun PanelDeCaptura(
     onTeclado: () -> Unit,
     cameraPreview: @Composable () -> Unit,
     modifier: Modifier = Modifier,
+    forma: Shape = HelpiShapes.Panel
 ) {
     val visionAvailable = if (state.recognitionMode == RecognitionMode.PHRASE_EXPERIMENTAL) {
         state.capabilities.phraseVision
@@ -521,13 +666,16 @@ private fun PanelDeCaptura(
         state.capabilities.visionDetail
     }
     val camaraViva = state.cameraEnabled && visionAvailable
+    // La imagen llega al borde físico; los controles que flotan encima no deben
+    // quedar debajo de las barras del sistema ni del recorte de la cámara.
+    val seguro = WindowInsets.safeDrawing
 
     Box(
         modifier
-            .clip(HelpiShapes.Panel)
+            .clip(forma)
             .background(Color.Black)
             .testTag("camera"),
-        contentAlignment = Alignment.Center,
+        contentAlignment = Alignment.Center
     ) {
         if (camaraViva) {
             cameraPreview()
@@ -537,24 +685,24 @@ private fun PanelDeCaptura(
                         0.00f to Color.Black.copy(alpha = 0.45f),
                         0.22f to Color.Transparent,
                         0.68f to Color.Transparent,
-                        1.00f to Color.Black.copy(alpha = 0.55f),
-                    ),
-                ),
+                        1.00f to Color.Black.copy(alpha = 0.55f)
+                    )
+                )
             )
             GuiaDeDistancia(
                 state = state.signingDistance,
-                modifier = Modifier.matchParentSize(),
+                modifier = Modifier.matchParentSize()
             )
         } else {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(24.dp),
+                modifier = Modifier.padding(24.dp)
             ) {
                 Icon(
                     painterResource(R.drawable.ic_entrada_camara),
                     null,
                     tint = HelpiColors.LedMuted,
-                    modifier = Modifier.size(32.dp),
+                    modifier = Modifier.size(32.dp)
                 )
                 Spacer(Modifier.height(12.dp))
                 Text(
@@ -566,7 +714,7 @@ private fun PanelDeCaptura(
                     },
                     style = HelpiType.BodyS,
                     color = HelpiColors.LedMuted,
-                    textAlign = TextAlign.Center,
+                    textAlign = TextAlign.Center
                 )
             }
         }
@@ -574,10 +722,11 @@ private fun PanelDeCaptura(
         Column(
             Modifier
                 .align(Alignment.TopEnd)
+                .windowInsetsPadding(seguro)
                 .padding(10.dp)
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             BotonDeVidrio(
                 icono = R.drawable.ic_entrada_microfono,
@@ -589,7 +738,7 @@ private fun PanelDeCaptura(
                 activo = state.microphoneEnabled && state.capabilities.stt,
                 habilitado = state.capabilities.stt,
                 tachado = !state.microphoneEnabled || !state.capabilities.stt,
-                onClick = actions.microphone,
+                onClick = actions.microphone
             )
             BotonDeVidrio(
                 icono = R.drawable.ic_entrada_camara,
@@ -601,13 +750,13 @@ private fun PanelDeCaptura(
                 activo = camaraViva,
                 habilitado = visionAvailable,
                 tachado = !camaraViva,
-                onClick = actions.camera,
+                onClick = actions.camera
             )
             BotonDeVidrio(
                 icono = R.drawable.ic_entrada_teclado,
                 etiqueta = if (teclado) "Ocultar teclado" else "Escribir mensaje",
                 activo = teclado,
-                onClick = onTeclado,
+                onClick = onTeclado
             )
         }
 
@@ -615,9 +764,10 @@ private fun PanelDeCaptura(
             Column(
                 Modifier
                     .align(Alignment.TopStart)
+                    .windowInsetsPadding(seguro)
                     .padding(10.dp)
                     .widthIn(max = 220.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 EstadoDeDistancia(state.signingDistance)
                 if (state.recognitionMode == RecognitionMode.SINGLE_SIGN) {
@@ -633,13 +783,15 @@ private fun PanelDeCaptura(
         ) {
             val capturing = state.phraseCapture == PhraseCaptureState.CAPTURING
             Row(
-                Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp),
+                Modifier.align(
+                    Alignment.BottomCenter
+                ).windowInsetsPadding(seguro).padding(bottom = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Button(
                     onClick = if (capturing) actions.finishPhrase else actions.startPhrase,
-                    enabled = state.phraseCapture == PhraseCaptureState.READY || capturing,
+                    enabled = state.phraseCapture == PhraseCaptureState.READY || capturing
                 ) {
                     Text(if (capturing) "Terminar frase" else "Comenzar frase")
                 }
@@ -652,10 +804,11 @@ private fun PanelDeCaptura(
         Row(
             Modifier
                 .align(Alignment.BottomStart)
+                .windowInsetsPadding(seguro)
                 .fillMaxWidth()
                 .padding(start = 10.dp, end = 68.dp, bottom = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             val eva = estadoDeEva(state)
             EvaOrb(
@@ -667,7 +820,7 @@ private fun PanelDeCaptura(
                         EvaEstado.PENSANDO -> "Helpi está reconociendo la seña"
                         EvaEstado.REPOSO -> "Helpi en pausa"
                     }
-                },
+                }
             )
             if (camaraViva) {
                 instruccionDeEncuadre(state)?.let {
@@ -679,7 +832,7 @@ private fun PanelDeCaptura(
                             .background(HelpiColors.VeloCamara, HelpiShapes.Chip)
                             .border(1.dp, HelpiColors.VidrioBorde, HelpiShapes.Chip)
                             .padding(horizontal = 12.dp, vertical = 8.dp)
-                            .semantics { liveRegion = LiveRegionMode.Polite },
+                            .semantics { liveRegion = LiveRegionMode.Polite }
                     )
                 }
             }
@@ -688,19 +841,20 @@ private fun PanelDeCaptura(
 }
 
 @Composable
-private fun GuiaDeDistancia(
-    state: SigningDistanceGuide.State,
-    modifier: Modifier = Modifier,
-) {
+private fun GuiaDeDistancia(state: SigningDistanceGuide.State, modifier: Modifier = Modifier) {
     val color = when (state) {
         SigningDistanceGuide.State.OPTIMAL -> HelpiColors.Success
         SigningDistanceGuide.State.MOVE_CLOSER,
         SigningDistanceGuide.State.MOVE_FARTHER -> HelpiColors.Warning
         SigningDistanceGuide.State.UNKNOWN -> Color.White.copy(alpha = 0.55f)
     }
-    Canvas(modifier.clearAndSetSemantics { }.testTag("distanceGuideOverlay")) {
+    Canvas(modifier.clearAndSetSemantics { testTag = "distanceGuideOverlay" }) {
         val centerX = size.width / 2f
-        val shoulderHalfSpan = size.width * 0.10f
+        // Marcas en el centro del rango óptimo de la guía. Se aproxima el
+        // aspecto de la imagen con el del panel (la preview usa FIT_CENTER).
+        val maxSpan = SigningDistanceGuide.maxShoulderSpan(size.width.toInt(), size.height.toInt())
+        val targetSpan = maxSpan * (1f + SigningDistanceGuide.MIN_FRACTION_OF_MAX) / 2f
+        val shoulderHalfSpan = size.width * targetSpan / 2f
         val top = size.height * 0.30f
         val bottom = size.height * 0.58f
         val tick = size.width * 0.035f
@@ -713,19 +867,25 @@ private fun GuiaDeDistancia(
             Offset(left, top),
             Offset(left, bottom),
             stroke,
-            StrokeCap.Round,
+            StrokeCap.Round
         )
         drawLine(
             color.copy(alpha = 0.78f),
             Offset(right, top),
             Offset(right, bottom),
             stroke,
-            StrokeCap.Round,
+            StrokeCap.Round
         )
         drawLine(color, Offset(left, top), Offset(left + tick, top), stroke, StrokeCap.Round)
         drawLine(color, Offset(left, bottom), Offset(left + tick, bottom), stroke, StrokeCap.Round)
         drawLine(color, Offset(right - tick, top), Offset(right, top), stroke, StrokeCap.Round)
-        drawLine(color, Offset(right - tick, bottom), Offset(right, bottom), stroke, StrokeCap.Round)
+        drawLine(
+            color,
+            Offset(right - tick, bottom),
+            Offset(right, bottom),
+            stroke,
+            StrokeCap.Round
+        )
     }
 }
 
@@ -746,7 +906,7 @@ private fun EstadoDeDistancia(state: SigningDistanceGuide.State) {
             .border(1.dp, color.copy(alpha = 0.65f), HelpiShapes.Chip)
             .padding(horizontal = 12.dp, vertical = 8.dp)
             .semantics { liveRegion = LiveRegionMode.Polite }
-            .testTag("distanceStatus"),
+            .testTag("distanceStatus")
     )
 }
 
@@ -758,32 +918,38 @@ private fun PrediccionesDeEva(feedback: SessionCoordinator.RecognitionFeedback) 
             .border(1.dp, HelpiColors.VidrioBorde, HelpiShapes.Panel)
             .padding(horizontal = 12.dp, vertical = 10.dp)
             .testTag("predictionPanel"),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Text(
             if (feedback.accepted) "Predicciones" else "Predicciones sin confirmar",
             style = HelpiType.LabelBoton,
-            color = Color.White,
+            color = Color.White
         )
         feedback.predictions.take(3).forEachIndexed { index, prediction ->
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     "${index + 1}. ${prediction.label}",
                     style = HelpiType.BodyS,
-                    color = if (index == 0 && feedback.accepted) HelpiColors.Success else Color.White,
+                    color = if (index == 0 &&
+                        feedback.accepted
+                    ) {
+                        HelpiColors.Success
+                    } else {
+                        Color.White
+                    },
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f)
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
                     "${(prediction.confidence * 100).roundToInt()}%",
                     style = HelpiType.BodyS,
-                    color = Color.White,
+                    color = Color.White
                 )
             }
         }
@@ -793,7 +959,8 @@ private fun PrediccionesDeEva(feedback: SessionCoordinator.RecognitionFeedback) 
 private fun estadoDeEva(state: SessionCoordinator.UiState) = when {
     state.audio == AudioChannelState.TTS_HABLANDO -> EvaEstado.HABLANDO
     state.visual == VisualChannelState.REARMANDO && state.cameraEnabled -> EvaEstado.PENSANDO
-    state.microphoneEnabled && state.capabilities.stt &&
+    state.microphoneEnabled &&
+        state.capabilities.stt &&
         (
             state.audio == AudioChannelState.STT_ESCUCHANDO ||
                 state.audio == AudioChannelState.STT_TRANSCRIBIENDO
@@ -801,6 +968,8 @@ private fun estadoDeEva(state: SessionCoordinator.UiState) = when {
     else -> EvaEstado.REPOSO
 }
 
+// Deuda previa registrada en el baseline de detekt de develop.
+@Suppress("LongParameterList")
 @Composable
 private fun BotonDeVidrio(
     @DrawableRes icono: Int,
@@ -808,7 +977,7 @@ private fun BotonDeVidrio(
     activo: Boolean = false,
     habilitado: Boolean = true,
     tachado: Boolean = false,
-    onClick: () -> Unit,
+    onClick: () -> Unit
 ) {
     IconButton(
         onClick = onClick,
@@ -816,12 +985,20 @@ private fun BotonDeVidrio(
         modifier = Modifier
             .size(48.dp)
             .clip(CircleShape)
-            .background(if (activo) HelpiColors.BrandCore.copy(alpha = 0.92f) else HelpiColors.VeloCamara)
+            .background(
+                if (activo) HelpiColors.BrandCore.copy(alpha = 0.92f) else HelpiColors.VeloCamara
+            )
             .border(1.dp, HelpiColors.VidrioBorde, CircleShape)
-            .semantics { stateDescription = if (activo) "Activado" else "Desactivado" },
+            .semantics { stateDescription = if (activo) "Activado" else "Desactivado" }
     ) {
         Box(Modifier.size(21.dp)) {
-            val tinte = if (habilitado) HelpiColors.LedSoft else HelpiColors.LedMuted.copy(alpha = 0.5f)
+            val tinte = if (habilitado) {
+                HelpiColors.LedSoft
+            } else {
+                HelpiColors.LedMuted.copy(
+                    alpha = 0.5f
+                )
+            }
             Icon(painterResource(icono), etiqueta, tint = tinte, modifier = Modifier.fillMaxSize())
             if (tachado) {
                 Canvas(Modifier.fillMaxSize()) {
@@ -830,7 +1007,7 @@ private fun BotonDeVidrio(
                         Offset(1f, 1f),
                         Offset(size.width - 1f, size.height - 1f),
                         2.dp.toPx(),
-                        StrokeCap.Round,
+                        StrokeCap.Round
                     )
                 }
             }
@@ -847,7 +1024,7 @@ private fun ListaDeMensajes(
     state: SessionCoordinator.UiState,
     actions: ConversationActions,
     participantes: Participantes,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     val turnos = state.turns
         .filter { it.state() != TurnState.REJECTED && it.text().isNotBlank() }
@@ -866,7 +1043,7 @@ private fun ListaDeMensajes(
                 style = HelpiType.BodyM,
                 color = HelpiColors.LedMuted,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(28.dp),
+                modifier = Modifier.padding(28.dp)
             )
         }
         return
@@ -877,7 +1054,7 @@ private fun ListaDeMensajes(
         state = listState,
         reverseLayout = true,
         contentPadding = PaddingValues(top = 18.dp, bottom = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         itemsIndexed(turnos, key = { _, turno -> turno.id() }) { indice, turno ->
             // La lista está invertida: el mensaje de arriba es el siguiente del array.
@@ -892,7 +1069,7 @@ private fun ListaDeMensajes(
                     mostrarAutor = anterior?.speaker() != turno.speaker(),
                     propio = propio,
                     onRepetir = repetirDe(turno, propio, state, actions),
-                    onMarcarIncorrecto = marcarIncorrectoDe(turno, propio, actions),
+                    onMarcarIncorrecto = marcarIncorrectoDe(turno, propio, actions)
                 )
             }
         }
@@ -908,27 +1085,25 @@ private fun repetirDe(
     turno: Turn,
     propio: Boolean,
     state: SessionCoordinator.UiState,
-    actions: ConversationActions,
-): (() -> Unit)? =
-    if (!propio && state.capabilities.tts && !turno.markedIncorrect()) {
-        { actions.repeat(turno.id()) }
-    } else {
-        null
-    }
+    actions: ConversationActions
+): (() -> Unit)? = if (!propio && state.capabilities.tts && !turno.markedIncorrect()) {
+    { actions.repeat(turno.id()) }
+} else {
+    null
+}
 
 private fun marcarIncorrectoDe(
     turno: Turn,
     propio: Boolean,
-    actions: ConversationActions,
-): (() -> Unit)? =
-    if (!propio && !turno.markedIncorrect() && turno.state() == TurnState.FINAL) {
-        { actions.incorrect(turno.id()) }
-    } else {
-        null
-    }
+    actions: ConversationActions
+): (() -> Unit)? = if (!propio && !turno.markedIncorrect() && turno.state() == TurnState.FINAL) {
+    { actions.incorrect(turno.id()) }
+} else {
+    null
+}
 
 @Composable
-private fun Redactor(onEnviar: (String) -> Unit) {
+private fun Redactor(onEnviar: (String) -> Unit, compacto: Boolean = false) {
     // El borrador vive únicamente durante esta conversación, no se guarda en el Bundle.
     var texto by remember { mutableStateOf("") }
     val foco = remember { FocusRequester() }
@@ -940,9 +1115,12 @@ private fun Redactor(onEnviar: (String) -> Unit) {
         }
     }
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp),
+        Modifier.fillMaxWidth().padding(
+            horizontal = if (compacto) 4.dp else 14.dp,
+            vertical = 6.dp
+        ),
         verticalAlignment = Alignment.Bottom,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(if (compacto) 6.dp else 8.dp)
     ) {
         OutlinedTextField(
             value = texto,
@@ -953,12 +1131,12 @@ private fun Redactor(onEnviar: (String) -> Unit) {
             maxLines = 3,
             shape = HelpiShapes.Pastilla,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-            keyboardActions = KeyboardActions(onSend = { enviar() }),
+            keyboardActions = KeyboardActions(onSend = { enviar() })
         )
         FilledIconButton(
             onClick = { enviar() },
             enabled = texto.isNotBlank(),
-            modifier = Modifier.padding(bottom = 4.dp).size(50.dp),
+            modifier = Modifier.padding(bottom = 4.dp).size(50.dp)
         ) {
             Icon(painterResource(R.drawable.ic_send), "Enviar y leer en voz alta")
         }
@@ -980,22 +1158,24 @@ private fun HojaDeAjustes(
     state: SessionCoordinator.UiState,
     onThreshold: (Float) -> Unit,
     onRecognitionMode: (RecognitionMode) -> Unit,
-    onDismiss: () -> Unit,
+    onDismiss: () -> Unit
 ) {
     var ayuda by remember { mutableStateOf(false) }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = HelpiColors.Surface,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ) {
         Column(
-            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            Modifier.fillMaxWidth().verticalScroll(
+                rememberScrollState()
+            ).padding(horizontal = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Configuración", style = HelpiType.LabelBoton)
                 TextButton(onClick = onDismiss) { Text("Listo") }
@@ -1015,13 +1195,13 @@ private fun HojaDeAjustes(
                         "apagar la imagen o escribir. Mantené presionado un mensaje traducido " +
                         "para repetirlo en voz alta o marcarlo como incorrecto. Esperá a que " +
                         "Helpi termine de hablar antes de la seña siguiente.",
-                    style = HelpiType.BodyM,
+                    style = HelpiType.BodyM
                 )
             }
             Text(
                 "Los límites del modelo y las licencias están en la pestaña Cuenta.",
                 style = HelpiType.BodyS,
-                color = HelpiColors.LedMuted,
+                color = HelpiColors.LedMuted
             )
             Spacer(Modifier.height(24.dp))
         }
@@ -1043,33 +1223,39 @@ private fun DiagnosticoVisual(state: SessionCoordinator.UiState) {
         Modifier
             .fillMaxWidth()
             .testTag("visionDiagnostics"),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Text("Diagnóstico de cámara", style = HelpiType.BodyM, color = HelpiColors.LedSoft)
         Text(
-            "Muestreo ${state.samplingProfile.displayName}: cámara ${fps(metrics.cameraFps)} de ${metrics.targetFps} objetivo · " +
+            "Muestreo ${state.samplingProfile.displayName}: cámara ${fps(
+                metrics.cameraFps
+            )} de ${metrics.targetFps} objetivo · " +
                 "MediaPipe ${fps(metrics.mediaPipeFps)} · ${metrics.lastMediaPipeLatencyMs} ms",
             style = HelpiType.BodyS,
-            color = HelpiColors.LedMuted,
+            color = HelpiColors.LedMuted
         )
         Text(
-            "Pose ${detected(metrics.poseFrames)} · mano izquierda ${detected(metrics.leftHandFrames)} · " +
+            "Pose ${detected(
+                metrics.poseFrames
+            )} · mano izquierda ${detected(metrics.leftHandFrames)} · " +
                 "mano derecha ${detected(metrics.rightHandFrames)}",
             style = HelpiType.BodyS,
-            color = HelpiColors.LedMuted,
+            color = HelpiColors.LedMuted
         )
         Text(
-            "Segmentos: ${metrics.segmentsStarted} iniciados, ${metrics.segmentsCompleted} terminados, " +
-                "${metrics.segmentsAborted} abortados · modelo: ${metrics.classifierRuns} corridas, " +
+            "Segmentos: ${metrics.segmentsStarted} iniciados, " +
+                "${metrics.segmentsCompleted} terminados, " +
+                "${metrics.segmentsAborted} abortados · " +
+                "modelo: ${metrics.classifierRuns} corridas, " +
                 "${metrics.lastClassifierLatencyMs} ms",
             style = HelpiType.BodyS,
-            color = HelpiColors.LedMuted,
+            color = HelpiColors.LedMuted
         )
         if (metrics.rateLimitedFrames > 0L) {
             Text(
                 "${metrics.rateLimitedFrames} cuadros se descartaron para conservar baja latencia.",
                 style = HelpiType.CaptionDisclaimer,
-                color = HelpiColors.LedMuted,
+                color = HelpiColors.LedMuted
             )
         }
     }
@@ -1078,30 +1264,30 @@ private fun DiagnosticoVisual(state: SessionCoordinator.UiState) {
 @Composable
 private fun SelectorDeModo(
     state: SessionCoordinator.UiState,
-    onRecognitionMode: (RecognitionMode) -> Unit,
+    onRecognitionMode: (RecognitionMode) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             "Modo de reconocimiento",
             style = HelpiType.BodyM,
-            color = HelpiColors.LedSoft,
+            color = HelpiColors.LedSoft
         )
         Row(
             Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             FilterChip(
                 selected = state.recognitionMode == RecognitionMode.SINGLE_SIGN,
                 onClick = { onRecognitionMode(RecognitionMode.SINGLE_SIGN) },
                 label = { Text("Seña individual") },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f)
             )
             FilterChip(
                 selected = state.recognitionMode == RecognitionMode.PHRASE_EXPERIMENTAL,
                 onClick = { onRecognitionMode(RecognitionMode.PHRASE_EXPERIMENTAL) },
                 enabled = state.capabilities.phraseVision,
                 label = { Text("Frase experimental") },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f)
             )
         }
         Text(
@@ -1113,31 +1299,34 @@ private fun SelectorDeModo(
                 }
             },
             style = HelpiType.BodyS,
-            color = HelpiColors.LedMuted,
+            color = HelpiColors.LedMuted
         )
     }
 }
 
-private fun instruccionDeEncuadre(state: SessionCoordinator.UiState): String? = when (state.framing) {
-    FramingEvaluator.Issue.SIN_PERSONA -> "Mostrá los hombros y las manos."
-    FramingEvaluator.Issue.SIN_HOMBROS -> "Alejá un poco el teléfono para mostrar los hombros."
-    FramingEvaluator.Issue.MANOS_AL_BORDE -> "Mantené las manos dentro del cuadro."
-    FramingEvaluator.Issue.MANO_PERDIDA -> "Volvé a mostrar las dos manos."
-    FramingEvaluator.Issue.OK -> if (state.recognitionMode == RecognitionMode.PHRASE_EXPERIMENTAL) {
-        when (state.phraseCapture) {
-            PhraseCaptureState.READY -> "Presioná «Comenzar frase» cuando estés listo."
-            PhraseCaptureState.CAPTURING -> "Hacé la frase y presioná «Terminar frase»."
-            PhraseCaptureState.PROCESSING -> "Procesando la frase…"
-            PhraseCaptureState.CANDIDATE -> "Revisá la frase sugerida."
-            PhraseCaptureState.UNAVAILABLE -> "El modo frase no está disponible."
-        }
-    } else {
-        when (state.visual) {
-            VisualChannelState.ARMADO -> "Mostrá una seña."
-            VisualChannelState.ESPERANDO_REPOSO -> "Dejá las manos quietas un momento."
-            VisualChannelState.CAPTURANDO_SENA -> "Reconociendo tu seña…"
-            VisualChannelState.REARMANDO -> "Procesando la seña…"
-            else -> null
+private fun instruccionDeEncuadre(state: SessionCoordinator.UiState): String? =
+    when (state.framing) {
+        FramingEvaluator.Issue.SIN_PERSONA -> "Mostrá los hombros y las manos."
+        FramingEvaluator.Issue.SIN_HOMBROS -> "Alejá un poco el teléfono para mostrar los hombros."
+        FramingEvaluator.Issue.MANOS_AL_BORDE -> "Mantené las manos dentro del cuadro."
+        FramingEvaluator.Issue.MANO_PERDIDA -> "Volvé a mostrar las dos manos."
+        FramingEvaluator.Issue.OK -> if (state.recognitionMode ==
+            RecognitionMode.PHRASE_EXPERIMENTAL
+        ) {
+            when (state.phraseCapture) {
+                PhraseCaptureState.READY -> "Presioná «Comenzar frase» cuando estés listo."
+                PhraseCaptureState.CAPTURING -> "Hacé la frase y presioná «Terminar frase»."
+                PhraseCaptureState.PROCESSING -> "Procesando la frase…"
+                PhraseCaptureState.CANDIDATE -> "Revisá la frase sugerida."
+                PhraseCaptureState.UNAVAILABLE -> "El modo frase no está disponible."
+            }
+        } else {
+            when (state.visual) {
+                VisualChannelState.ARMADO -> "Mostrá una seña."
+                VisualChannelState.ESPERANDO_REPOSO -> "Dejá las manos quietas un momento."
+                VisualChannelState.CAPTURANDO_SENA -> "Reconociendo tu seña…"
+                VisualChannelState.REARMANDO -> "Procesando la seña…"
+                else -> null
+            }
         }
     }
-}

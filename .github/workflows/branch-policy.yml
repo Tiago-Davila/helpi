@@ -1,0 +1,22 @@
+name: Branch policy
+on:
+  pull_request_target:
+    branches: [develop, main]
+    types: [opened, synchronize, reopened, edited, ready_for_review]
+permissions:
+  contents: read
+jobs:
+  branch-policy:
+    name: branch-policy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      # No checkout, no code from the PR, no interpolation in shell commands.
+      - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            if (pr.base.ref === 'main' &&
+                (pr.head.ref !== 'develop' || pr.head.repo?.full_name !== context.payload.repository.full_name)) {
+              core.setFailed('main only accepts develop from this repository. Target develop instead.');
+            }

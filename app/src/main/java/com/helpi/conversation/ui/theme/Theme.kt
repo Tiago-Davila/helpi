@@ -27,7 +27,7 @@ private val HelpiColorScheme = darkColorScheme(
     onSurfaceVariant = HelpiColors.LedSoft,
     outline = HelpiColors.Divider,
     error = HelpiColors.Warning,
-    onError = HelpiColors.BgBase,
+    onError = HelpiColors.BgBase
 )
 
 /**
@@ -44,14 +44,14 @@ fun HelpiTheme(content: @Composable () -> Unit) {
         Settings.Global.getFloat(
             context.contentResolver,
             Settings.Global.ANIMATOR_DURATION_SCALE,
-            1f,
+            1f
         ) > 0f
     }
     CompositionLocalProvider(LocalAnimacionesActivas provides animacionesActivas) {
         MaterialTheme(
             colorScheme = HelpiColorScheme,
             typography = HelpiTypography,
-            content = content,
+            content = content
         )
     }
 }

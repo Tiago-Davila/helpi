@@ -17,3 +17,5 @@ dependencyResolutionManagement {
 rootProject.name = "helpi-conversacion"
 include(":app")
 include(":domain")
+include(":evaluacion")
+include(":evaluacion-dominio")

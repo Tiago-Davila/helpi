@@ -13,7 +13,7 @@ class LandmarkOverlayTest {
             canvasHeight = 1000f,
             imageWidth = 480,
             imageHeight = 640,
-            mirrorHorizontally = true,
+            mirrorHorizontally = true
         )!!
 
         assertEquals(1.5625f, transform.scale, 0.0001f)
@@ -28,7 +28,7 @@ class LandmarkOverlayTest {
             canvasHeight = 640f,
             imageWidth = 480,
             imageHeight = 640,
-            mirrorHorizontally = true,
+            mirrorHorizontally = true
         )!!
 
         val point = transform.project(0.25f, 0.40f)

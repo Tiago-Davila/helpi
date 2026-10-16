@@ -1,12 +1,12 @@
 package com.helpi.conversation.lsa.sequence
 
 import android.content.Context
-import org.json.JSONArray
-import org.json.JSONObject
 import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.security.MessageDigest
+import org.json.JSONArray
+import org.json.JSONObject
 
 /**
  * Artefactos del traductor experimental LSA-T.
@@ -24,7 +24,7 @@ sealed class SequenceModelBundleResult {
 data class SequenceTensorSpec(
     val shape: List<Int>,
     val shapeSignature: List<Int>,
-    val dtype: String,
+    val dtype: String
 )
 
 data class SequenceModelManifest(
@@ -44,7 +44,7 @@ data class SequenceModelManifest(
     val eosId: Int,
     val padId: Int,
     val unkId: Int,
-    val maxTokens: Int,
+    val maxTokens: Int
 ) {
     companion object {
         fun parse(json: String): SequenceModelManifest {
@@ -72,7 +72,7 @@ data class SequenceModelManifest(
                 eosId = tokenIds.getInt("eos"),
                 padId = tokenIds.getInt("pad"),
                 unkId = tokenIds.getInt("unk"),
-                maxTokens = root.getJSONObject("decoderPolicy").getInt("maxTokens"),
+                maxTokens = root.getJSONObject("decoderPolicy").getInt("maxTokens")
             )
         }
     }
@@ -106,7 +106,7 @@ class SequenceVocabulary private constructor(
     val bosId: Int,
     val eosId: Int,
     val padId: Int,
-    val unkId: Int,
+    val unkId: Int
 ) {
     val size: Int get() = tokens.size
 
@@ -124,7 +124,7 @@ class SequenceVocabulary private constructor(
             bosId: Int,
             eosId: Int,
             padId: Int,
-            unkId: Int,
+            unkId: Int
         ): SequenceVocabulary {
             val array = JSONArray(json)
             require(array.length() > 0) { "vocabulario vacío" }
@@ -146,7 +146,7 @@ class SequenceVocabulary private constructor(
             bosId: Int,
             eosId: Int,
             padId: Int,
-            unkId: Int,
+            unkId: Int
         ): SequenceVocabulary {
             require(tokens.isNotEmpty()) { "vocabulario vacío" }
             tokens.forEachIndexed { index, token ->
@@ -164,7 +164,7 @@ class SequenceModelBundle private constructor(
     val encoder: ByteBuffer,
     val decoder: ByteBuffer,
     val vocabulary: SequenceVocabulary,
-    val manifest: SequenceModelManifest,
+    val manifest: SequenceModelManifest
 ) {
     companion object {
         private const val DIR = "lsa_t"
@@ -214,7 +214,7 @@ class SequenceModelBundle private constructor(
                     bosId = manifest.bosId,
                     eosId = manifest.eosId,
                     padId = manifest.padId,
-                    unkId = manifest.unkId,
+                    unkId = manifest.unkId
                 )
             } catch (e: Exception) {
                 return SequenceModelBundleResult.Invalid("vocabulario LSA-T ilegible: ${e.message}")
@@ -222,7 +222,7 @@ class SequenceModelBundle private constructor(
             if (vocabulary.size != manifest.vocabularySize) {
                 return SequenceModelBundleResult.Invalid(
                     "vocabulario con ${vocabulary.size} tokens; " +
-                        "el manifiesto declara ${manifest.vocabularySize}",
+                        "el manifiesto declara ${manifest.vocabularySize}"
                 )
             }
 
@@ -231,24 +231,22 @@ class SequenceModelBundle private constructor(
                     encoder = directBuffer(encoderBytes),
                     decoder = directBuffer(decoderBytes),
                     vocabulary = vocabulary,
-                    manifest = manifest,
-                ),
+                    manifest = manifest
+                )
             )
         }
 
-        private fun assetExists(context: Context, path: String): Boolean =
-            try {
-                context.assets.open(path).use { true }
-            } catch (_: IOException) {
-                false
-            }
+        private fun assetExists(context: Context, path: String): Boolean = try {
+            context.assets.open(path).use { true }
+        } catch (_: IOException) {
+            false
+        }
 
-        private fun readAsset(context: Context, path: String): ByteArray? =
-            try {
-                context.assets.open(path).use { it.readBytes() }
-            } catch (_: IOException) {
-                null
-            }
+        private fun readAsset(context: Context, path: String): ByteArray? = try {
+            context.assets.open(path).use { it.readBytes() }
+        } catch (_: IOException) {
+            null
+        }
 
         private fun directBuffer(bytes: ByteArray): ByteBuffer =
             ByteBuffer.allocateDirect(bytes.size)

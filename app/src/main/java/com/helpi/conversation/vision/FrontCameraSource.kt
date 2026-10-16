@@ -28,7 +28,7 @@ class FrontCameraSource(
     private val context: Context,
     private val onFrame: (android.graphics.Bitmap, Long) -> Unit,
     private val onUnavailable: (String) -> Unit,
-    private val onMetrics: (CameraCaptureMetrics) -> Unit = {},
+    private val onMetrics: (CameraCaptureMetrics) -> Unit = {}
 ) {
     private val analysisExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     private val lastSentMs = AtomicLong(0)
@@ -54,30 +54,36 @@ class FrontCameraSource(
                 val cameraProvider = future.get()
                 provider = cameraProvider
 
-                // Preview y análisis comparten relación de aspecto. Así los landmarks
-                // normalizados se proyectan sobre la misma imagen, incluso con FIT_CENTER.
+                // Preview y análisis comparten relación de aspecto 16:9. Así los
+                // landmarks normalizados se proyectan sobre la misma imagen, incluso
+                // con FIT_CENTER. 16:9 horizontal es el formato de LSA64 y deja
+                // lugar a los brazos a los costados.
                 val previewResolutionSelector = ResolutionSelector.Builder()
-                    .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
+                    .setAspectRatioStrategy(AspectRatioStrategy.RATIO_16_9_FALLBACK_AUTO_STRATEGY)
                     .build()
                 val preview = Preview.Builder()
                     .setResolutionSelector(previewResolutionSelector)
                     .build().also {
-                    if (surfaceProvider != null) it.surfaceProvider = surfaceProvider
-                }
+                        if (surfaceProvider != null) it.surfaceProvider = surfaceProvider
+                    }
 
                 val analysis = ImageAnalysis.Builder()
-                    // El extractor trabaja con landmarks normalizados: 640×480 conserva
-                    // detalle suficiente de manos y evita pedir una resolución nativa que
-                    // reduzca la frecuencia efectiva en teléfonos modestos.
+                    // 960×540 (16:9) conserva detalle suficiente de manos y evita pedir
+                    // una resolución nativa que reduzca la frecuencia efectiva en
+                    // teléfonos modestos. El contrato v3 no depende de la resolución:
+                    // usa el tamaño real de cada cuadro.
                     .setResolutionSelector(
                         ResolutionSelector.Builder()
+                            .setAspectRatioStrategy(
+                                AspectRatioStrategy.RATIO_16_9_FALLBACK_AUTO_STRATEGY
+                            )
                             .setResolutionStrategy(
                                 ResolutionStrategy(
-                                    Size(640, 480),
-                                    ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER,
-                                ),
+                                    Size(960, 540),
+                                    ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER
+                                )
                             )
-                            .build(),
+                            .build()
                     )
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
@@ -100,9 +106,17 @@ class FrontCameraSource(
                         // el overlay, incluso en teléfonos en vertical.
                         val rotation = imageProxy.imageInfo.rotationDegrees
                         val upright = if (rotation != 0) {
-                            val matrix = android.graphics.Matrix().apply { postRotate(rotation.toFloat()) }
+                            val matrix = android.graphics.Matrix().apply {
+                                postRotate(rotation.toFloat())
+                            }
                             android.graphics.Bitmap.createBitmap(
-                                bitmap, 0, 0, bitmap.width, bitmap.height, matrix, false,
+                                bitmap,
+                                0,
+                                0,
+                                bitmap.width,
+                                bitmap.height,
+                                matrix,
+                                false
                             )
                         } else {
                             bitmap
@@ -121,7 +135,7 @@ class FrontCameraSource(
                     lifecycleOwner,
                     CameraSelector.DEFAULT_FRONT_CAMERA,
                     preview,
-                    analysis,
+                    analysis
                 )
             } catch (e: Exception) {
                 onUnavailable("cámara frontal no disponible: ${e.message}")
@@ -151,7 +165,13 @@ class FrontCameraSource(
 
     private fun reportMetricsIfDue(nowMs: Long) {
         if (lastMetricsReportMs != 0L && nowMs - lastMetricsReportMs < METRICS_INTERVAL_MS) return
-        val elapsedMs = if (lastMetricsReportMs == 0L) METRICS_INTERVAL_MS else nowMs - lastMetricsReportMs
+        val elapsedMs = if (lastMetricsReportMs ==
+            0L
+        ) {
+            METRICS_INTERVAL_MS
+        } else {
+            nowMs - lastMetricsReportMs
+        }
         val fps = framesSinceReport * 1000f / elapsedMs
         onMetrics(
             CameraCaptureMetrics(
@@ -159,8 +179,8 @@ class FrontCameraSource(
                 targetFps = samplingProfile.targetFps,
                 analyzerFps = fps,
                 analyzedFrames = analyzedFrames,
-                rateLimitedFrames = rateLimitedFrames,
-            ),
+                rateLimitedFrames = rateLimitedFrames
+            )
         )
         framesSinceReport = 0L
         lastMetricsReportMs = nowMs

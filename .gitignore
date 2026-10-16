@@ -9,3 +9,6 @@ captures/
 *.apk
 *.aab
 .kotlin/
+
+# Local CI tooling
+__pycache__/

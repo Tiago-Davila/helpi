@@ -4,13 +4,12 @@ import android.content.Context
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helpi.conversation.keypoints.KeypointContract
+import kotlin.math.abs
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
-import kotlin.math.abs
 
 /**
  * ETAPA 1 — Modelo sin cámara (bloqueante).
@@ -28,8 +27,7 @@ import kotlin.math.abs
  *   "casos": [ { "secuencia": [[168 floats] × 40], "logitsEsperados": [...] } ]
  * }
  *
- * Sin artefactos reales (los provee helpi-ml) el test queda en "assumption
- * failed": no aprueba la etapa, la deja explícitamente pendiente.
+ * Sin artefactos reales (los provee helpi-ml) falla: nunca omite esta etapa.
  */
 @RunWith(AndroidJUnit4::class)
 class ModelReferenceTest {
@@ -42,9 +40,9 @@ class ModelReferenceTest {
     @Test
     fun salidasCoincidenConLaMaquinaDeEntrenamiento() {
         val bundleResult = ModelBundle.load(appContext)
-        assumeTrue(
+        assertTrue(
             "artefactos del modelo ausentes: etapa 1 pendiente, no aprobada",
-            bundleResult is ModelBundleResult.Ready,
+            bundleResult is ModelBundleResult.Ready
         )
         val bundle = (bundleResult as ModelBundleResult.Ready).bundle
 
@@ -55,11 +53,20 @@ class ModelReferenceTest {
         } catch (_: Exception) {
             null
         }
-        assumeTrue("fixture_android.json ausente: etapa 1 pendiente", fixtureJson != null)
+        assertTrue("fixture_android.json ausente: etapa 1 pendiente", fixtureJson != null)
 
         val fixture = JSONObject(fixtureJson!!)
+        assertEquals(
+            "contrato del fixture",
+            KeypointContract.CONTRACT_VERSION,
+            fixture.optInt("contractVersion", 2)
+        )
         assertEquals("frames del fixture", KeypointContract.FRAMES, fixture.getInt("frames"))
-        assertEquals("coordenadas del fixture", KeypointContract.COORDS, fixture.getInt("coordenadas"))
+        assertEquals(
+            "coordenadas del fixture",
+            KeypointContract.COORDS,
+            fixture.getInt("coordenadas")
+        )
         val tolerance = fixture.getDouble("toleranciaLogits").toFloat()
         assertTrue("tolerancia esperada 1e-3", abs(tolerance - 1e-3f) < 1e-9f)
         val cases = fixture.getJSONArray("casos")
@@ -70,11 +77,19 @@ class ModelReferenceTest {
                 val case = cases.getJSONObject(c)
                 val name = case.optString("senaEsperada", "caso $c")
                 val sequence = case.getJSONArray("secuencia")
-                assertEquals("$name: cantidad de cuadros", KeypointContract.FRAMES, sequence.length())
+                assertEquals(
+                    "$name: cantidad de cuadros",
+                    KeypointContract.FRAMES,
+                    sequence.length()
+                )
                 val input = FloatArray(KeypointContract.FRAMES * KeypointContract.COORDS)
                 for (frameIndex in 0 until sequence.length()) {
                     val frame = sequence.getJSONArray(frameIndex)
-                    assertEquals("$name: coords cuadro $frameIndex", KeypointContract.COORDS, frame.length())
+                    assertEquals(
+                        "$name: coords cuadro $frameIndex",
+                        KeypointContract.COORDS,
+                        frame.length()
+                    )
                     for (coordIndex in 0 until frame.length()) {
                         input[frameIndex * KeypointContract.COORDS + coordIndex] =
                             frame.getDouble(coordIndex).toFloat()
@@ -82,26 +97,31 @@ class ModelReferenceTest {
                 }
 
                 // el fixture debe tener valores reales, no ceros con forma correcta
-                assertTrue("$name: entrada sin variación (¿buffer en ceros?)",
-                    input.distinct().size > 10)
+                assertTrue(
+                    "$name: entrada sin variación (¿buffer en ceros?)",
+                    input.distinct().size > 10
+                )
 
                 val expectedArr = case.getJSONArray("logitsEsperados")
-                val expected = FloatArray(expectedArr.length()) { expectedArr.getDouble(it).toFloat() }
+                val expected =
+                    FloatArray(expectedArr.length()) { expectedArr.getDouble(it).toFloat() }
                 assertEquals("$name: clases", bundle.manifest.numClasses, expected.size)
 
                 val actual = classifier.classify(input)
                 for (i in expected.indices) {
                     assertTrue(
                         "$name: clase $i esperada=${expected[i]} actual=${actual[i]}",
-                        abs(expected[i] - actual[i]) <= tolerance,
+                        abs(expected[i] - actual[i]) <= tolerance
                     )
                 }
 
                 // determinismo entre ejecuciones sucesivas
                 val again = classifier.classify(input)
                 for (i in actual.indices) {
-                    assertTrue("$name: no determinista en clase $i",
-                        abs(actual[i] - again[i]) <= tolerance)
+                    assertTrue(
+                        "$name: no determinista en clase $i",
+                        abs(actual[i] - again[i]) <= tolerance
+                    )
                 }
             }
         }

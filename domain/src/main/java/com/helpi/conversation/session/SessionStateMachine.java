@@ -41,14 +41,17 @@ public final class SessionStateMachine {
 
     private SessionState current = SessionState.INICIO;
 
+    /** Devuelve el estado actual de la sesión. */
     public SessionState current() {
         return current;
     }
 
+    /** Indica si el estado actual permite pasar al estado indicado. */
     public boolean canTransition(SessionState to) {
         return ALLOWED.get(current).contains(to);
     }
 
+    /** Aplica una transición permitida o falla si es inválida. */
     public void transition(SessionState to) {
         if (!canTransition(to)) {
             throw new IllegalStateException(

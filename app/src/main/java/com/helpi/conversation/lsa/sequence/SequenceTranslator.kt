@@ -1,15 +1,15 @@
 package com.helpi.conversation.lsa.sequence
 
 import com.helpi.conversation.keypoints.SequenceKeypointContract
+import java.io.Closeable
 import org.tensorflow.lite.DataType
 import org.tensorflow.lite.Interpreter
-import java.io.Closeable
 
 /** Resultado candidato: siempre requiere confirmación de la interfaz. */
 data class SequenceTranslationCandidate(
     val text: String,
     val tokenIds: List<Int>,
-    val terminatedByEos: Boolean,
+    val terminatedByEos: Boolean
 )
 
 /**
@@ -22,7 +22,7 @@ data class SequenceTranslationCandidate(
  */
 class SequenceTranslator(
     bundle: SequenceModelBundle,
-    options: Interpreter.Options = Interpreter.Options().apply { numThreads = 2 },
+    options: Interpreter.Options = Interpreter.Options().apply { numThreads = 2 }
 ) : Closeable {
 
     private val bundle = bundle
@@ -34,8 +34,9 @@ class SequenceTranslator(
     private val decoderTokenInputIndex = decoderInputIndices.firstOrNull { index ->
         decoder.getInputTensor(index).dataType().isInteger
     } ?: error("decoder LSA-T sin entrada de tokens entera")
-    private val decoderMemoryInputIndex = decoderInputIndices.firstOrNull { it != decoderTokenInputIndex }
-        ?: error("decoder LSA-T sin entrada de memoria")
+    private val decoderMemoryInputIndex =
+        decoderInputIndices.firstOrNull { it != decoderTokenInputIndex }
+            ?: error("decoder LSA-T sin entrada de memoria")
 
     init {
         require(encoderInput.dataType() == DataType.FLOAT32) {
@@ -50,7 +51,9 @@ class SequenceTranslator(
     }
 
     fun translate(inputTensor: FloatArray): SequenceTranslationCandidate {
-        require(inputTensor.size == SequenceKeypointContract.FRAMES * SequenceKeypointContract.COORDS) {
+        require(
+            inputTensor.size == SequenceKeypointContract.FRAMES * SequenceKeypointContract.COORDS
+        ) {
             "tensor de ${inputTensor.size} floats, se esperaban " +
                 "${SequenceKeypointContract.FRAMES * SequenceKeypointContract.COORDS}"
         }
@@ -73,7 +76,7 @@ class SequenceTranslator(
         return SequenceTranslationCandidate(
             text = bundle.vocabulary.decode(tokenIds),
             tokenIds = tokenIds.toList(),
-            terminatedByEos = terminatedByEos,
+            terminatedByEos = terminatedByEos
         )
     }
 
@@ -94,7 +97,7 @@ class SequenceTranslator(
         } ?: error("encoder LSA-T no expone embeddings de 256 dimensiones")
         return flattenEmbeddings(
             outputs.getValue(embeddingIndex),
-            encoder.getOutputTensor(embeddingIndex).shape(),
+            encoder.getOutputTensor(embeddingIndex).shape()
         )
     }
 
@@ -108,14 +111,15 @@ class SequenceTranslator(
         val inputs = Array<Any>(decoder.inputTensorCount) {
             FloatArray(0)
         }
-        inputs[decoderTokenInputIndex] = when (decoder.getInputTensor(decoderTokenInputIndex).dataType()) {
-            DataType.INT32 -> Array(1) { IntArray(prefix.size) { prefix[it].toInt() } }
-            DataType.INT64 -> Array(1) { prefix.copyOf() }
-            else -> error("tokens del decoder LSA-T deben ser INT32 o INT64")
-        }
+        inputs[decoderTokenInputIndex] =
+            when (decoder.getInputTensor(decoderTokenInputIndex).dataType()) {
+                DataType.INT32 -> Array(1) { IntArray(prefix.size) { prefix[it].toInt() } }
+                DataType.INT64 -> Array(1) { prefix.copyOf() }
+                else -> error("tokens del decoder LSA-T deben ser INT32 o INT64")
+            }
         inputs[decoderMemoryInputIndex] = createMemoryInput(
             memory,
-            decoder.getInputTensor(decoderMemoryInputIndex).shape(),
+            decoder.getInputTensor(decoderMemoryInputIndex).shape()
         )
 
         val outputIndex = 0
@@ -128,26 +132,31 @@ class SequenceTranslator(
         val first = shape[1]
         val second = shape[2]
         val result = Array(1) { Array(first) { FloatArray(second) } }
+        val coords = SequenceKeypointContract.COORDS
+        val frames = SequenceKeypointContract.FRAMES
         when {
-            first == SequenceKeypointContract.COORDS && second == SequenceKeypointContract.FRAMES -> {
+            first == coords && second == frames -> {
                 for (frame in 0 until SequenceKeypointContract.FRAMES) {
                     for (coord in 0 until SequenceKeypointContract.COORDS) {
-                        result[0][coord][frame] = values[frame * SequenceKeypointContract.COORDS + coord]
+                        result[0][coord][frame] =
+                            values[frame * SequenceKeypointContract.COORDS + coord]
                     }
                 }
             }
-            first == SequenceKeypointContract.FRAMES && second == SequenceKeypointContract.COORDS -> {
+            first == frames && second == coords -> {
                 for (frame in 0 until SequenceKeypointContract.FRAMES) {
                     System.arraycopy(
                         values,
                         frame * SequenceKeypointContract.COORDS,
                         result[0][frame],
                         0,
-                        SequenceKeypointContract.COORDS,
+                        SequenceKeypointContract.COORDS
                     )
                 }
             }
-            else -> error("forma de entrada del encoder LSA-T incompatible: ${shape.contentToString()}")
+            else -> error(
+                "forma de entrada del encoder LSA-T incompatible: ${shape.contentToString()}"
+            )
         }
         return result
     }
@@ -172,15 +181,27 @@ class SequenceTranslator(
                     System.arraycopy(values, frame * 256, result[0][frame], 0, 256)
                 }
             }
-            else -> error("layout de memoria del decoder LSA-T incompatible: ${shape.contentToString()}")
+            else -> error(
+                "layout de memoria del decoder LSA-T incompatible: ${shape.contentToString()}"
+            )
         }
         return result
     }
 
     private fun memoryShape(current: IntArray): IntArray = when {
-        current.size == 3 && current[1] == 256 -> intArrayOf(1, 256, SequenceKeypointContract.FRAMES)
-        current.size == 3 && current[2] == 256 -> intArrayOf(1, SequenceKeypointContract.FRAMES, 256)
-        else -> error("forma de memoria del decoder LSA-T incompatible: ${current.contentToString()}")
+        current.size == 3 && current[1] == 256 -> intArrayOf(
+            1,
+            256,
+            SequenceKeypointContract.FRAMES
+        )
+        current.size == 3 && current[2] == 256 -> intArrayOf(
+            1,
+            SequenceKeypointContract.FRAMES,
+            256
+        )
+        else -> error(
+            "forma de memoria del decoder LSA-T incompatible: ${current.contentToString()}"
+        )
     }
 
     private fun flattenEmbeddings(output: Any, shape: IntArray): FloatArray {

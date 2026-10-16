@@ -27,14 +27,14 @@ import kotlin.math.min
 internal fun LandmarkOverlay(
     frame: LandmarkFrame?,
     visualState: VisualChannelState,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     Canvas(
         modifier
             // Es información visual continua; las instrucciones equivalentes
             // ya se anuncian en el chip de estado sin saturar TalkBack a 15 fps.
             .clearAndSetSemantics { }
-            .testTag("landmarkOverlay"),
+            .testTag("landmarkOverlay")
     ) {
         val current = frame ?: return@Canvas
         val transform = overlayTransform(
@@ -42,7 +42,7 @@ internal fun LandmarkOverlay(
             canvasHeight = size.height,
             imageWidth = current.imageWidth,
             imageHeight = current.imageHeight,
-            mirrorHorizontally = true,
+            mirrorHorizontally = true
         ) ?: return@Canvas
 
         val recognizing = visualState == VisualChannelState.CAPTURANDO_SENA
@@ -54,7 +54,7 @@ internal fun LandmarkOverlay(
             landmarkCount = KeypointContract.POSE_LANDMARKS,
             connections = POSE_CONNECTIONS,
             transform = transform,
-            color = HelpiColors.BrandCore,
+            color = HelpiColors.BrandCore
         )
         drawLandmarkGroup(
             landmarks = current.leftHand,
@@ -62,7 +62,7 @@ internal fun LandmarkOverlay(
             landmarkCount = HAND_LANDMARKS,
             connections = HAND_CONNECTIONS,
             transform = transform,
-            color = handColor,
+            color = handColor
         )
         drawLandmarkGroup(
             landmarks = current.rightHand,
@@ -70,7 +70,7 @@ internal fun LandmarkOverlay(
             landmarkCount = HAND_LANDMARKS,
             connections = HAND_CONNECTIONS,
             transform = transform,
-            color = handColor,
+            color = handColor
         )
     }
 }
@@ -81,7 +81,7 @@ internal data class OverlayTransform(
     val offsetY: Float,
     val imageWidth: Int,
     val imageHeight: Int,
-    val mirrorHorizontally: Boolean,
+    val mirrorHorizontally: Boolean
 ) {
     fun project(x: Float, y: Float): Offset {
         val sourceX = (if (mirrorHorizontally) 1f - x else x) * imageWidth
@@ -94,7 +94,7 @@ internal fun overlayTransform(
     canvasHeight: Float,
     imageWidth: Int,
     imageHeight: Int,
-    mirrorHorizontally: Boolean,
+    mirrorHorizontally: Boolean
 ): OverlayTransform? {
     if (canvasWidth <= 0f || canvasHeight <= 0f || imageWidth <= 0 || imageHeight <= 0) {
         return null
@@ -106,17 +106,19 @@ internal fun overlayTransform(
         offsetY = (canvasHeight - imageHeight * scale) / 2f,
         imageWidth = imageWidth,
         imageHeight = imageHeight,
-        mirrorHorizontally = mirrorHorizontally,
+        mirrorHorizontally = mirrorHorizontally
     )
 }
 
+// Deuda previa registrada en el baseline de detekt de develop.
+@Suppress("CyclomaticComplexMethod", "LongParameterList")
 private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawLandmarkGroup(
     landmarks: FloatArray?,
     firstLandmarkIndex: Int,
     landmarkCount: Int,
     connections: Array<IntArray>,
     transform: OverlayTransform,
-    color: Color,
+    color: Color
 ) {
     val endLandmarkIndex = firstLandmarkIndex + landmarkCount
     if (landmarks == null || landmarks.size < endLandmarkIndex * 3) return
@@ -137,7 +139,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawLandmarkGroup(
             start,
             end,
             4.dp.toPx(),
-            StrokeCap.Round,
+            StrokeCap.Round
         )
         drawLine(color.copy(alpha = 0.92f), start, end, 2.dp.toPx(), StrokeCap.Round)
     }
@@ -158,7 +160,7 @@ private val HAND_CONNECTIONS = arrayOf(
     intArrayOf(5, 9), intArrayOf(9, 10), intArrayOf(10, 11), intArrayOf(11, 12),
     intArrayOf(9, 13), intArrayOf(13, 14), intArrayOf(14, 15), intArrayOf(15, 16),
     intArrayOf(13, 17), intArrayOf(17, 18), intArrayOf(18, 19), intArrayOf(19, 20),
-    intArrayOf(0, 17),
+    intArrayOf(0, 17)
 )
 
 private val POSE_CONNECTIONS = arrayOf(
@@ -167,5 +169,5 @@ private val POSE_CONNECTIONS = arrayOf(
     intArrayOf(19, 15), intArrayOf(15, 21),
     intArrayOf(12, 14), intArrayOf(14, 16), intArrayOf(16, 18), intArrayOf(18, 20),
     intArrayOf(20, 16), intArrayOf(16, 22),
-    intArrayOf(11, 23), intArrayOf(12, 24), intArrayOf(23, 24),
+    intArrayOf(11, 23), intArrayOf(12, 24), intArrayOf(23, 24)
 )

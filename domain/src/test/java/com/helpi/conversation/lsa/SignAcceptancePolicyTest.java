@@ -11,25 +11,25 @@ public class SignAcceptancePolicyTest {
     @Test
     public void aceptaSobreElUmbral() {
         SignAcceptancePolicy p = new SignAcceptancePolicy(0.9f, true, 3);
-        SignAcceptancePolicy.Decision d = p.evaluate(new float[] {0.02f, 0.95f, 0.03f});
+        SignDecision d = p.evaluate(new float[] {0.02f, 0.95f, 0.03f});
         assertTrue(d.accepted);
         assertEquals(1, d.classIndex);
-        assertEquals(SignAcceptancePolicy.Reason.ACCEPTED, d.reason);
+        assertEquals(AcceptanceReason.ACCEPTED, d.reason);
     }
 
     @Test
     public void bajoElUmbralNoSeFuerzaLaClaseMasCercana() {
         SignAcceptancePolicy p = new SignAcceptancePolicy(0.9f, true, 3);
-        SignAcceptancePolicy.Decision d = p.evaluate(new float[] {0.3f, 0.5f, 0.2f});
+        SignDecision d = p.evaluate(new float[] {0.3f, 0.5f, 0.2f});
         assertFalse(d.accepted);
-        assertEquals(SignAcceptancePolicy.Reason.BELOW_THRESHOLD, d.reason);
+        assertEquals(AcceptanceReason.BELOW_THRESHOLD, d.reason);
     }
 
     @Test
     public void logitsRecibenSoftmaxUnaSolaVez() {
         SignAcceptancePolicy p = new SignAcceptancePolicy(0.9f, false, 3);
         // logits muy separados -> probabilidad ~1
-        SignAcceptancePolicy.Decision d = p.evaluate(new float[] {-10f, 10f, -10f});
+        SignDecision d = p.evaluate(new float[] {-10f, 10f, -10f});
         assertTrue(d.accepted);
         assertEquals(1, d.classIndex);
         assertTrue(d.confidence > 0.99f);
@@ -38,11 +38,11 @@ public class SignAcceptancePolicyTest {
     @Test
     public void salidaInvalidaSeRechaza() {
         SignAcceptancePolicy p = new SignAcceptancePolicy(0.9f, true, 3);
-        assertEquals(SignAcceptancePolicy.Reason.INVALID_OUTPUT,
+        assertEquals(AcceptanceReason.INVALID_OUTPUT,
                 p.evaluate(new float[] {0.1f, Float.NaN, 0.8f}).reason);
-        assertEquals(SignAcceptancePolicy.Reason.INVALID_OUTPUT,
+        assertEquals(AcceptanceReason.INVALID_OUTPUT,
                 p.evaluate(new float[] {0.5f, 0.5f}).reason); // tamaño incorrecto
-        assertEquals(SignAcceptancePolicy.Reason.INVALID_OUTPUT,
+        assertEquals(AcceptanceReason.INVALID_OUTPUT,
                 p.evaluate(null).reason);
     }
 
@@ -50,14 +50,14 @@ public class SignAcceptancePolicyTest {
     public void probabilidadesDeclaradasQueNoLoSonSeRechazan() {
         SignAcceptancePolicy p = new SignAcceptancePolicy(0.9f, true, 3);
         // el manifiesto mintió: llegaron logits
-        assertEquals(SignAcceptancePolicy.Reason.INVALID_OUTPUT,
+        assertEquals(AcceptanceReason.INVALID_OUTPUT,
                 p.evaluate(new float[] {-3f, 8f, 1f}).reason);
     }
 
     @Test
     public void devuelveLasTresPrediccionesOrdenadasConSuConfianza() {
         SignAcceptancePolicy p = new SignAcceptancePolicy(0.9f, true, 5);
-        SignAcceptancePolicy.Decision d =
+        SignDecision d =
                 p.evaluate(new float[] {0.10f, 0.40f, 0.30f, 0.15f, 0.05f});
 
         assertEquals(3, d.predictions.size());

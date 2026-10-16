@@ -6,20 +6,19 @@ import com.helpi.conversation.keypoints.SequenceKeypointContract
 enum class SequenceAppendResult {
     ACCEPTED,
     NOT_CAPTURING,
-    TOO_LONG,
+    TOO_LONG
 }
 
 data class SequenceCapture(
     val startTimestampMs: Long,
     val endTimestampMs: Long,
     val frames: List<FloatArray>,
-    val validFrameCount: Int,
+    val validFrameCount: Int
 ) {
     val durationMs: Long get() = endTimestampMs - startTimestampMs
     val validFrameRatio: Float get() = validFrameCount.toFloat() / frames.size
 
-    fun buildInputTensor(): FloatArray =
-        SequenceKeypointContract.buildInputTensor(frames)
+    fun buildInputTensor(): FloatArray = SequenceKeypointContract.buildInputTensor(frames)
 }
 
 /**
@@ -30,9 +29,7 @@ data class SequenceCapture(
  * por el que una frase no se procesa. Los cuadros sin manos se conservan para
  * que la normalización y la cobertura sean auditables antes de inferir.
  */
-class SequenceCaptureBuffer(
-    private val maxDurationMs: Long = DEFAULT_MAX_DURATION_MS,
-) {
+class SequenceCaptureBuffer(private val maxDurationMs: Long = DEFAULT_MAX_DURATION_MS) {
     private val frames = ArrayList<FloatArray>()
     private var startTimestampMs: Long? = null
     private var lastTimestampMs: Long? = null
@@ -55,10 +52,12 @@ class SequenceCaptureBuffer(
         validFrameCount = 0
     }
 
+    // Deuda previa registrada en el baseline de detekt de develop.
+    @Suppress("ReturnCount")
     fun append(
         timestampMs: Long,
         leftHand: FloatArray?,
-        rightHand: FloatArray?,
+        rightHand: FloatArray?
     ): SequenceAppendResult {
         val start = startTimestampMs ?: return SequenceAppendResult.NOT_CAPTURING
         require(timestampMs >= (lastTimestampMs ?: timestampMs)) {
@@ -85,7 +84,7 @@ class SequenceCaptureBuffer(
                 startTimestampMs = start,
                 endTimestampMs = timestampMs,
                 frames = frames.map { it.copyOf() },
-                validFrameCount = validFrameCount,
+                validFrameCount = validFrameCount
             )
         }
         clear()

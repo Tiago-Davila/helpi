@@ -25,7 +25,7 @@ import com.helpi.conversation.ui.theme.HelpiType
  */
 enum class SeccionHotbar(val etiqueta: String, val icono: Int) {
     TRADUCTOR("Traductor", R.drawable.ic_tab_traductor),
-    CUENTA("Cuenta", R.drawable.ic_tab_cuenta),
+    CUENTA("Cuenta", R.drawable.ic_tab_cuenta)
 }
 
 /**
@@ -39,13 +39,13 @@ enum class SeccionHotbar(val etiqueta: String, val icono: Int) {
 fun Hotbar(
     seleccionada: SeccionHotbar,
     onSeleccionar: (SeccionHotbar) -> Unit,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     HorizontalDivider(color = HelpiColors.Divider, thickness = 1.dp)
     NavigationBar(
         modifier = modifier.fillMaxWidth(),
         containerColor = HelpiColors.BgBase,
-        tonalElevation = 0.dp,
+        tonalElevation = 0.dp
     ) {
         SeccionHotbar.entries.forEach { seccion ->
             NavigationBarItem(
@@ -55,7 +55,7 @@ fun Hotbar(
                     Icon(
                         painter = painterResource(seccion.icono),
                         contentDescription = null,
-                        modifier = Modifier.size(22.dp),
+                        modifier = Modifier.size(22.dp)
                     )
                 },
                 label = { Text(seccion.etiqueta, style = HelpiType.LabelHotbar) },
@@ -65,8 +65,8 @@ fun Hotbar(
                     selectedTextColor = HelpiColors.LedSoft,
                     indicatorColor = HelpiColors.BrandCore,
                     unselectedIconColor = HelpiColors.LedMuted,
-                    unselectedTextColor = HelpiColors.LedMuted,
-                ),
+                    unselectedTextColor = HelpiColors.LedMuted
+                )
             )
         }
     }

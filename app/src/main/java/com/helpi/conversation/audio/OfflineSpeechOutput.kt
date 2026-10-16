@@ -21,7 +21,7 @@ class OfflineSpeechOutput(
     context: Context,
     private val onReady: (voiceDescription: String?) -> Unit,
     private val onSpoken: (messageId: Long) -> Unit,
-    private val onFailed: (messageId: Long) -> Unit,
+    private val onFailed: (messageId: Long) -> Unit
 ) : Closeable {
 
     private var tts: TextToSpeech? = null

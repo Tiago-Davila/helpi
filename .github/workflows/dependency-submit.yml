@@ -1,0 +1,18 @@
+name: Submit dependency graph
+on:
+  workflow_run:
+    workflows: [Dependency graph]
+    types: [completed]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  submit:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_repository.full_name != github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      # Treat snapshots as data. Never checkout or execute PR code here.
+      - uses: gradle/actions/dependency-submission@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+        with:
+          dependency-graph: download-and-submit

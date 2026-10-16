@@ -1,12 +1,12 @@
 package com.helpi.conversation.audio
 
+import java.io.Closeable
+import java.io.File
 import org.json.JSONObject
 import org.vosk.Model
 import org.vosk.Recognizer
 import org.vosk.android.RecognitionListener
 import org.vosk.android.SpeechService
-import java.io.Closeable
-import java.io.File
 
 /**
  * STT offline continuo con Vosk. Micrófono siempre adquirido mientras la
@@ -21,7 +21,7 @@ class VoskSpeechSource(
     private val onPartial: (String) -> Unit,
     private val onFinal: (String) -> Unit,
     private val onSpeechActivity: (Boolean) -> Unit,
-    private val onError: (String) -> Unit,
+    private val onError: (String) -> Unit
 ) : Closeable {
 
     private val model = Model(modelDir.absolutePath)
@@ -104,12 +104,11 @@ class VoskSpeechSource(
         model.close()
     }
 
-    private fun extract(hypothesis: String?, field: String): String? =
-        try {
-            hypothesis?.let { JSONObject(it).optString(field, "") }
-        } catch (_: Exception) {
-            null
-        }
+    private fun extract(hypothesis: String?, field: String): String? = try {
+        hypothesis?.let { JSONObject(it).optString(field, "") }
+    } catch (_: Exception) {
+        null
+    }
 
     companion object {
         const val SAMPLE_RATE = 16000f
