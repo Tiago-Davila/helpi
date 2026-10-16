@@ -27,7 +27,7 @@ buildscript {
 plugins {
     id("org.jlleitschuh.gradle.ktlint") version "12.1.2"
     id("io.gitlab.arturbosch.detekt") version "1.23.8" apply false
-    id("com.github.spotbugs") version "6.1.13" apply false
+    id("com.github.spotbugs") version "6.5.13" apply false
     id("org.owasp.dependencycheck") version "13.0.0"
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.android.library) apply false
