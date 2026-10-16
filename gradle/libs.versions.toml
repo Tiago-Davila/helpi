@@ -2,7 +2,7 @@
 robolectric = "4.14.1"
 protobuf = "4.28.2"
 guava = "33.5.0-android"
-agp = "8.7.3"
+agp = "9.4.1"
 kotlin = "2.0.21"
 coroutines = "1.9.0"
 composeBom = "2024.12.01"
