@@ -21,7 +21,7 @@ public class TemplateSetTest {
     public void lasPlantillasDesplegadasSonValidasYConservanElOrden() {
         TemplateSet set = TemplateSet.parse(LsaAssets.read("plantillas_frases.json"));
         assertEquals("1", set.lexiconVersion());
-        assertEquals(7, set.templates().size());
+        assertEquals(14, set.templates().size());
         assertEquals("expresion", set.templates().get(0).id());
         assertEquals("persona-verbo-objeto", set.templates().get(2).id());
     }
@@ -42,14 +42,14 @@ public class TemplateSetTest {
 
     @Test
     public void admitePalabrasDeFuncionYPuntuacion() {
-        template(Arrays.asList("persona", "lugar"), "¡{0.art} {0} en {1} y de la, con los o las a el!");
+        template(Arrays.asList("persona", "lugar"), "¡{0.art} {0} en {1} y de la, con los o las a el para es son está!");
     }
 
     @Test
     public void rechazaPlantillasQueRompenLasReglas() {
         Object[][] cases = {
             {Arrays.asList("expresion"), "Quiero {0}."},
-            {Arrays.asList("objeto"), "{0} está."},
+            {Arrays.asList("objeto"), "{0} quiere."},
             {Arrays.asList("objeto"), "{1}."},
             {Arrays.asList("objeto", "cualidad"), "{1.concuerda:2}."},
             {Arrays.asList("objeto"), "{0.plural}."},
