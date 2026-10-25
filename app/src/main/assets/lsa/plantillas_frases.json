@@ -1,5 +1,5 @@
 {
-  "version": "1",
+  "version": "2",
   "lexicoVersion": "1",
   "plantillas": [
     {"id": "expresion", "patron": ["expresion"], "salida": "{0}."},
@@ -7,7 +7,14 @@
     {"id": "persona-verbo-objeto", "patron": ["persona", "verbo", "objeto"], "salida": "{0.art} {0}: {1} {2.art} {2}."},
     {"id": "persona-verbo", "patron": ["persona", "verbo"], "salida": "{0.art} {0}: {1}."},
     {"id": "verbo-objeto", "patron": ["verbo", "objeto"], "salida": "{0} {1.art} {1}."},
-    {"id": "objeto-cualidad", "patron": ["objeto", "cualidad"], "salida": "{0.art} {0} {1.concuerda:0}."},
-    {"id": "persona-cualidad", "patron": ["persona", "cualidad"], "salida": "{0.art} {0} {1.concuerda:0}."}
+    {"id": "objeto-cualidad", "patron": ["objeto", "cualidad"], "salida": "{0.art} {0} es {1.concuerda:0}."},
+    {"id": "persona-cualidad", "patron": ["persona", "cualidad"], "salida": "{0.art} {0} {1.concuerda:0}."},
+    {"id": "colores-cualidad", "patron": ["glosa:Colores", "cualidad"], "salida": "{0.art} {0} son {1.concuerda:0}."},
+    {"id": "ayuda-verbo-objeto", "patron": ["glosa:Ayuda", "verbo", "objeto"], "salida": "{0} para {1} {2.art} {2}."},
+    {"id": "ayuda-verbo", "patron": ["glosa:Ayuda", "verbo"], "salida": "{0} para {1}."},
+    {"id": "objeto", "patron": ["objeto"], "salida": "{0.art} {0}."},
+    {"id": "persona", "patron": ["persona"], "salida": "{0.art} {0}."},
+    {"id": "hambriento", "patron": ["glosa:Hambriento"], "salida": "Está {0}."},
+    {"id": "cualidad", "patron": ["cualidad"], "salida": "Es {0}."}
   ]
 }

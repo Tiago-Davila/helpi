@@ -20,9 +20,9 @@ public final class PhraseTemplate {
     /** Marcadores {i}, {i.art} y {i.concuerda:j}; el renderer usa los mismos grupos. */
     static final Pattern PLACEHOLDER = Pattern.compile("\\{(\\d+)(?:\\.(art|concuerda:(\\d+)))?\\}");
 
-    /** Palabras que una plantilla puede agregar: artículos, preposiciones y conjunciones. */
+    /** Palabras que una plantilla puede agregar: artículos, preposiciones, conjunciones y cópulas. */
     static final Set<String> FUNCTION_WORDS = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
-            "el", "la", "los", "las", "de", "a", "en", "con", "y", "o")));
+            "el", "la", "los", "las", "de", "a", "en", "con", "y", "o", "para", "es", "son", "está")));
 
     private static final String GLOSS_PREFIX = "glosa:";
 
