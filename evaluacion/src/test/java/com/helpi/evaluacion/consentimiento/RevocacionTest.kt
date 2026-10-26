@@ -124,7 +124,7 @@ class RevocacionTest {
                 id = sesionId,
                 participanteCodigo = participanteCodigo,
                 consentimientoId = consentimientoId,
-                protocoloVersion = "1.0.0",
+                protocoloVersion = "2.0.0",
                 semilla = 20261005L,
                 estado = EstadoSesion.CREADA,
                 bloqueActual = 1,

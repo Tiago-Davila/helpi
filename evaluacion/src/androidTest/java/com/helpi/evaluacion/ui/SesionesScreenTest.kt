@@ -27,7 +27,7 @@ class SesionesScreenTest {
             envioVencido = true,
             ultimaExportacionEn = 1L
         )
-        val completa = sesion(ID_COMPLETA, EstadoSesion.COMPLETA, avance = 192)
+        val completa = sesion(ID_COMPLETA, EstadoSesion.COMPLETA, avance = 470)
 
         composeRule.setContent {
             SesionesScreen(
@@ -45,7 +45,7 @@ class SesionesScreenTest {
             )
         }
 
-        composeRule.onNodeWithText("Avance: 48 de 192 intentos").assertIsDisplayed()
+        composeRule.onNodeWithText("Avance: 48 de 470 intentos").assertIsDisplayed()
         composeRule.onNodeWithText("Envío pendiente").assertIsDisplayed()
         composeRule.onNodeWithText("Envío vencido").assertIsDisplayed()
         composeRule.onNodeWithText("Última exportación:", substring = true).assertIsDisplayed()
@@ -65,7 +65,7 @@ class SesionesScreenTest {
             SesionesScreen(
                 state = SesionesUiState(
                     cargando = false,
-                    sesiones = listOf(sesion(ID_COMPLETA, EstadoSesion.COMPLETA, avance = 192))
+                    sesiones = listOf(sesion(ID_COMPLETA, EstadoSesion.COMPLETA, avance = 470))
                 ),
                 acciones = SesionesAcciones(
                     onVolver = {},

@@ -1,4 +1,4 @@
-# Contrato de envío: `helpi.evaluacion.sesion` v1.0.0
+# Contrato de envío: `helpi.evaluacion.sesion` v2.0.0
 
 **Estado**: propuesto (iteración de evaluación, 2026-10-05) · **Dueño del contrato**:
 `helpi-android` · **Implementa el receptor**: `helpi-firebase`
@@ -43,7 +43,7 @@ y **garantiza**.
 | Encabezado | Obligatorio | Valor |
 |---|---|---|
 | `Content-Type` | Sí | `application/json; charset=utf-8` |
-| `X-Helpi-Contrato` | Sí | `helpi.evaluacion.sesion/1.0.0`; debe coincidir con `contrato` del cuerpo |
+| `X-Helpi-Contrato` | Sí | `helpi.evaluacion.sesion/2.0.0`; debe coincidir con `contrato` del cuerpo |
 | `Idempotency-Key` | Sí | Igual a `envio.envioId` |
 | `X-Helpi-Clave-Evaluacion` | Sí | Clave del build de evaluación (research R-06). Opaca para este contrato |
 | `User-Agent` | Sí | `HelpiEvaluacion/{appVersionName} ({appVersionCode})` |
@@ -67,7 +67,7 @@ La estructura completa está en el esquema. Resumen de bloques:
 | `condiciones` | Entorno, iluminación, distancia, mano dominante, guantes, soporte, perfil | FR-008 |
 | `versiones` | App, modelo y hashes de modelo y catálogo, contrato de keypoints, protocolo | FR-008, FR-037, CLAUDE.md §3 |
 | `dispositivo` | Fabricante, modelo y SDK | FR-008 |
-| `protocolo` | Versión, `semilla` (texto), constantes 64/3/4/48 y `secuencia` completa de 192 índices | FR-040, FR-040a, FR-043 |
+| `protocolo` | Versión, `semilla` (texto), constantes 94/5/5/94 y `secuencia` completa de 470 índices | FR-040, FR-040a, FR-043 |
 | `intentos[]` | Uno por intento registrado, en orden de registro, incluidos los reemplazados | FR-006, FR-007, FR-025, FR-042a, FR-044 |
 | `interrupciones[]` | Bloque, posición pendiente, causa e instante | Edge Cases |
 
@@ -82,7 +82,7 @@ La estructura completa está en el esquema. Resumen de bloques:
 - Confianzas y umbral: número en [0, 1] con a lo sumo 6 decimales.
 - `protocolo.semilla`: entero de 64 bits **como texto decimal**, porque un número JSON pierde
   precisión en JavaScript.
-- Índices de clase: 0..63, según el catálogo identificado por `versiones.catalogoSha256`. La
+- Índices de clase: 0..93, según el catálogo identificado por `versiones.catalogoSha256`. La
   glosa viaja junto al índice solo para legibilidad: **manda el índice**.
 
 ### Lo que el cuerpo nunca contiene
@@ -101,8 +101,8 @@ El receptor **debe** verificarlas además del esquema. Si alguna falla, responde
 | Id | Regla |
 |---|---|
 | S-01 | `X-Helpi-Contrato` y `Idempotency-Key` coinciden con `contrato` y `envio.envioId` |
-| S-02 | `protocolo.secuencia` contiene cada índice 0..63 exactamente 3 veces y ningún par consecutivo igual (FR-041) |
-| S-03 | Para cada intento: `senaEsperada.indice == protocolo.secuencia[posicion − 1]` y `bloque == ceil(posicion / 48)` |
+| S-02 | `protocolo.secuencia` contiene cada índice 0..93 exactamente 5 veces y ningún par consecutivo igual (FR-041) |
+| S-03 | Para cada intento: `senaEsperada.indice == protocolo.secuencia[posicion − 1]` y `bloque == ceil(posicion / 94)` |
 | S-04 | Si `resultado != SIN_RESULTADO`: `top3` tiene rangos 1, 2, 3 en orden, con confianzas no crecientes, y `prediccion` es igual a `top3[0]` (índice, glosa y confianza) |
 | S-05 | `superoUmbral == (prediccion.confianza >= umbral)`; `resultado == SOBRE_UMBRAL ⇔ superoUmbral` |
 | S-06 | `correcto == (resultado == SOBRE_UMBRAL && prediccion.indice == senaEsperada.indice)` |
@@ -230,6 +230,9 @@ Son normativas para quien consuma estos documentos (FR-033 a FR-038, FR-042a, FR
 - El receptor declara qué versiones acepta; una no soportada recibe `422 VERSION_NO_SOPORTADA`.
 - Durante una transición, el receptor acepta la versión anterior y la nueva. La app envía una
   sola.
+- **2.0.0** (2026-10-26, modelo `eva-lsa94-v4`): el protocolo pasa de 64 señas × 3 = 192
+  intentos en 4 bloques de 48 a 94 señas × 5 = 470 intentos en 5 bloques de 94; los índices
+  de clase van de 0 a 93. El esquema 1.0.0 queda en `anteriores/` para la transición.
 - Un cambio de contrato se hace en `helpi-android` (dueño) y se copia a `helpi-firebase` en un
   cambio coordinado, con la misma rama `NNN-` en los dos repositorios (CLAUDE.md §8).
 

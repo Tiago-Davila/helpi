@@ -226,7 +226,7 @@ class SesionDocumentoMapperTest {
     ) = IntentoEntity(
         sesionId = sesionId,
         posicion = posicion,
-        bloque = (posicion + 47) / 48,
+        bloque = (posicion + 93) / 94,
         numeroIntento = numeroIntento,
         reemplazado = reemplazado,
         senaEsperadaIndice = esperado,
@@ -250,7 +250,7 @@ class SesionDocumentoMapperTest {
         id = sesionId,
         participanteCodigo = "P-007",
         consentimientoId = consentimientoId,
-        protocoloVersion = "1.0.0",
+        protocoloVersion = "2.0.0",
         semilla = 20261005L,
         estado = EstadoSesion.INTERRUMPIDA,
         bloqueActual = 1,
@@ -286,8 +286,8 @@ class SesionDocumentoMapperTest {
     private fun validarReglasSemanticas(json: JsonNode) {
         val secuencia = json.path("protocolo").path("secuencia").arrayItems().map { it.asInt() }
         val ocurrencias = secuencia.groupingBy { it }.eachCount()
-        assertEquals((0..63).toSet(), ocurrencias.keys)
-        assertTrue(ocurrencias.values.all { it == 3 })
+        assertEquals((0 until 94).toSet(), ocurrencias.keys)
+        assertTrue(ocurrencias.values.all { it == 5 })
         assertTrue(secuencia.zipWithNext().all { (izquierda, derecha) -> izquierda != derecha })
 
         val intentos = json.path("intentos").arrayItems()
@@ -297,7 +297,7 @@ class SesionDocumentoMapperTest {
                 secuencia[posicion - 1],
                 intento.path("senaEsperada").path("indice").asInt()
             )
-            assertEquals((posicion + 47) / 48, intento.path("bloque").asInt())
+            assertEquals((posicion + 93) / 94, intento.path("bloque").asInt())
 
             if (intento.path("resultado").asText() != "SIN_RESULTADO") {
                 val top3 = intento.path("top3").arrayItems()

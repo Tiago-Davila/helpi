@@ -48,6 +48,7 @@ import com.helpi.evaluacion.datos.HelpiEvaluacionDatabaseProvider
 import com.helpi.evaluacion.datos.entidades.EstadoEnvio
 import com.helpi.evaluacion.datos.entidades.EstadoSesion
 import com.helpi.evaluacion.datos.entidades.ResultadoIntento
+import com.helpi.evaluacion.dominio.protocolo.GeneradorProtocolo
 import com.helpi.evaluacion.envio.ColaEnviosLlenaException
 import com.helpi.evaluacion.envio.EnvioRepositorio
 import com.helpi.evaluacion.envio.EnvioWorker
@@ -60,7 +61,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private const val TOTAL_INTENTOS = 192
+private const val TOTAL_INTENTOS = GeneradorProtocolo.INTENTOS
 
 internal data class SesionListaItem(
     val sesionId: String,
