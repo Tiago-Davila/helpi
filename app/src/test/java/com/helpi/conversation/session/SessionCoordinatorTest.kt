@@ -81,11 +81,11 @@ class SessionCoordinatorTest {
         val dir = File("src/main/assets/lsa")
         val catalog = SignCatalog.parse(File(dir, "catalogo_senas.json").readText())
         val manifest = ModelBundle.Manifest(
-            modelVersion = "eva-lsa64-v3",
-            catalogVersion = "2.0",
+            modelVersion = "eva-lsa94-v4",
+            catalogVersion = "3.0",
             modelSha256 = "",
             catalogSha256 = "",
-            numClasses = 64,
+            numClasses = 94,
             outputsProbabilities = false,
             frames = 40,
             coords = 168,

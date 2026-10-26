@@ -20,10 +20,11 @@ public class TemplateSetTest {
     @Test
     public void lasPlantillasDesplegadasSonValidasYConservanElOrden() {
         TemplateSet set = TemplateSet.parse(LsaAssets.read("plantillas_frases.json"));
-        assertEquals("1", set.lexiconVersion());
-        assertEquals(14, set.templates().size());
+        assertEquals("2", set.lexiconVersion());
+        assertEquals(20, set.templates().size());
         assertEquals("expresion", set.templates().get(0).id());
         assertEquals("persona-verbo-objeto", set.templates().get(2).id());
+        assertEquals("deletreo", set.templates().get(19).id());
     }
 
     @Test

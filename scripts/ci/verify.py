@@ -68,7 +68,9 @@ def bundle():
     manifest = json.loads((directory / 'lsa-manifest.json').read_text())
     for filename, field in [('modelo_lsa.tflite', 'modelSha256'), ('catalogo_senas.json', 'catalogSha256')]:
         require(hashlib.sha256((directory / filename).read_bytes()).hexdigest() == manifest[field], f'{filename}: hash mismatch')
-    require((manifest['frames'], manifest['coords'], manifest['numClasses'], manifest['contractVersion']) == (40, 168, 64, 3), 'Unexpected Eva contract')
+    require((manifest['frames'], manifest['coords'], manifest['contractVersion']) == (40, 168, 3), 'Unexpected Eva contract')
+    catalog = json.loads((directory / 'catalogo_senas.json').read_text(encoding='utf-8'))
+    require(manifest['numClasses'] == len(catalog['glosas']), 'numClasses does not match the catalog')
     fixture = json.loads((ROOT / 'app/src/androidTest/assets/fixture_android.json').read_text())
     require(fixture['casos'] and fixture['toleranciaLogits'] == 0.001, 'Missing reference cases or wrong tolerance')
     require(fixture['contractVersion'] == manifest['contractVersion'], 'Fixture contract mismatch')

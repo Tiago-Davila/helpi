@@ -64,6 +64,19 @@ public class PhraseBuilderTest {
             // hueco por baja confianza: ninguna plantilla, la adivinanza no se muestra
             {"Mujer *Comprar Leche", "MUJER ¿? LECHE", "MUJER ¿? LECHE", ""},
             {"*Gracias", "¿?", "¿?", ""},
+            // tiempo: encabeza la oración
+            {"Hoy", "Hoy.", "HOY", "tiempo"},
+            {"Ayer Mujer Comprar Leche", "Ayer, la mujer: comprar la leche.",
+                "AYER MUJER COMPRAR LECHE", "tiempo-persona-verbo-objeto"},
+            {"Mañana Hijo Correr", "Mañana, el hijo: correr.", "MAÑANA HIJO CORRER", "tiempo-persona-verbo"},
+            {"Hoy Comprar Leche", "Hoy: comprar la leche.", "HOY COMPRAR LECHE", "tiempo-verbo-objeto"},
+            {"Ayer Correr", "Ayer: correr.", "AYER CORRER", "tiempo-verbo"},
+            // deletreo: letras seguidas forman una palabra; las glosas siguen sueltas
+            {"A N A", "Ana.", "A N A", "deletreo"},
+            {"CH I L E", "Chile.", "CH I L E", "deletreo"},
+            {"B", "B.", "B", "deletreo"},
+            {"Mujer A N A", "La mujer. Ana.", "MUJER A N A", "persona deletreo"},
+            {"A *N A", "A ¿? A", "A ¿? A", ""},
         };
         for (String[] row : table) {
             PhraseResult result = BUILDER.build(sentence(row[0]));

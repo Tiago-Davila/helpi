@@ -14,8 +14,8 @@ import org.junit.Test;
 
 public class PhraseCompatibilityTest {
 
-    private static final String MODEL = "eva-lsa64-v3";
-    private static final String CATALOG = "2.0";
+    private static final String MODEL = "eva-lsa94-v4";
+    private static final String CATALOG = "3.0";
 
     private static List<String> deployedCatalog() {
         JSONArray array = new JSONObject(LsaAssets.read("catalogo_senas.json")).getJSONArray("glosas");
@@ -52,16 +52,16 @@ public class PhraseCompatibilityTest {
         List<String> catalog = deployedCatalog();
         List<String> shifted = new ArrayList<>(catalog);
         Collections.swap(shifted, 1, 2);
-        List<String> shorter = catalog.subList(0, 63);
+        List<String> shorter = catalog.subList(0, catalog.size() - 1);
 
         Object[][] cases = {
             // modelo, catálogo, glosas del catálogo, plantillas
-            {"eva-lsa64-v4", CATALOG, catalog, deployedTemplates()},
-            {MODEL, "3.0", catalog, deployedTemplates()},
-            {MODEL, CATALOG, catalog, templates("2", "expresion")},
+            {"eva-lsa94-v5", CATALOG, catalog, deployedTemplates()},
+            {MODEL, "4.0", catalog, deployedTemplates()},
+            {MODEL, CATALOG, catalog, templates("1", "expresion")},
             {MODEL, CATALOG, shorter, deployedTemplates()},
             {MODEL, CATALOG, shifted, deployedTemplates()},
-            {MODEL, CATALOG, catalog, templates("1", "glosa:Pescado")},
+            {MODEL, CATALOG, catalog, templates("2", "glosa:Pescado")},
         };
         for (Object[] c : cases) {
             @SuppressWarnings("unchecked")
