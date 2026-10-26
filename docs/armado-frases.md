@@ -48,6 +48,17 @@ Datos: `app/src/main/assets/lsa/lexico_senas.json` y `plantillas_frases.json`.
   por «spaghetti» o «color». Los conectores llegan tanto al texto como a la voz;
   las glosas originales y la protección por baja confianza se conservan.
 
+## Tiempo y deletreo (modelo eva-lsa94-v4)
+
+- **Tiempo** (`Hoy`, `Ayer`, `Mañana`) encabeza la oración y se separa con coma:
+  «Ayer, la mujer: comprar la leche.». Con un verbo sin persona usa dos puntos:
+  «Hoy: comprar la leche.». Solo: «Hoy.».
+- **Letras** (A … Z, con CH): las letras seguidas se unen en una palabra
+  deletreada con mayúscula inicial, porque el deletreo se usa sobre todo para
+  nombres propios: `A N A` produce «Ana.». Una letra sola queda «B.». Debajo de
+  la frase se siguen mostrando las letras sueltas (`A N A`). Si una letra queda
+  bajo el umbral no se deletrea nada: `A ¿? A`.
+
 ## Algoritmo
 
 1. Si alguna seña quedó por debajo del umbral, no se aplica ninguna plantilla:
@@ -55,7 +66,8 @@ Datos: `app/src/main/assets/lsa/lexico_senas.json` y `plantillas_frases.json`.
 2. Si el armado está deshabilitado por incompatibilidad de versiones, o si un
    índice no corresponde a su glosa en el léxico, se devuelven las glosas
    sueltas.
-3. Si no, se recorre la oración de izquierda a derecha. En cada posición se
+3. Si no, las letras seguidas se unen en una sola seña deletreada y se recorre
+   la oración de izquierda a derecha. En cada posición se
    elige la plantilla **más larga**. Si hay empate, la que tiene **más glosas
    literales** (`glosa:Donde`). Si sigue el empate, **la primera del archivo**.
 4. Una posición sin plantilla deja la seña suelta y el recorrido avanza una
@@ -70,7 +82,8 @@ Datos: `app/src/main/assets/lsa/lexico_senas.json` y `plantillas_frases.json`.
 ```
 
 - `patron`: lista de categorías (`persona`, `verbo`, `objeto`, `cualidad`,
-  `lugar`, `expresion`, `conector`) o de glosas literales (`glosa:<Glosa>`).
+  `lugar`, `expresion`, `conector`, `tiempo`, `letra`) o de glosas literales
+  (`glosa:<Glosa>`).
 - `{i}`: forma de la seña `i`.
 - `{i.art}`: artículo definido que concuerda con `i`. Usa el artículo
   especial del léxico cuando existe, como en «el agua». Queda vacío si la
