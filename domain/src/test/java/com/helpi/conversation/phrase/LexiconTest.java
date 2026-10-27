@@ -15,13 +15,13 @@ public class LexiconTest {
     }
 
     @Test
-    public void elLexicoDesplegadoCubreLas64Clases() {
+    public void elLexicoDesplegadoCubreLas94Clases() {
         Lexicon lexicon = deployed();
-        assertEquals(64, lexicon.size());
+        assertEquals(94, lexicon.size());
         for (int i = 0; i < lexicon.size(); i++) {
             assertEquals(i, lexicon.entry(i).index());
         }
-        assertNull(lexicon.entry(64));
+        assertNull(lexicon.entry(94));
         assertNull(lexicon.entry(-1));
     }
 

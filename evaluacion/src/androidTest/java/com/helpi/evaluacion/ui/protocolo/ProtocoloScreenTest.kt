@@ -75,7 +75,7 @@ class ProtocoloScreenTest {
         var retomar = 0
         composeRule.setContent {
             ProtocoloScreen(
-                state = estado(etapa = EtapaProtocolo.PAUSA_BLOQUE, posicion = 48, bloque = 1),
+                state = estado(etapa = EtapaProtocolo.PAUSA_BLOQUE, posicion = 94, bloque = 1),
                 camara = ProtocoloCamaraUiState("", ""),
                 cameraPreview = {},
                 acciones = acciones().copy(

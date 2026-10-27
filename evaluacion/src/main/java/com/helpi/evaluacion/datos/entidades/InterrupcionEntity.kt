@@ -4,6 +4,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.helpi.evaluacion.dominio.protocolo.GeneradorProtocolo
 
 @Entity(
     tableName = "interrupcion",
@@ -26,7 +27,11 @@ data class InterrupcionEntity(
     val ocurrioEn: Long
 ) {
     init {
-        require(bloque in 1..4) { "bloque debe estar entre 1 y 4" }
-        require(posicionPendiente in 1..192) { "posicionPendiente debe estar entre 1 y 192" }
+        require(bloque in 1..GeneradorProtocolo.CANTIDAD_BLOQUES) {
+            "bloque debe estar entre 1 y ${GeneradorProtocolo.CANTIDAD_BLOQUES}"
+        }
+        require(posicionPendiente in 1..GeneradorProtocolo.INTENTOS) {
+            "posicionPendiente debe estar entre 1 y ${GeneradorProtocolo.INTENTOS}"
+        }
     }
 }

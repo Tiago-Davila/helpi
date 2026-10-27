@@ -112,7 +112,7 @@ class ProtocoloViewModelTest {
 
     @Test
     fun alCompletarUnBloqueOfreceSeguirORetomarOtroDia() {
-        val fixture = fixture(posicionInicial = 48)
+        val fixture = fixture(posicionInicial = 94)
         try {
             fixture.eventoDecision(aceptada = false)
             assertTrue(fixture.vm.continuar())
@@ -120,7 +120,7 @@ class ProtocoloViewModelTest {
             assertEquals(1, fixture.vm.state.value.bloque)
 
             assertTrue(fixture.vm.seguir())
-            assertEquals(49, fixture.vm.state.value.posicion)
+            assertEquals(95, fixture.vm.state.value.posicion)
             assertEquals(2, fixture.vm.state.value.bloque)
         } finally {
             fixture.cerrar()
@@ -129,7 +129,7 @@ class ProtocoloViewModelTest {
 
     @Test
     fun puedeDejarLaPausaParaRetomarOtroDia() {
-        val fixture = fixture(posicionInicial = 48)
+        val fixture = fixture(posicionInicial = 94)
         try {
             fixture.eventoDecision(aceptada = false)
             fixture.vm.continuar()
@@ -200,7 +200,7 @@ class ProtocoloViewModelTest {
             configuracion = ProtocoloConfiguracion(
                 sesionId = "sesion-test",
                 secuencia = secuencia,
-                glosas = List(64) { "SENA_$it" },
+                glosas = List(94) { "SENA_$it" },
                 inicioSesionMs = reloj.elapsedMs,
                 posicionInicial = posicionInicial
             ),
@@ -223,7 +223,7 @@ class ProtocoloViewModelTest {
         fun eventoDecision(aceptada: Boolean) {
             observer.onSegmentStarted(reloj.elapsedMs)
             observer.onDecision(
-                SignAcceptancePolicy(UMBRAL, true, 64).evaluate(puntuaciones(aceptada)),
+                SignAcceptancePolicy(UMBRAL, true, 94).evaluate(puntuaciones(aceptada)),
                 UMBRAL,
                 reloj.elapsedMs + DURACION_SEGMENTO_MS
             )
@@ -277,7 +277,7 @@ class ProtocoloViewModelTest {
         const val VENTANA_DESHACER_MS = 3_000L
         const val TIEMPO_AGOTADO_MS = 15_000L
 
-        fun puntuaciones(aceptada: Boolean): FloatArray = FloatArray(64) { 0.001f }.apply {
+        fun puntuaciones(aceptada: Boolean): FloatArray = FloatArray(94) { 0.001f }.apply {
             this[0] = if (aceptada) 0.8f else 0.4f
             this[1] = if (aceptada) 0.1f else 0.3f
             this[2] = if (aceptada) 0.05f else 0.2f

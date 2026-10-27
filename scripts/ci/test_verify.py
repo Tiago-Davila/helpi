@@ -152,8 +152,8 @@ class GatesTest(unittest.TestCase):
             catalog = assets / 'catalogo_senas.json'
             # These bytes exercise the packaging gate, not model inference.
             model.write_bytes(b'synthetic-packaging-fixture')
-            catalog.write_bytes(b'{}')
-            manifest = {'frames': 40, 'coords': 168, 'numClasses': 64, 'contractVersion': 3,
+            catalog.write_bytes(json.dumps({'version': '3.0', 'glosas': [f'G{i}' for i in range(94)]}).encode())
+            manifest = {'frames': 40, 'coords': 168, 'numClasses': 94, 'contractVersion': 3,
                         'modelSha256': hashlib.sha256(model.read_bytes()).hexdigest(),
                         'catalogSha256': hashlib.sha256(catalog.read_bytes()).hexdigest()}
             (assets / 'lsa-manifest.json').write_text(json.dumps(manifest))

@@ -1,6 +1,6 @@
 {
-  "version": "2",
-  "lexicoVersion": "1",
+  "version": "3",
+  "lexicoVersion": "2",
   "plantillas": [
     {"id": "expresion", "patron": ["expresion"], "salida": "{0}."},
     {"id": "donde", "patron": ["glosa:Donde"], "salida": "¿{0}?"},
@@ -15,6 +15,12 @@
     {"id": "objeto", "patron": ["objeto"], "salida": "{0.art} {0}."},
     {"id": "persona", "patron": ["persona"], "salida": "{0.art} {0}."},
     {"id": "hambriento", "patron": ["glosa:Hambriento"], "salida": "Está {0}."},
-    {"id": "cualidad", "patron": ["cualidad"], "salida": "Es {0}."}
+    {"id": "cualidad", "patron": ["cualidad"], "salida": "Es {0}."},
+    {"id": "tiempo-persona-verbo-objeto", "patron": ["tiempo", "persona", "verbo", "objeto"], "salida": "{0}, {1.art} {1}: {2} {3.art} {3}."},
+    {"id": "tiempo-persona-verbo", "patron": ["tiempo", "persona", "verbo"], "salida": "{0}, {1.art} {1}: {2}."},
+    {"id": "tiempo-verbo-objeto", "patron": ["tiempo", "verbo", "objeto"], "salida": "{0}: {1} {2.art} {2}."},
+    {"id": "tiempo-verbo", "patron": ["tiempo", "verbo"], "salida": "{0}: {1}."},
+    {"id": "tiempo", "patron": ["tiempo"], "salida": "{0}."},
+    {"id": "deletreo", "patron": ["letra"], "salida": "{0}."}
   ]
 }

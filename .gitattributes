@@ -1,3 +1,6 @@
 # Los assets se verifican por SHA-256 en runtime (lsa-manifest.json).
 # Git no debe convertirles los finales de línea: el hash es parte del contrato.
 app/src/main/assets/** -text
+
+# El contrato de evaluación también se verifica por SHA-256 (CONTRATO_SHA256) sobre bytes LF.
+specs/001-calidad-reconocimiento/contracts/** text eol=lf
