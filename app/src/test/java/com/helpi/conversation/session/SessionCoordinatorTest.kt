@@ -289,4 +289,52 @@ class SessionCoordinatorTest {
             decisions += DecisionEvent(decision, thresholdUsed, segmentEndMs)
         }
     }
+
+    @Test
+    fun choosingALanguageIsPersistedWithItsOwnThreshold() {
+        coordinator.prepare(autoStart = true)
+        awaitState { it.session == SessionState.ACTIVA_LIMITADA }
+        assertEquals(SignLanguage.LSA, coordinator.uiState.value.signLanguage)
+        coordinator.setConfidenceThreshold(0.8f)
+        awaitState { it.confidenceThreshold == 0.8f }
+
+        coordinator.setSignLanguage(SignLanguage.LSE)
+        // 0,47 recomendado por el entrenamiento, elevado al mínimo de la app
+        val lse = awaitState { it.signLanguage == SignLanguage.LSE }
+        assertEquals(SessionCoordinator.MIN_THRESHOLD, lse.confidenceThreshold)
+        assertFalse(lse.capabilities.phraseVision)
+
+        coordinator.setSignLanguage(SignLanguage.LSA)
+        assertEquals(0.8f, awaitState { it.signLanguage == SignLanguage.LSA }.confidenceThreshold)
+        coordinator.setSignLanguage(SignLanguage.LSE)
+        awaitState { it.signLanguage == SignLanguage.LSE }
+
+        val reopened = SessionCoordinator(RuntimeEnvironment.getApplication())
+        assertEquals(SignLanguage.LSE, reopened.uiState.value.signLanguage)
+        reopened.shutdown()
+    }
+
+    @Test
+    fun aLanguageWithoutPackageDisablesVisionInsteadOfFallingBackToLsa() {
+        // ASL y LSE todavía no tienen paquete en assets: ninguna carga LiteRT.
+        shadowOf(RuntimeEnvironment.getApplication()).grantPermissions(Manifest.permission.CAMERA)
+        coordinator.setSignLanguage(SignLanguage.ASL)
+        awaitState { it.signLanguage == SignLanguage.ASL }
+        coordinator.prepare(autoStart = true)
+        val asl = awaitState { it.session == SessionState.ACTIVA_LIMITADA }
+        assertFalse(asl.capabilities.vision)
+        assertTrue(
+            asl.capabilities.visionDetail,
+            asl.capabilities.visionDetail.contains("American Sign Language no disponible")
+        )
+        assertEquals("", asl.modelLicense)
+
+        coordinator.setSignLanguage(SignLanguage.LSE)
+        val lse = awaitState { it.signLanguage == SignLanguage.LSE }
+        assertFalse(lse.capabilities.vision)
+        assertTrue(
+            lse.capabilities.visionDetail,
+            lse.capabilities.visionDetail.contains("Lengua de Signos Española no disponible")
+        )
+    }
 }

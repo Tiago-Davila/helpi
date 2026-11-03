@@ -50,6 +50,7 @@ import com.helpi.conversation.R
 import com.helpi.conversation.chat.Speaker
 import com.helpi.conversation.chat.Turn
 import com.helpi.conversation.chat.TurnState
+import com.helpi.conversation.lsa.SignLanguage
 import com.helpi.conversation.lsa.sequence.PhraseCaptureState
 import com.helpi.conversation.lsa.sequence.RecognitionMode
 import com.helpi.conversation.session.AudioChannelState
@@ -76,6 +77,7 @@ internal data class ConversationActions(
     val microphone: () -> Unit = {},
     val camera: () -> Unit = {},
     val threshold: (Float) -> Unit = {},
+    val signLanguage: (SignLanguage) -> Unit = {},
     val recognitionMode: (RecognitionMode) -> Unit = {},
     val startPhrase: () -> Unit = {},
     val finishPhrase: () -> Unit = {},
@@ -109,6 +111,7 @@ fun ConversationScreen(
             microphone = viewModel::toggleMicrophone,
             camera = viewModel::toggleCamera,
             threshold = viewModel::setConfidenceThreshold,
+            signLanguage = viewModel::setSignLanguage,
             recognitionMode = viewModel::setRecognitionMode,
             startPhrase = viewModel::startPhraseCapture,
             finishPhrase = viewModel::finishPhraseCapture,
@@ -179,8 +182,7 @@ private fun Inicio(
                 SeccionHotbar.CUENTA -> PantallaCuenta(
                     state = state,
                     participantes = participantes,
-                    onThreshold = actions.threshold,
-                    onRenombrarCuenta = actions.renombrarCuenta
+                    actions = actions
                 )
             }
         }
