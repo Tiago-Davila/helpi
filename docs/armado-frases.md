@@ -18,14 +18,14 @@ Datos: `app/src/main/assets/lsa/lexico_senas.json` y `plantillas_frases.json`.
 ## Reglas de contenido
 
 - Las plantillas solo agregan **palabras de función**: artículos,
-  preposiciones, conjunciones y puntuación. La lista cerrada está en
+  preposiciones, conjunciones, las cópulas «es»/«son»/«está» y puntuación. La lista cerrada está en
   `PhraseTemplate.FUNCTION_WORDS`. Una plantilla que agrega una palabra de
   contenido se rechaza al cargar el archivo, y con ella todo el conjunto.
 - «HAMBRE» → «Hambre.» es válido; «HAMBRE» → «Quiero comer.» no lo es.
 
 ## Convenciones
 
-- **Verbos en infinitivo, siempre.** En LSA la persona y el tiempo se marcan
+- **Verbos reconocidos en infinitivo, siempre.** En LSA la persona y el tiempo se marcan
   con dirección y espacio, y el modelo no los captura. No se infieren.
   Ejemplo: «La mujer: comprar la leche.»
 - **Dos puntos entre la persona y el verbo.** Con el verbo en infinitivo, «La
@@ -34,6 +34,19 @@ Datos: `app/src/main/assets/lsa/lexico_senas.json` y `plantillas_frases.json`.
 - **Glosa en MAYÚSCULAS = parte no construida.** Es la convención de glosado de
   las lenguas de señas. Una seña que ninguna plantilla cubrió se muestra así.
 - **`¿?` = seña bajo el umbral.** Nunca se muestra la adivinanza.
+
+## Conectores (funcionalidad 002)
+
+- Los objetos y personas sueltos llevan artículo: «El fideo.», «La mujer.».
+- Las cualidades sueltas llevan «Es»: «Es opaco.». «Hambriento» usa «Está».
+- Objeto + cualidad agrega la cópula y conserva la concordancia: «La leche es
+  amarga.». Para «Colores», el único objeto plural del léxico actual, se usa
+  «son»: «Los colores son opacos.».
+- Ayuda + verbo agrega «para»: «Ayuda para encontrar.». Si sigue un objeto,
+  se une en la misma frase: «Ayuda para encontrar el fideo.».
+- Se conservan las glosas del catálogo («Fideo», «Colores»), sin sustituirlas
+  por «spaghetti» o «color». Los conectores llegan tanto al texto como a la voz;
+  las glosas originales y la protección por baja confianza se conservan.
 
 ## Algoritmo
 
@@ -53,7 +66,7 @@ Datos: `app/src/main/assets/lsa/lexico_senas.json` y `plantillas_frases.json`.
 ## Formato de las plantillas
 
 ```json
-{ "id": "objeto-cualidad", "patron": ["objeto", "cualidad"], "salida": "{0.art} {0} {1.concuerda:0}." }
+{ "id": "objeto-cualidad", "patron": ["objeto", "cualidad"], "salida": "{0.art} {0} es {1.concuerda:0}." }
 ```
 
 - `patron`: lista de categorías (`persona`, `verbo`, `objeto`, `cualidad`,
