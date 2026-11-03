@@ -144,7 +144,26 @@ la app traduce mal **sin arrojar ningún error**.
 
 ## 4. Estado del modelo
 
-- Vocabulario: **64 señas de LSA64**. Vocabulario cerrado.
+La app reconoce una lengua de señas a la vez, elegida por la persona
+(`specs/003-multilengua-senas/`): LSA (por defecto), ASL o LSE. Cada lengua
+tiene su carpeta de assets (`lsa/`, `asl/`, `lse/`) con modelo, catálogo y
+manifiesto; el manifiesto declara `language`, `license` y `attribution`. Solo
+el clasificador de la lengua elegida está cargado; al cambiar se descarta la
+ventana en curso. Si el paquete de una lengua es inválido, la visión se
+inhabilita con el motivo: nunca se vuelve a LSA en silencio. Modo frase,
+léxico y plantillas son solo de LSA. Las glosas de ASL se muestran y dicen en
+español.
+
+| Lengua | Dataset | Licencia | Umbral inicial |
+|---|---|---|---|
+| LSA | LSA-94 (LSA64 + grabaciones propias), 94 señas | CC BY-NC-SA 4.0 | 0,90 |
+| ASL | Google ISLR + PopSign ASL | CC BY 4.0 | 0,90 |
+| LSE | SWL-LSE (SignaMed), 300 señas de salud | CC BY 4.0 | 0,50 (recomendado 0,47) |
+
+Lo que sigue describe el modelo de LSA.
+
+- Vocabulario: **94 señas de LSA-94** (las 64 de LSA64 más grabaciones
+  propias). Vocabulario cerrado.
 - Línea base: **≈0.85 de exactitud con partición por sujeto** (se entrena con
   nueve señantes y se evalúa con el décimo, nunca visto).
 - Tamaño del artefacto: ~1,4 MB.
@@ -160,6 +179,10 @@ la app traduce mal **sin arrojar ningún error**.
   metros. En uso real el extractor puede comportarse distinto.
 - El vocabulario de LSA64 no fue diseñado para comunicación asistida: incluye
   "Opaco", "Fideos", "Aspirina", y **ninguna seña de emergencia**.
+
+- ASL: vocabulario cerrado de ISLR/PopSign, pensado para niños; glosas
+  traducidas al español.
+- LSE: 300 señas de salud de SWL-LSE; regionalismos de España sin validar.
 
 Estas limitaciones se comunican al usuario; no se disimulan.
 
