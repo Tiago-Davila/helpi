@@ -162,7 +162,7 @@ class EnvioRepositorioTest {
                 id = sessionId,
                 participanteCodigo = "P-007",
                 consentimientoId = consentimientoId,
-                protocoloVersion = "1.0.0",
+                protocoloVersion = "2.0.0",
                 semilla = 20261005L,
                 estado = EstadoSesion.INTERRUMPIDA,
                 bloqueActual = 1,

@@ -1,11 +1,19 @@
 package com.helpi.evaluacion.dominio.intento;
 
+import com.helpi.evaluacion.dominio.protocolo.GeneradorProtocolo;
 import java.util.List;
 import java.util.Objects;
 
 /** Reglas semánticas compartidas por el registro local y las pruebas del protocolo. */
 public final class ReglasIntento {
+    /** Último índice de clase del catálogo que evalúa el protocolo. */
+    public static final int ULTIMO_INDICE = GeneradorProtocolo.CANTIDAD_SENAS - 1;
+
     private ReglasIntento() { }
+
+    public static boolean indiceValido(int indice) {
+        return indice >= 0 && indice <= ULTIMO_INDICE;
+    }
 
     public static boolean superoUmbral(float confianza, float umbral) {
         validarProbabilidad(confianza, "confianza");
@@ -21,17 +29,17 @@ public final class ReglasIntento {
 
     public static void validar(Intento intento) {
         Objects.requireNonNull(intento, "intento");
-        if (intento.posicion() < 1 || intento.posicion() > 192) {
-            throw new IllegalArgumentException("posicion debe estar entre 1 y 192");
+        if (intento.posicion() < 1 || intento.posicion() > GeneradorProtocolo.INTENTOS) {
+            throw new IllegalArgumentException("posicion debe estar entre 1 y " + GeneradorProtocolo.INTENTOS);
         }
-        if (intento.bloque() < 1 || intento.bloque() > 4) {
-            throw new IllegalArgumentException("bloque debe estar entre 1 y 4");
+        if (intento.bloque() < 1 || intento.bloque() > GeneradorProtocolo.CANTIDAD_BLOQUES) {
+            throw new IllegalArgumentException("bloque debe estar entre 1 y " + GeneradorProtocolo.CANTIDAD_BLOQUES);
         }
         if (intento.numeroIntento() < 1) {
             throw new IllegalArgumentException("numeroIntento debe ser al menos 1");
         }
-        if (intento.senaEsperadaIndice() < 0 || intento.senaEsperadaIndice() > 63) {
-            throw new IllegalArgumentException("senaEsperadaIndice debe estar entre 0 y 63");
+        if (!indiceValido(intento.senaEsperadaIndice())) {
+            throw new IllegalArgumentException("senaEsperadaIndice debe estar entre 0 y " + ULTIMO_INDICE);
         }
         validarProbabilidad(intento.umbral(), "umbral");
 
@@ -59,7 +67,7 @@ public final class ReglasIntento {
 
     private static void validarClasificado(Intento intento) {
         if (intento.causaSinResultado() != null || intento.predichoIndice() == null
-                || intento.predichoIndice() < 0 || intento.predichoIndice() > 63
+                || !indiceValido(intento.predichoIndice())
                 || intento.predichoGlosa() == null || intento.predichoGlosa().isBlank()
                 || intento.confianza() == null) {
             throw new IllegalArgumentException("Un resultado clasificado requiere predicción completa");

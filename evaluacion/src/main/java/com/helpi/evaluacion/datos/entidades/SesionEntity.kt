@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.helpi.evaluacion.dominio.protocolo.GeneradorProtocolo
 
 @Entity(
     tableName = "sesion",
@@ -49,7 +50,9 @@ data class SesionEntity(
 ) {
     init {
         require(id.matches(UUID_V4_REGEX)) { "id debe ser un UUID v4" }
-        require(bloqueActual in 1..4) { "bloqueActual debe estar entre 1 y 4" }
+        require(bloqueActual in 1..GeneradorProtocolo.CANTIDAD_BLOQUES) {
+            "bloqueActual debe estar entre 1 y ${GeneradorProtocolo.CANTIDAD_BLOQUES}"
+        }
         require(modeloSha256.matches(SHA256_REGEX)) {
             "modeloSha256 debe tener 64 caracteres hexadecimales"
         }

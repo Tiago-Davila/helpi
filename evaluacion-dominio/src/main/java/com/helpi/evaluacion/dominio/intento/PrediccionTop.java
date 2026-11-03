@@ -7,8 +7,8 @@ public record PrediccionTop(int rango, int indice, String glosa, float confianza
         if (rango < 1 || rango > 3) {
             throw new IllegalArgumentException("rango debe estar entre 1 y 3");
         }
-        if (indice < 0 || indice > 63) {
-            throw new IllegalArgumentException("indice debe estar entre 0 y 63");
+        if (!ReglasIntento.indiceValido(indice)) {
+            throw new IllegalArgumentException("indice debe estar entre 0 y " + ReglasIntento.ULTIMO_INDICE);
         }
         Objects.requireNonNull(glosa, "glosa");
         if (glosa.isBlank()) {

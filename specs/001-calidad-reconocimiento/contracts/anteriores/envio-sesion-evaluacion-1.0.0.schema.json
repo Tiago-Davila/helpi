@@ -1,0 +1,252 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helpi.app/contratos/helpi.evaluacion.sesion/1.0.0/schema.json",
+  "title": "helpi.evaluacion.sesion 1.0.0",
+  "description": "Sesión de validación de Eva con verdad de referencia. Cuerpo del envío al receptor y formato del archivo exportado. Ver envio-sesion-evaluacion.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contrato", "envio", "sesion", "participante", "consentimiento", "condiciones", "versiones", "dispositivo", "protocolo", "intentos", "interrupciones"],
+  "properties": {
+    "contrato": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nombre", "version"],
+      "properties": {
+        "nombre": { "const": "helpi.evaluacion.sesion" },
+        "version": { "const": "1.0.0" }
+      }
+    },
+    "envio": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["envioId", "revision", "generadoEn"],
+      "properties": {
+        "envioId": { "$ref": "#/$defs/uuid" },
+        "revision": { "type": "integer", "minimum": 1 },
+        "generadoEn": { "$ref": "#/$defs/instante" }
+      }
+    },
+    "sesion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sesionId", "estado", "creadaEn", "ultimoIntentoEn", "intentosPerdidos"],
+      "properties": {
+        "sesionId": { "$ref": "#/$defs/uuid" },
+        "estado": { "enum": ["CREADA", "EN_CURSO", "PAUSADA", "INTERRUMPIDA", "COMPLETA", "TERMINADA_ANTES"] },
+        "creadaEn": { "$ref": "#/$defs/instante" },
+        "ultimoIntentoEn": { "oneOf": [{ "$ref": "#/$defs/instante" }, { "type": "null" }] },
+        "intentosPerdidos": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "participante": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["codigo"],
+      "properties": {
+        "codigo": { "type": "string", "pattern": "^P-[0-9]{3,4}$" }
+      }
+    },
+    "consentimiento": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["avisoVersion", "otorgadoEn"],
+      "properties": {
+        "avisoVersion": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "otorgadoEn": { "$ref": "#/$defs/instante" }
+      }
+    },
+    "condiciones": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entorno", "tipoEntorno", "iluminacion", "contraluz", "distancia", "manoDominante", "guantes", "soporteCamara", "perfilParticipante"],
+      "properties": {
+        "entorno": { "enum": ["INTERIOR", "EXTERIOR"] },
+        "tipoEntorno": { "enum": ["CASA", "AULA", "OFICINA", "CALLE", "TRANSPORTE", "OTRO"] },
+        "iluminacion": { "enum": ["BUENA", "MEDIA", "BAJA"] },
+        "contraluz": { "type": "boolean" },
+        "distancia": { "enum": ["MENOS_DE_1M", "ENTRE_1_Y_2M", "MAS_DE_2M"] },
+        "manoDominante": { "enum": ["DIESTRA", "ZURDA", "AMBIDIESTRA"] },
+        "guantes": { "type": "boolean" },
+        "soporteCamara": { "enum": ["TRIPODE", "APOYADO", "EN_MANO"] },
+        "perfilParticipante": { "enum": ["SORDA_SENANTE", "INTERPRETE_LSA", "EQUIPO"] }
+      }
+    },
+    "versiones": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["appVersionName", "appVersionCode", "modelo", "modeloSha256", "catalogoSha256", "contratoKeypoints", "protocolo"],
+      "properties": {
+        "appVersionName": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "appVersionCode": { "type": "integer", "minimum": 1 },
+        "modelo": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "modeloSha256": { "$ref": "#/$defs/sha256" },
+        "catalogoSha256": { "$ref": "#/$defs/sha256" },
+        "contratoKeypoints": { "type": "integer", "minimum": 1 },
+        "protocolo": { "const": "1.0.0" }
+      }
+    },
+    "dispositivo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fabricante", "modelo", "sdkAndroid"],
+      "properties": {
+        "fabricante": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "modelo": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "sdkAndroid": { "type": "integer", "minimum": 26 }
+      }
+    },
+    "protocolo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "semilla", "senas", "repeticiones", "bloques", "intentosPorBloque", "secuencia"],
+      "properties": {
+        "version": { "const": "1.0.0" },
+        "semilla": { "type": "string", "pattern": "^-?[0-9]{1,19}$", "description": "Long de 64 bits como texto decimal: un número JSON pierde precisión en JavaScript." },
+        "senas": { "const": 64 },
+        "repeticiones": { "const": 3 },
+        "bloques": { "const": 4 },
+        "intentosPorBloque": { "const": 48 },
+        "secuencia": {
+          "type": "array",
+          "minItems": 192,
+          "maxItems": 192,
+          "items": { "$ref": "#/$defs/indiceClase" }
+        }
+      }
+    },
+    "intentos": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/intento" }
+    },
+    "interrupciones": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/interrupcion" }
+    }
+  },
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "instante": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "description": "RFC 3339 en UTC, precisión de segundos, sufijo Z."
+    },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "indiceClase": { "type": "integer", "minimum": 0, "maximum": 63 },
+    "probabilidad": { "type": "number", "minimum": 0, "maximum": 1 },
+    "glosa": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "senaConGlosa": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["indice", "glosa"],
+      "properties": {
+        "indice": { "$ref": "#/$defs/indiceClase" },
+        "glosa": { "$ref": "#/$defs/glosa" }
+      }
+    },
+    "prediccionTop": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rango", "indice", "glosa", "confianza"],
+      "properties": {
+        "rango": { "type": "integer", "minimum": 1, "maximum": 3 },
+        "indice": { "$ref": "#/$defs/indiceClase" },
+        "glosa": { "$ref": "#/$defs/glosa" },
+        "confianza": { "$ref": "#/$defs/probabilidad" }
+      }
+    },
+    "intento": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["posicion", "bloque", "numeroIntento", "reemplazado", "senaEsperada", "vioVideo", "resultado", "causaSinResultado", "prediccion", "top3", "umbral", "superoUmbral", "correcto", "descartado", "loHiceMal", "inicioRelMs", "duracionSegmentoMs"],
+      "properties": {
+        "posicion": { "type": "integer", "minimum": 1, "maximum": 192 },
+        "bloque": { "type": "integer", "minimum": 1, "maximum": 4 },
+        "numeroIntento": { "type": "integer", "minimum": 1 },
+        "reemplazado": { "type": "boolean" },
+        "senaEsperada": { "$ref": "#/$defs/senaConGlosa" },
+        "vioVideo": { "type": "boolean" },
+        "resultado": { "enum": ["SOBRE_UMBRAL", "BAJO_UMBRAL", "SIN_RESULTADO"] },
+        "causaSinResultado": {
+          "enum": ["SIN_HOMBROS", "SEGMENTO_CORTO", "SEGMENTO_LARGO", "SEGUIMIENTO_PERDIDO", "ORIENTACION_CAMBIO", "ERROR_MODELO", "TIEMPO_AGOTADO", null]
+        },
+        "prediccion": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["indice", "glosa", "confianza"],
+              "properties": {
+                "indice": { "$ref": "#/$defs/indiceClase" },
+                "glosa": { "$ref": "#/$defs/glosa" },
+                "confianza": { "$ref": "#/$defs/probabilidad" }
+              }
+            },
+            { "type": "null" }
+          ]
+        },
+        "top3": {
+          "type": "array",
+          "maxItems": 3,
+          "items": { "$ref": "#/$defs/prediccionTop" }
+        },
+        "umbral": { "$ref": "#/$defs/probabilidad" },
+        "superoUmbral": { "type": "boolean" },
+        "correcto": { "type": "boolean" },
+        "descartado": { "type": "boolean" },
+        "loHiceMal": { "type": "boolean" },
+        "inicioRelMs": { "type": "integer", "minimum": 0 },
+        "duracionSegmentoMs": { "type": ["integer", "null"], "minimum": 0 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "resultado": { "const": "SIN_RESULTADO" } } },
+          "then": {
+            "properties": {
+              "causaSinResultado": { "type": "string" },
+              "prediccion": { "type": "null" },
+              "top3": { "maxItems": 0 },
+              "superoUmbral": { "const": false },
+              "correcto": { "const": false },
+              "descartado": { "const": false }
+            }
+          },
+          "else": {
+            "properties": {
+              "causaSinResultado": { "type": "null" },
+              "prediccion": { "type": "object" },
+              "top3": { "minItems": 3 }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "resultado": { "const": "BAJO_UMBRAL" } } },
+          "then": {
+            "properties": {
+              "superoUmbral": { "const": false },
+              "correcto": { "const": false },
+              "descartado": { "const": false }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "resultado": { "const": "SOBRE_UMBRAL" } } },
+          "then": { "properties": { "superoUmbral": { "const": true } } }
+        }
+      ]
+    },
+    "interrupcion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bloque", "posicionPendiente", "causa", "ocurrioEn"],
+      "properties": {
+        "bloque": { "type": "integer", "minimum": 1, "maximum": 4 },
+        "posicionPendiente": { "type": "integer", "minimum": 1, "maximum": 192 },
+        "causa": { "enum": ["SEGUNDO_PLANO", "PROCESO_TERMINADO", "REVOCACION", "PERSONA_PAUSO_DIA"] },
+        "ocurrioEn": { "$ref": "#/$defs/instante" }
+      }
+    }
+  }
+}

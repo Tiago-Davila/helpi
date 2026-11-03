@@ -18,11 +18,11 @@ class PhraseAssetsTest {
         SignCatalog.parse(File("src/main/assets/lsa/catalogo_senas.json").readText())
 
     private val manifest = ModelBundle.Manifest(
-        modelVersion = "eva-lsa64-v3",
-        catalogVersion = "2.0",
+        modelVersion = "eva-lsa94-v4",
+        catalogVersion = "3.0",
         modelSha256 = "",
         catalogSha256 = "",
-        numClasses = 64,
+        numClasses = 94,
         outputsProbabilities = false,
         frames = 40,
         coords = 168,
@@ -74,7 +74,7 @@ class PhraseAssetsTest {
         assertFalse(builder.isEnabled)
         assertEquals("MUJER SORDO", builder.build(mujerSordo()).text())
 
-        val otherModel = manifest.copy(modelVersion = "eva-lsa64-v4")
+        val otherModel = manifest.copy(modelVersion = "eva-lsa94-v5")
         assertTrue(PhraseAssets.load(otherModel, catalog) { assets()[it] } is PhraseAssets.Disabled)
     }
 }

@@ -117,7 +117,7 @@ class ReceptorClienteTest {
         assertTrue(result is ResultadoEnvio.Confirmado)
         assertEquals("POST", request.method)
         assertEquals("/v1/sesiones-evaluacion", request.path)
-        assertEquals("helpi.evaluacion.sesion/1.0.0", request.getHeader("X-Helpi-Contrato"))
+        assertEquals("helpi.evaluacion.sesion/2.0.0", request.getHeader("X-Helpi-Contrato"))
         assertEquals(ENVIO_ID, request.getHeader("Idempotency-Key"))
         assertEquals("clave-test", request.getHeader("X-Helpi-Clave-Evaluacion"))
         assertEquals("HelpiEvaluacion/0.1.0-evaluacion (7)", request.getHeader("User-Agent"))
@@ -227,7 +227,7 @@ class ReceptorClienteTest {
         const val ENVIO_ID = "3f2b8c1e-9a47-4d2e-8b61-0c5e7a9d4f12"
         const val OTHER_ENVIO_ID = "a7c4e2d9-5b13-4f8a-9e26-1d0b3c8f7a45"
         val PAYLOAD = (
-            "{\"contrato\":{\"nombre\":\"helpi.evaluacion.sesion\",\"version\":\"1.0.0\"}," +
+            "{\"contrato\":{\"nombre\":\"helpi.evaluacion.sesion\",\"version\":\"2.0.0\"}," +
                 "\"envio\":{\"envioId\":\"$ENVIO_ID\"}}"
             ).toByteArray(StandardCharsets.UTF_8)
     }

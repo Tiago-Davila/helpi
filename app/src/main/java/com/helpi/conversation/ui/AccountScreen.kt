@@ -83,8 +83,9 @@ internal fun PantallaCuenta(
 
         Seccion("Qué reconoce Helpi") {
             Text(
-                "64 señas aisladas de lengua de señas argentina, sin conexión y sin que el " +
-                    "video salga del teléfono. Una seña que no esté en esas 64 se informa como " +
+                "94 señas aisladas de lengua de señas argentina (incluye hoy, ayer, mañana y el " +
+                    "abecedario), sin conexión y sin que el " +
+                    "video salga del teléfono. Una seña que no esté en esas 94 se informa como " +
                     "no reconocida: Helpi no la fuerza a la más parecida.",
                 style = HelpiType.BodyS,
                 color = HelpiColors.LedMuted

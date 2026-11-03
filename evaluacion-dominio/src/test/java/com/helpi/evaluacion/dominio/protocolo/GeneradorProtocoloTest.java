@@ -15,15 +15,15 @@ import org.junit.Test;
 
 public class GeneradorProtocoloTest {
     private static final long SEMILLA_EJEMPLO = 20261005L;
-    private static final int CANTIDAD_SENAS = 64;
-    private static final int REPETICIONES = 3;
+    private static final int CANTIDAD_SENAS = 94;
+    private static final int REPETICIONES = 5;
     private static final int INTENTOS = CANTIDAD_SENAS * REPETICIONES;
 
     @Test
-    public void generaTresRepeticionesSinAdyacenciasEnCuatroBloques() {
+    public void generaCincoRepeticionesSinAdyacenciasEnCincoBloques() {
         GeneradorProtocolo.Protocolo protocolo = GeneradorProtocolo.generar(SEMILLA_EJEMPLO);
 
-        assertEquals("1.0.0", protocolo.version());
+        assertEquals("2.0.0", protocolo.version());
         assertEquals(SEMILLA_EJEMPLO, protocolo.semilla());
         assertEquals(INTENTOS, protocolo.secuencia().size());
 
@@ -41,10 +41,10 @@ public class GeneradorProtocoloTest {
             assertEquals(REPETICIONES, cantidad);
         }
 
-        assertEquals(4, protocolo.bloques().size());
+        assertEquals(5, protocolo.bloques().size());
         List<Integer> secuenciaPorBloques = new ArrayList<>();
         for (List<Integer> bloque : protocolo.bloques()) {
-            assertEquals(48, bloque.size());
+            assertEquals(94, bloque.size());
             secuenciaPorBloques.addAll(bloque);
         }
         assertEquals(protocolo.secuencia(), secuenciaPorBloques);

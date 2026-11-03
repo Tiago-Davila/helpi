@@ -194,7 +194,7 @@ class SesionContratoSerializer {
 
     private companion object {
         const val CONTRATO_NOMBRE = "helpi.evaluacion.sesion"
-        const val CONTRATO_VERSION = "1.0.0"
+        const val CONTRATO_VERSION = "2.0.0"
         const val PROBABILITY_SCALE = 6
         val INSTANT_FORMATTER: DateTimeFormatter = DateTimeFormatter
             .ofPattern("uuuu-MM-dd'T'HH:mm:ss'Z'")

@@ -2,6 +2,7 @@ package com.helpi.evaluacion.datos.entidades
 
 import androidx.room.Entity
 import androidx.room.ForeignKey
+import com.helpi.evaluacion.dominio.intento.ReglasIntento
 
 @Entity(
     tableName = "prediccion_top",
@@ -24,7 +25,9 @@ data class PrediccionTopEntity(
 ) {
     init {
         require(rango in 1..3) { "rango debe estar entre 1 y 3" }
-        require(indice in 0..63) { "indice debe estar entre 0 y 63" }
+        require(ReglasIntento.indiceValido(indice)) {
+            "indice debe estar entre 0 y ${ReglasIntento.ULTIMO_INDICE}"
+        }
         require(confianza.isFinite() && confianza in 0f..1f) { "confianza debe estar entre 0 y 1" }
     }
 }

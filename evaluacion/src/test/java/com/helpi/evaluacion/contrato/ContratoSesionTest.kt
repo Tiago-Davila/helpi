@@ -103,8 +103,8 @@ class ContratoSesionTest {
     fun reglasSemanticasS02AS08SeCumplenEnElEjemplo() {
         val sequence = example.path("protocolo").path("secuencia").arrayItems().map { it.asInt() }
         val occurrences = sequence.groupingBy { it }.eachCount()
-        assertEquals((0..63).toSet(), occurrences.keys)
-        assertTrue(occurrences.values.all { it == 3 })
+        assertEquals((0 until 94).toSet(), occurrences.keys)
+        assertTrue(occurrences.values.all { it == 5 })
         assertTrue(sequence.zipWithNext().all { (left, right) -> left != right })
 
         val attempts = example.path("intentos").arrayItems()
@@ -114,7 +114,7 @@ class ContratoSesionTest {
                 sequence[position - 1],
                 attempt.path("senaEsperada").path("indice").asInt()
             )
-            assertEquals((position + 47) / 48, attempt.path("bloque").asInt())
+            assertEquals((position + 93) / 94, attempt.path("bloque").asInt())
 
             if (attempt.path("resultado").asText() != "SIN_RESULTADO") {
                 val topItems = attempt.path("top3").arrayItems()
@@ -227,63 +227,63 @@ class ContratoSesionTest {
         versiones = VersionesDocumento(
             appVersionName = "0.1.0",
             appVersionCode = 1,
-            modelo = "eva-lsa64-v3",
-            modeloSha256 = "e231d3962e2eb8d081e9a95d61d6600a6b489db06db03f971530bc7da8f0d488",
-            catalogoSha256 = "377a02e97bd57b0133962dbe961c853ca3a205d0f985eceb31b358ea323df412",
+            modelo = "eva-lsa94-v4",
+            modeloSha256 = "751eab8b5cb6642556f227380dd1537154012c9341b8e26d9d593078d0e3a46b",
+            catalogoSha256 = "737026d776bd1e8f791b306b14166a9901ca0ebe7fcbd22f1d06d168829c356c",
             contratoKeypoints = 3,
-            protocolo = "1.0.0"
+            protocolo = "2.0.0"
         ),
         dispositivo = DispositivoDocumento("motorola", "moto g54 5G", 34),
         protocolo = ProtocoloDocumento(
-            version = "1.0.0",
+            version = "2.0.0",
             semilla = 20261005L,
-            senas = 64,
-            repeticiones = 3,
-            bloques = 4,
-            intentosPorBloque = 48,
+            senas = 94,
+            repeticiones = 5,
+            bloques = 5,
+            intentosPorBloque = 94,
             secuencia = sequence
         ),
         intentos = listOf(
             intento(
-                1, 1, false, 4, "Brillante", false, ResultadoIntentoDocumento.SOBRE_UMBRAL,
-                null, 4, "Brillante", 0.962134,
+                1, 1, false, 72, "E", false, ResultadoIntentoDocumento.SOBRE_UMBRAL,
+                null, 72, "E", 0.962134,
                 listOf(
-                    top(1, 4, "Brillante", 0.962134),
+                    top(1, 72, "E", 0.962134),
                     top(2, 5, "Celeste", 0.02187),
                     top(3, 2, "Verde", 0.006411)
                 ),
                 0.9, true, true, false, false, 4210, 1630
             ),
             intento(
-                2, 1, false, 18, "Amargo", false, ResultadoIntentoDocumento.SOBRE_UMBRAL,
+                2, 1, false, 75, "H", false, ResultadoIntentoDocumento.SOBRE_UMBRAL,
                 null, 30, "Desayuno", 0.917402,
                 listOf(
                     top(1, 30, "Desayuno", 0.917402),
-                    top(2, 18, "Amargo", 0.064118),
+                    top(2, 75, "H", 0.064118),
                     top(3, 44, "Asado", 0.009953)
                 ),
                 0.9, true, false, true, false, 11875, 1544
             ),
             intento(
-                3, 1, false, 52, "Aparecer", false, ResultadoIntentoDocumento.BAJO_UMBRAL,
-                null, 52, "Aparecer", 0.613027,
+                3, 1, false, 83, "P", false, ResultadoIntentoDocumento.BAJO_UMBRAL,
+                null, 83, "P", 0.613027,
                 listOf(
-                    top(1, 52, "Aparecer", 0.613027),
+                    top(1, 83, "P", 0.613027),
                     top(2, 54, "Atrapar", 0.288761),
                     top(3, 11, "Hombre", 0.040335)
                 ),
                 0.9, false, false, false, true, 19340, 2011
             ),
             intento(
-                4, 1, true, 38, "Nombre", false, ResultadoIntentoDocumento.SIN_RESULTADO,
+                4, 1, true, 58, "Comprar", false, ResultadoIntentoDocumento.SIN_RESULTADO,
                 CausaSinResultadoDocumento.SIN_HOMBROS, null, null, null, emptyList(), 0.9,
                 false, false, false, false, 26902, null
             ),
             intento(
-                4, 2, false, 38, "Nombre", true, ResultadoIntentoDocumento.SOBRE_UMBRAL,
-                null, 38, "Nombre", 0.93885,
+                4, 2, false, 58, "Comprar", true, ResultadoIntentoDocumento.SOBRE_UMBRAL,
+                null, 58, "Comprar", 0.93885,
                 listOf(
-                    top(1, 38, "Nombre", 0.93885),
+                    top(1, 58, "Comprar", 0.93885),
                     top(2, 7, "Rosa", 0.030107),
                     top(3, 1, "Rojo", 0.012264)
                 ),
@@ -322,7 +322,7 @@ class ContratoSesionTest {
         duracionSegmentoMs: Long?
     ) = IntentoDocumento(
         posicion = posicion,
-        bloque = (posicion + 47) / 48,
+        bloque = (posicion + 93) / 94,
         numeroIntento = numeroIntento,
         reemplazado = reemplazado,
         senaEsperada = SeniaDocumento(senaEsperadaIndice, senaEsperadaGlosa),

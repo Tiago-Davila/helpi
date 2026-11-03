@@ -260,7 +260,7 @@ class EnvioWorkerTest {
                 id = sessionId,
                 participanteCodigo = participante,
                 consentimientoId = consentimientoId,
-                protocoloVersion = "1.0.0",
+                protocoloVersion = "2.0.0",
                 semilla = 20261005L,
                 estado = EstadoSesion.INTERRUMPIDA,
                 bloqueActual = 1,
@@ -316,7 +316,7 @@ class EnvioWorkerTest {
         const val ENVIO_ID = "3f2b8c1e-9a47-4d2e-8b61-0c5e7a9d4f12"
         const val ENVIO_ID_SECUNDARIO = "a7c4e2d9-5b13-4f8a-9e26-1d0b3c8f7a45"
         fun payloadDePrueba(envioId: String) = (
-            "{\"contrato\":{\"nombre\":\"helpi.evaluacion.sesion\",\"version\":\"1.0.0\"}," +
+            "{\"contrato\":{\"nombre\":\"helpi.evaluacion.sesion\",\"version\":\"2.0.0\"}," +
                 "\"envio\":{\"envioId\":\"$envioId\"}}"
             ).toByteArray(StandardCharsets.UTF_8)
     }

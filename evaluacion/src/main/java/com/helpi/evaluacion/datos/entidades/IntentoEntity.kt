@@ -4,6 +4,8 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.helpi.evaluacion.dominio.intento.ReglasIntento
+import com.helpi.evaluacion.dominio.protocolo.GeneradorProtocolo
 
 @Entity(
     tableName = "intento",
@@ -44,12 +46,18 @@ data class IntentoEntity(
     val duracionSegmentoMs: Long?
 ) {
     init {
-        require(posicion in 1..192) { "posicion debe estar entre 1 y 192" }
-        require(bloque in 1..4) { "bloque debe estar entre 1 y 4" }
+        require(posicion in 1..GeneradorProtocolo.INTENTOS) {
+            "posicion debe estar entre 1 y ${GeneradorProtocolo.INTENTOS}"
+        }
+        require(bloque in 1..GeneradorProtocolo.CANTIDAD_BLOQUES) {
+            "bloque debe estar entre 1 y ${GeneradorProtocolo.CANTIDAD_BLOQUES}"
+        }
         require(numeroIntento >= 1) { "numeroIntento debe ser al menos 1" }
-        require(senaEsperadaIndice in 0..63) { "senaEsperadaIndice debe estar entre 0 y 63" }
-        require(predichoIndice == null || predichoIndice in 0..63) {
-            "predichoIndice debe estar entre 0 y 63"
+        require(ReglasIntento.indiceValido(senaEsperadaIndice)) {
+            "senaEsperadaIndice debe estar entre 0 y ${ReglasIntento.ULTIMO_INDICE}"
+        }
+        require(predichoIndice == null || ReglasIntento.indiceValido(predichoIndice)) {
+            "predichoIndice debe estar entre 0 y ${ReglasIntento.ULTIMO_INDICE}"
         }
         require(confianza == null || confianza.isFinite() && confianza in 0f..1f) {
             "confianza debe estar entre 0 y 1"

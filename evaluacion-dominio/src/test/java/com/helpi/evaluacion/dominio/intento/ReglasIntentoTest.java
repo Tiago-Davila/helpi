@@ -67,11 +67,11 @@ public class ReglasIntentoTest {
     @Test
     public void encuentraPrimeraPosicionSinRespuestaDelBloque() {
         assertEquals(
-                51,
-                CalculoPosicionRetoma.primerIntentoSinRespuesta(2, java.util.Set.of(49, 50, 52))
+                97,
+                CalculoPosicionRetoma.primerIntentoSinRespuesta(2, java.util.Set.of(95, 96, 98))
                         .orElseThrow()
         );
-        assertFalse(CalculoPosicionRetoma.primerIntentoSinRespuesta(1, posiciones(1, 48)).isPresent());
+        assertFalse(CalculoPosicionRetoma.primerIntentoSinRespuesta(1, posiciones(1, 94)).isPresent());
     }
 
     private static Intento clasificado(

@@ -62,7 +62,7 @@ public final class PhraseBuilder {
         }
         List<String> pieces = new ArrayList<>();
         List<String> applied = new ArrayList<>();
-        for (TemplateMatcher.Segment segment : matcher.segment(entries)) {
+        for (TemplateMatcher.Segment segment : matcher.segment(joinSpelling(entries))) {
             if (segment.template() == null) {
                 pieces.add(notation(segment.signs().get(0).gloss()));
             } else {
@@ -93,6 +93,37 @@ public final class PhraseBuilder {
             entries.add(entry);
         }
         return entries;
+    }
+
+    /**
+     * Une cada tramo de letras seguidas en una sola palabra deletreada: A N A → «Ana».
+     * Se escribe con mayúscula inicial porque el deletreo se usa sobre todo para nombres
+     * propios. La palabra queda en categoría LETRA, así la plantilla de deletreo la cubre.
+     * Las glosas que se muestran debajo de la frase siguen siendo las letras sueltas.
+     */
+    static List<LexicalEntry> joinSpelling(List<LexicalEntry> entries) {
+        List<LexicalEntry> joined = new ArrayList<>(entries.size());
+        int i = 0;
+        while (i < entries.size()) {
+            if (entries.get(i).category() != SignCategory.LETRA) {
+                joined.add(entries.get(i++));
+                continue;
+            }
+            StringBuilder letters = new StringBuilder();
+            int first = i;
+            while (i < entries.size() && entries.get(i).category() == SignCategory.LETRA) {
+                letters.append(entries.get(i++).form());
+            }
+            if (i - first == 1) {
+                joined.add(entries.get(first));
+                continue;
+            }
+            String word = letters.toString().toLowerCase(Locale.ROOT);
+            String spelled = word.substring(0, 1).toUpperCase(Locale.ROOT) + word.substring(1);
+            joined.add(new LexicalEntry(entries.get(first).index(), letters.toString().toUpperCase(Locale.ROOT),
+                    SignCategory.LETRA, spelled, null, false, null, null));
+        }
+        return joined;
     }
 
     // Glosa en mayúsculas: convención de glosado que marca lo que no se construyó.

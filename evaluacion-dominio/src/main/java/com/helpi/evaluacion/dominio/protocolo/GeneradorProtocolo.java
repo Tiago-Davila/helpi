@@ -7,11 +7,11 @@ import java.util.Random;
 
 /** Genera la secuencia reproducible de señas para una sesión de evaluación. */
 public final class GeneradorProtocolo {
-    public static final String VERSION = "1.0.0";
-    public static final int CANTIDAD_SENAS = 64;
-    public static final int REPETICIONES = 3;
+    public static final String VERSION = "2.0.0";
+    public static final int CANTIDAD_SENAS = 94;
+    public static final int REPETICIONES = 5;
     public static final int INTENTOS = CANTIDAD_SENAS * REPETICIONES;
-    public static final int CANTIDAD_BLOQUES = 4;
+    public static final int CANTIDAD_BLOQUES = 5;
     public static final int INTENTOS_POR_BLOQUE = INTENTOS / CANTIDAD_BLOQUES;
 
     private GeneradorProtocolo() { }
