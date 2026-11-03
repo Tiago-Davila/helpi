@@ -9,6 +9,7 @@ import com.helpi.conversation.lsa.PhraseAssets
 import com.helpi.conversation.lsa.SignAcceptancePolicy
 import com.helpi.conversation.lsa.SignCatalog
 import com.helpi.conversation.lsa.SignDecision
+import com.helpi.conversation.lsa.SignLanguage
 import com.helpi.conversation.observation.NoResultCause
 import com.helpi.conversation.observation.RecognitionObserver
 import com.helpi.conversation.phrase.PhraseResult
@@ -81,6 +82,7 @@ class SessionCoordinatorTest {
         val dir = File("src/main/assets/lsa")
         val catalog = SignCatalog.parse(File(dir, "catalogo_senas.json").readText())
         val manifest = ModelBundle.Manifest(
+            language = SignLanguage.LSA,
             modelVersion = "eva-lsa94-v4",
             catalogVersion = "3.0",
             modelSha256 = "",
