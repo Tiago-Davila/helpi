@@ -61,8 +61,7 @@ internal fun porcentaje(value: Float) = "${(value * 100).roundToInt()} %"
 internal fun PantallaCuenta(
     state: SessionCoordinator.UiState,
     participantes: Participantes,
-    onThreshold: (Float) -> Unit,
-    onRenombrarCuenta: (String) -> Unit,
+    actions: ConversationActions,
     modifier: Modifier = Modifier
 ) {
     var editando by remember { mutableStateOf(false) }
@@ -77,8 +76,12 @@ internal fun PantallaCuenta(
         Spacer(Modifier.height(10.dp))
         TarjetaDePerfil(participantes.cuenta) { editando = true }
 
+        Seccion("Lengua de señas") {
+            SelectorDeLengua(state, actions.signLanguage)
+        }
+
         Seccion("Reconocimiento") {
-            ControlDeUmbral(state, onThreshold)
+            ControlDeUmbral(state, actions.threshold)
         }
 
         Seccion("Qué reconoce Helpi") {
@@ -124,7 +127,7 @@ internal fun PantallaCuenta(
             inicial = participantes.cuenta,
             confirmar = "Guardar",
             onConfirmar = {
-                onRenombrarCuenta(it)
+                actions.renombrarCuenta(it)
                 editando = false
             },
             onDismiss = { editando = false }

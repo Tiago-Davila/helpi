@@ -9,6 +9,7 @@ import com.helpi.conversation.lsa.PhraseAssets
 import com.helpi.conversation.lsa.SignAcceptancePolicy
 import com.helpi.conversation.lsa.SignCatalog
 import com.helpi.conversation.lsa.SignDecision
+import com.helpi.conversation.lsa.SignLanguage
 import com.helpi.conversation.observation.NoResultCause
 import com.helpi.conversation.observation.RecognitionObserver
 import com.helpi.conversation.phrase.PhraseResult
@@ -81,6 +82,7 @@ class SessionCoordinatorTest {
         val dir = File("src/main/assets/lsa")
         val catalog = SignCatalog.parse(File(dir, "catalogo_senas.json").readText())
         val manifest = ModelBundle.Manifest(
+            language = SignLanguage.LSA,
             modelVersion = "eva-lsa94-v4",
             catalogVersion = "3.0",
             modelSha256 = "",
@@ -286,5 +288,53 @@ class SessionCoordinatorTest {
         override fun onDecision(decision: SignDecision, thresholdUsed: Float, segmentEndMs: Long) {
             decisions += DecisionEvent(decision, thresholdUsed, segmentEndMs)
         }
+    }
+
+    @Test
+    fun choosingALanguageIsPersistedWithItsOwnThreshold() {
+        coordinator.prepare(autoStart = true)
+        awaitState { it.session == SessionState.ACTIVA_LIMITADA }
+        assertEquals(SignLanguage.LSA, coordinator.uiState.value.signLanguage)
+        coordinator.setConfidenceThreshold(0.8f)
+        awaitState { it.confidenceThreshold == 0.8f }
+
+        coordinator.setSignLanguage(SignLanguage.LSE)
+        // 0,47 recomendado por el entrenamiento, elevado al mínimo de la app
+        val lse = awaitState { it.signLanguage == SignLanguage.LSE }
+        assertEquals(SessionCoordinator.MIN_THRESHOLD, lse.confidenceThreshold)
+        assertFalse(lse.capabilities.phraseVision)
+
+        coordinator.setSignLanguage(SignLanguage.LSA)
+        assertEquals(0.8f, awaitState { it.signLanguage == SignLanguage.LSA }.confidenceThreshold)
+        coordinator.setSignLanguage(SignLanguage.LSE)
+        awaitState { it.signLanguage == SignLanguage.LSE }
+
+        val reopened = SessionCoordinator(RuntimeEnvironment.getApplication())
+        assertEquals(SignLanguage.LSE, reopened.uiState.value.signLanguage)
+        reopened.shutdown()
+    }
+
+    @Test
+    fun aLanguageWithoutPackageDisablesVisionInsteadOfFallingBackToLsa() {
+        // ASL y LSE todavía no tienen paquete en assets: ninguna carga LiteRT.
+        shadowOf(RuntimeEnvironment.getApplication()).grantPermissions(Manifest.permission.CAMERA)
+        coordinator.setSignLanguage(SignLanguage.ASL)
+        awaitState { it.signLanguage == SignLanguage.ASL }
+        coordinator.prepare(autoStart = true)
+        val asl = awaitState { it.session == SessionState.ACTIVA_LIMITADA }
+        assertFalse(asl.capabilities.vision)
+        assertTrue(
+            asl.capabilities.visionDetail,
+            asl.capabilities.visionDetail.contains("American Sign Language no disponible")
+        )
+        assertEquals("", asl.modelLicense)
+
+        coordinator.setSignLanguage(SignLanguage.LSE)
+        val lse = awaitState { it.signLanguage == SignLanguage.LSE }
+        assertFalse(lse.capabilities.vision)
+        assertTrue(
+            lse.capabilities.visionDetail,
+            lse.capabilities.visionDetail.contains("Lengua de Signos Española no disponible")
+        )
     }
 }

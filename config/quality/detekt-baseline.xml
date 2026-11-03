@@ -133,7 +133,7 @@
     <ID>MatchingDeclarationName:EvaOrb.kt$EvaEstado</ID>
     <ID>MatchingDeclarationName:Hotbar.kt$SeccionHotbar</ID>
     <ID>MatchingDeclarationName:Shape.kt$HelpiShapes</ID>
-    <ID>ReturnCount:ModelBundle.kt$ModelBundle.Companion$internal fun load(read: (String) -&gt; ByteArray?): ModelBundleResult</ID>
+    <ID>ReturnCount:ModelBundle.kt$ModelBundle.Companion$internal fun load( language: SignLanguage = SignLanguage.LSA, read: (String) -&gt; ByteArray? ): ModelBundleResult</ID>
     <ID>ReturnCount:OfflineSpeechOutput.kt$OfflineSpeechOutput$fun speak(messageId: Long, text: String): Boolean</ID>
     <ID>ReturnCount:SequenceAcceptancePolicy.kt$SequenceAcceptancePolicy$fun evaluate(candidate: SequenceTranslationCandidate): SequenceAcceptanceDecision</ID>
     <ID>ReturnCount:SequenceModelBundle.kt$SequenceModelBundle.Companion$fun load(context: Context): SequenceModelBundleResult</ID>

@@ -16,12 +16,15 @@ import com.helpi.conversation.chat.Turn
 import com.helpi.conversation.chat.TurnState
 import com.helpi.conversation.chat.VoiceState
 import com.helpi.conversation.keypoints.KeypointContract
+import com.helpi.conversation.lsa.ClassifierSlot
 import com.helpi.conversation.lsa.ModelBundle
 import com.helpi.conversation.lsa.ModelBundleResult
 import com.helpi.conversation.lsa.PhraseAssets
 import com.helpi.conversation.lsa.SignAcceptancePolicy
 import com.helpi.conversation.lsa.SignClassifier
 import com.helpi.conversation.lsa.SignDecision
+import com.helpi.conversation.lsa.SignLanguage
+import com.helpi.conversation.lsa.SignLanguageStore
 import com.helpi.conversation.lsa.sequence.PhraseCaptureState
 import com.helpi.conversation.lsa.sequence.RecognitionMode
 import com.helpi.conversation.lsa.sequence.SequenceAcceptancePolicy
@@ -68,7 +71,8 @@ import kotlinx.coroutines.flow.asStateFlow
 class SessionCoordinator(
     private val context: Context,
     private val recognitionObserver: RecognitionObserver = RecognitionObserver.NO_OP,
-    private val deliveryMode: DeliveryMode = DeliveryMode.CONVERSATION
+    private val deliveryMode: DeliveryMode = DeliveryMode.CONVERSATION,
+    private val languageStore: SignLanguageStore = SignLanguageStore(context)
 ) {
 
     enum class DeliveryMode {
@@ -115,7 +119,11 @@ class SessionCoordinator(
         val phraseCandidate: SequenceTranslationCandidate? = null,
         val notice: String? = null,
         val microphoneEnabled: Boolean = true,
-        val cameraEnabled: Boolean = true
+        val cameraEnabled: Boolean = true,
+        val signLanguage: SignLanguage = SignLanguage.LSA,
+        /** Licencia y atribución del dataset del modelo cargado; vacías sin modelo. */
+        val modelLicense: String = "",
+        val modelAttribution: String = ""
     )
 
     private val executor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
@@ -149,7 +157,13 @@ class SessionCoordinator(
     private val frameBuffer = ArrayDeque<CapturedFrame>()
     private val preRollBuffer = ArrayDeque<CapturedFrame>()
 
-    private var classifier: SignClassifier? = null
+    /** Un solo intérprete cargado: el de la lengua elegida. */
+    private val classifierSlot = ClassifierSlot<SignClassifier> { classifierExecutor.execute(it) }
+    private val classifier: SignClassifier? get() = classifierSlot.current
+    private var signLanguage: SignLanguage = languageStore.language()
+
+    /** Resultado de cargar el paquete de frases; solo se ofrece con LSA. */
+    private var phraseLoad: Pair<Boolean, String> = false to ""
     private var acceptancePolicy: SignAcceptancePolicy? = null
     private var bundle: ModelBundle? = null
     private var phraseAssets: PhraseAssets = PhraseAssets.Disabled(PHRASES_WITHOUT_MODEL)
@@ -161,7 +175,7 @@ class SessionCoordinator(
     private val sequenceAcceptancePolicy = SequenceAcceptancePolicy()
     private var sequenceClassifying = false
     private var ticker: ScheduledFuture<*>? = null
-    private var confidenceThreshold = DEFAULT_THRESHOLD
+    private var confidenceThreshold = storedThreshold(signLanguage)
     private var lastRecognition: RecognitionFeedback? = null
     private var visionMetrics = VisionMetrics()
     private var samplingProfile = SamplingProfile.IDLE
@@ -187,7 +201,9 @@ class SessionCoordinator(
     private var capabilities = Capabilities()
     private var notice: String? = null
 
-    private val _uiState = MutableStateFlow(UiState())
+    private val _uiState = MutableStateFlow(
+        UiState(signLanguage = signLanguage, confidenceThreshold = confidenceThreshold)
+    )
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
     private val arbiter: AudioArbiter by lazy {
@@ -261,29 +277,7 @@ class SessionCoordinator(
         val visionCap = if (!hasPermission(Manifest.permission.CAMERA)) {
             false to "permiso de cámara denegado"
         } else {
-            when (val result = ModelBundle.load(context)) {
-                is ModelBundleResult.Ready -> {
-                    bundle = result.bundle
-                    phraseAssets = PhraseAssets.load(
-                        context,
-                        result.bundle.manifest,
-                        result.bundle.catalog
-                    )
-                    try {
-                        classifier = SignClassifier(result.bundle)
-                        acceptancePolicy = SignAcceptancePolicy(
-                            confidenceThreshold,
-                            result.bundle.manifest.outputsProbabilities,
-                            result.bundle.manifest.numClasses
-                        )
-                        true to ""
-                    } catch (e: Exception) {
-                        false to "modelo incompatible: ${e.message}"
-                    }
-                }
-                is ModelBundleResult.Missing -> false to "falta ${result.asset}"
-                is ModelBundleResult.Invalid -> false to result.cause
-            }
+            loadVisionBundle()
         }
 
         // Canal experimental de frases: su ausencia nunca inhabilita a Eva.
@@ -388,11 +382,14 @@ class SessionCoordinator(
             }
         )
 
+        phraseLoad = phraseCap
+        val offeredPhrase = phraseForLanguage()
+        if (!offeredPhrase.first) phraseCaptureState = PhraseCaptureState.UNAVAILABLE
         capabilities = capabilities.copy(
             vision = visionCap.first,
             visionDetail = visionCap.second,
-            phraseVision = phraseCap.first,
-            phraseVisionDetail = phraseCap.second,
+            phraseVision = offeredPhrase.first,
+            phraseVisionDetail = offeredPhrase.second,
             stt = sttCap.first,
             sttDetail = sttCap.second
         )
@@ -517,8 +514,7 @@ class SessionCoordinator(
         speech?.close()
         speech = null
         arbiter.reset()
-        classifier?.let { closing -> classifierExecutor.execute { closing.close() } }
-        classifier = null
+        classifierSlot.replace(null)
         classifying = false
         sequenceTranslator?.let { closing ->
             sequenceClassifierExecutor.execute { closing.close() }
@@ -781,6 +777,7 @@ class SessionCoordinator(
         val gen = generation
         val thresholdUsed = confidenceThreshold
         val revision = visionRevision
+        val epoch = classifierSlot.epoch
         classifying = true
         classifierExecutor.execute {
             val startedAt = now()
@@ -794,7 +791,9 @@ class SessionCoordinator(
                     classifierRuns = visionMetrics.classifierRuns + 1,
                     lastClassifierLatencyMs = (now() - startedAt).coerceAtLeast(0L)
                 )
-                if (!isActive() || !cameraEnabled || revision != visionRevision) {
+                // Una ventana de una lengua nunca se publica con el catálogo de otra.
+                val stale = revision != visionRevision || epoch != classifierSlot.epoch
+                if (!isActive() || !cameraEnabled || stale) {
                     turn?.let { abandonAttempt(it.id()) }
                     publish()
                     return@submit
@@ -1087,6 +1086,7 @@ class SessionCoordinator(
     /** Ajusta la compuerta sin cambiar ni volver a cargar el modelo. */
     fun setConfidenceThreshold(value: Float) = submit(generation) {
         confidenceThreshold = value.coerceIn(MIN_THRESHOLD, MAX_THRESHOLD)
+        languageStore.setThreshold(signLanguage, confidenceThreshold)
         bundle?.let { loaded ->
             acceptancePolicy = SignAcceptancePolicy(
                 confidenceThreshold,
@@ -1095,6 +1095,110 @@ class SessionCoordinator(
             )
         }
         publish()
+    }
+
+    /**
+     * Cambia la lengua de señas: descarta la ventana en curso, libera el
+     * intérprete anterior y carga el paquete nuevo. Si ese paquete es inválido,
+     * la visión queda inhabilitada con el motivo; nunca se vuelve a LSA.
+     */
+    fun setSignLanguage(language: SignLanguage) = submit(generation) {
+        if (language == signLanguage) return@submit
+        closeSentence()
+        languageStore.setLanguage(language)
+        signLanguage = language
+        confidenceThreshold = storedThreshold(language)
+        discardVisionWindow()
+        classifierSlot.replace(null)
+        classifying = false
+        bundle = null
+        acceptancePolicy = null
+        phraseAssets = PhraseAssets.Disabled(PHRASES_WITHOUT_MODEL)
+        if (recognitionMode == RecognitionMode.PHRASE_EXPERIMENTAL &&
+            language != SignLanguage.LSA
+        ) {
+            recognitionMode = RecognitionMode.SINGLE_SIGN
+        }
+        val prepared = stateMachine.current() != SessionState.INICIO &&
+            stateMachine.current() != SessionState.CERRADA
+        if (prepared) {
+            val vision = if (hasPermission(Manifest.permission.CAMERA)) {
+                loadVisionBundle()
+            } else {
+                false to "permiso de cámara denegado"
+            }
+            val phrase = phraseForLanguage()
+            phraseCaptureState = if (phrase.first && sequenceTranslator != null) {
+                PhraseCaptureState.READY
+            } else {
+                PhraseCaptureState.UNAVAILABLE
+            }
+            capabilities = capabilities.copy(
+                vision = vision.first,
+                visionDetail = vision.second,
+                phraseVision = phrase.first,
+                phraseVisionDetail = phrase.second
+            )
+            if (isActive()) {
+                visualState = if (activeVisionAvailable() && cameraEnabled) {
+                    VisualChannelState.BUSCANDO_ENCUADRE
+                } else {
+                    VisualChannelState.NO_DISPONIBLE
+                }
+            }
+        }
+        publish()
+    }
+
+    /** Carga modelo y catálogo de la lengua activa; devuelve disponibilidad y motivo. */
+    private fun loadVisionBundle(): Pair<Boolean, String> =
+        when (val result = ModelBundle.load(context, signLanguage)) {
+            is ModelBundleResult.Ready -> {
+                bundle = result.bundle
+                // Léxico y plantillas existen solo para LSA.
+                phraseAssets = if (signLanguage == SignLanguage.LSA) {
+                    PhraseAssets.load(context, result.bundle.manifest, result.bundle.catalog)
+                } else {
+                    PhraseAssets.Disabled(PHRASES_ONLY_LSA)
+                }
+                try {
+                    classifierSlot.replace(SignClassifier(result.bundle))
+                    acceptancePolicy = SignAcceptancePolicy(
+                        confidenceThreshold,
+                        result.bundle.manifest.outputsProbabilities,
+                        result.bundle.manifest.numClasses
+                    )
+                    true to ""
+                } catch (e: Exception) {
+                    false to "modelo incompatible: ${e.message}"
+                }
+            }
+            is ModelBundleResult.Missing ->
+                false to "${signLanguage.displayName()} no disponible: falta ${result.asset}"
+            is ModelBundleResult.Invalid ->
+                false to "${signLanguage.displayName()} no disponible: ${result.cause}"
+        }
+
+    /** Disponibilidad del modo frase para la lengua activa. */
+    private fun phraseForLanguage(): Pair<Boolean, String> =
+        if (signLanguage == SignLanguage.LSA) phraseLoad else false to PHRASES_ONLY_LSA
+
+    /** Umbral de la lengua: el ajustado por la persona o el recomendado. */
+    private fun storedThreshold(language: SignLanguage): Float =
+        languageStore.threshold(language, language.recommendedThreshold())
+            .coerceIn(MIN_THRESHOLD, MAX_THRESHOLD)
+
+    /** Descarta todo lo capturado: nada de esta ventana llega a otro modelo. */
+    private fun discardVisionWindow() {
+        visionRevision++
+        frameBuffer.clear()
+        preRollBuffer.clear()
+        phraseBuffer.cancel()
+        phraseCandidate = null
+        phraseCandidateStartMs = -1L
+        lastRecognition = null
+        observationFactory.reset()
+        segmenter = SignSegmenter(SegmenterConfig.defaults())
     }
 
     fun toggleMicrophone() = submit(generation) {
@@ -1391,7 +1495,10 @@ class SessionCoordinator(
             phraseCandidate = phraseCandidate,
             notice = notice,
             microphoneEnabled = microphoneEnabled,
-            cameraEnabled = cameraEnabled
+            cameraEnabled = cameraEnabled,
+            signLanguage = signLanguage,
+            modelLicense = bundle?.manifest?.license.orEmpty(),
+            modelAttribution = bundle?.manifest?.attribution.orEmpty()
         )
     }
 
@@ -1402,6 +1509,7 @@ class SessionCoordinator(
         /** Sin señas nuevas durante este tiempo, la oración se da por terminada. */
         const val SENTENCE_PAUSE_MS = 2_500L
         private const val PHRASES_WITHOUT_MODEL = "modelo LSA no cargado"
+        private const val PHRASES_ONLY_LSA = "el modo frase solo está disponible en LSA"
 
         /** Texto que la voz dice para una oración: la frase, o nada si tiene huecos. */
         internal fun sentenceVoice(result: PhraseResult): String? =

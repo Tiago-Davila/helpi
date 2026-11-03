@@ -18,6 +18,7 @@ class PhraseAssetsTest {
         SignCatalog.parse(File("src/main/assets/lsa/catalogo_senas.json").readText())
 
     private val manifest = ModelBundle.Manifest(
+        language = SignLanguage.LSA,
         modelVersion = "eva-lsa94-v4",
         catalogVersion = "3.0",
         modelSha256 = "",
