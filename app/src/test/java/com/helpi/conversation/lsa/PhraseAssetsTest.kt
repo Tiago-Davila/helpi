@@ -18,6 +18,7 @@ class PhraseAssetsTest {
         SignCatalog.parse(File("src/main/assets/lsa/catalogo_senas.json").readText())
 
     private val manifest = ModelBundle.Manifest(
+        language = "lsa",
         modelVersion = "eva-lsa94-v4",
         catalogVersion = "3.0",
         modelSha256 = "",
@@ -26,7 +27,9 @@ class PhraseAssetsTest {
         outputsProbabilities = false,
         frames = 40,
         coords = 168,
-        contractVersion = 3
+        contractVersion = 3,
+        license = "CC BY-NC-SA 4.0",
+        attribution = "LSA64"
     )
 
     private fun assets(): MutableMap<String, ByteArray> =
