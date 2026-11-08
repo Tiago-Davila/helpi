@@ -1,6 +1,5 @@
 package com.helpi.conversation.lsa
 
-import java.io.Closeable
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import org.tensorflow.lite.Interpreter
@@ -15,7 +14,7 @@ import org.tensorflow.lite.Interpreter
  *
  * No es thread-safe: una sola inferencia activa, desde el executor LiteRT.
  */
-class SignClassifier(bundle: ModelBundle) : Closeable {
+class SignClassifier(bundle: ModelBundle) : VisualClassifier {
 
     private val interpreter = Interpreter(
         bundle.model,
@@ -46,7 +45,7 @@ class SignClassifier(bundle: ModelBundle) : Closeable {
      * @param inputTensor tensor 40×168 aplanado producido por KeypointContract.
      * @return scores crudos (logits o probabilidades según el manifiesto).
      */
-    fun classify(inputTensor: FloatArray): FloatArray {
+    override fun classify(inputTensor: FloatArray): FloatArray {
         require(inputTensor.size == frames * coords) {
             "tensor de ${inputTensor.size} floats, se esperaban ${frames * coords}"
         }
