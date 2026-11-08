@@ -3,6 +3,7 @@ package com.helpi.conversation.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import com.helpi.conversation.VariantBindings
+import com.helpi.conversation.lsa.SignLanguage
 import com.helpi.conversation.lsa.sequence.RecognitionMode
 import com.helpi.conversation.vision.CameraCaptureMetrics
 import com.helpi.conversation.vision.LandmarkExtractionMetrics
@@ -42,6 +43,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
     fun resume() = coordinator.resume()
     fun markIncorrect(turnId: Long) = coordinator.markIncorrect(turnId)
     fun setConfidenceThreshold(value: Float) = coordinator.setConfidenceThreshold(value)
+    fun setSignLanguage(language: SignLanguage) = coordinator.setSignLanguage(language)
     fun setRecognitionMode(mode: RecognitionMode) = coordinator.setRecognitionMode(mode)
     fun startPhraseCapture() = coordinator.startPhraseCapture()
     fun finishPhraseCapture() = coordinator.finishPhraseCapture()

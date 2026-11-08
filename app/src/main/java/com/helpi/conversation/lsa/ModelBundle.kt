@@ -108,6 +108,16 @@ class ModelBundle private constructor(
             return ModelBundleResult.Ready(ModelBundle(direct, catalog, manifest))
         }
 
+        /** Lee solo el manifiesto de una lengua, sin cargar el modelo, para mostrar sus créditos. */
+        fun readManifest(context: Context, language: SignLanguage): Manifest? =
+            readManifest(language) { path -> readAsset(context, path) }
+
+        /** Manifiesto legible de la lengua, o null si falta o no se puede leer. */
+        internal fun readManifest(language: SignLanguage, read: (String) -> ByteArray?): Manifest? {
+            val json = read(assetPaths(language).manifest) ?: return null
+            return runCatching { parseManifest(String(json, Charsets.UTF_8)) }.getOrNull()
+        }
+
         /** Motivo por el que el manifiesto no sirve para esta lengua y esta app, o null si sirve. */
         private fun manifestProblem(manifest: Manifest, language: SignLanguage): String? = when {
             // Un manifiesto copiado en la carpeta equivocada haría que la app

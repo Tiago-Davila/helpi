@@ -143,6 +143,8 @@ dependencies {
         }
     }
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(composeBom)
+    testImplementation(libs.compose.ui.test.junit4)
 
     androidTestImplementation(composeBom)
     androidTestImplementation(libs.androidx.test.ext.junit)

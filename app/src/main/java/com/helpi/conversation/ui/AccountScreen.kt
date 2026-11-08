@@ -9,9 +9,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -19,6 +22,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -29,14 +33,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.helpi.conversation.R
+import com.helpi.conversation.lsa.SignLanguage
 import com.helpi.conversation.session.SessionCoordinator
 import com.helpi.conversation.ui.components.EvaEstado
 import com.helpi.conversation.ui.components.EvaOrb
@@ -61,11 +68,13 @@ internal fun porcentaje(value: Float) = "${(value * 100).roundToInt()} %"
 internal fun PantallaCuenta(
     state: SessionCoordinator.UiState,
     participantes: Participantes,
-    onThreshold: (Float) -> Unit,
-    onRenombrarCuenta: (String) -> Unit,
+    actions: ConversationActions,
     modifier: Modifier = Modifier
 ) {
     var editando by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val creditos = remember { creditosDeLenguas(context) }
+    val activa = descripcion(state.signLanguage)
 
     Column(
         modifier = modifier
@@ -78,25 +87,27 @@ internal fun PantallaCuenta(
         TarjetaDePerfil(participantes.cuenta) { editando = true }
 
         Seccion("Reconocimiento") {
-            ControlDeUmbral(state, onThreshold)
+            SelectorDeLengua(state.signLanguage, actions.signLanguage)
+            ControlDeUmbral(state, actions.threshold)
         }
 
-        Seccion("Qué reconoce Helpi") {
+        Seccion("Qué reconoce Helpi en ${activa.sigla}") {
             Text(
-                "94 señas aisladas de lengua de señas argentina (incluye hoy, ayer, mañana y el " +
-                    "abecedario), sin conexión y sin que el " +
-                    "video salga del teléfono. Una seña que no esté en esas 94 se informa como " +
-                    "no reconocida: Helpi no la fuerza a la más parecida.",
+                activa.vocabulario + " Sin conexión y sin que el video salga del teléfono. " +
+                    "Una seña que no esté en ese vocabulario se informa como no reconocida: " +
+                    "Helpi no la fuerza a la más parecida.",
                 style = HelpiType.BodyS,
                 color = HelpiColors.LedMuted
             )
-            Text(
-                "El modelo aprendió de personas oyentes y diestras grabadas en un laboratorio, " +
-                    "así que todavía falla de forma sistemática con señantes zurdos y puede " +
-                    "comportarse distinto fuera de esas condiciones.",
-                style = HelpiType.BodyS,
-                color = HelpiColors.LedMuted
-            )
+            Text(activa.limitaciones, style = HelpiType.BodyS, color = HelpiColors.LedMuted)
+            if (creditos.none { it.lengua == state.signLanguage && it.modeloInstalado }) {
+                Text(
+                    "Esta versión de Helpi todavía no trae el modelo de ${activa.sigla}: la " +
+                        "cámara no va a reconocer señas. Podés seguir con voz o texto.",
+                    style = HelpiType.BodyS,
+                    color = HelpiColors.Warning
+                )
+            }
             Text(
                 "Helpi ayuda a comunicarse. No reemplaza a una persona intérprete y no sirve " +
                     "para una emergencia: su vocabulario no incluye ninguna seña de auxilio.",
@@ -106,10 +117,10 @@ internal fun PantallaCuenta(
         }
 
         Seccion("Licencias") {
+            creditos.forEach { CreditoDeModelo(it) }
             Text(
-                "LSA64 · LIDI, Universidad Nacional de La Plata · CC BY-NC-SA 4.0. Uso no " +
-                    "comercial. Vosk español 0.42 · Apache 2.0. Atkinson Hyperlegible Next y " +
-                    "Lexend · SIL Open Font License.",
+                "Vosk español 0.42 · Apache 2.0. Atkinson Hyperlegible Next y Lexend · " +
+                    "SIL Open Font License.",
                 style = HelpiType.CaptionDisclaimer,
                 color = HelpiColors.LedMuted
             )
@@ -124,10 +135,65 @@ internal fun PantallaCuenta(
             inicial = participantes.cuenta,
             confirmar = "Guardar",
             onConfirmar = {
-                onRenombrarCuenta(it)
+                actions.renombrarCuenta(it)
                 editando = false
             },
             onDismiss = { editando = false }
+        )
+    }
+}
+
+/** Atribución del dataset con el que se entrenó el modelo de una lengua. */
+@Composable
+private fun CreditoDeModelo(credito: CreditoDeLengua) {
+    val sigla = descripcion(credito.lengua).sigla
+    val uso = if (credito.credito.licencia.contains("NC")) " Uso no comercial." else ""
+    Text(
+        "$sigla · ${credito.credito.atribucion} ${credito.credito.licencia}.$uso",
+        style = HelpiType.CaptionDisclaimer,
+        color = HelpiColors.LedMuted,
+        modifier = Modifier.testTag("credito_${credito.lengua.code()}")
+    )
+}
+
+/**
+ * Elección de la lengua de señas. Es un grupo de opciones excluyentes para que
+ * TalkBack anuncie cuál está marcada y cuántas hay; cada fila entera es el
+ * blanco táctil, no solo el círculo.
+ */
+@Composable
+internal fun SelectorDeLengua(
+    activa: SignLanguage,
+    onSignLanguage: (SignLanguage) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("Lengua de señas", style = HelpiType.BodyM, color = HelpiColors.LedSoft)
+        Column(Modifier.selectableGroup()) {
+            SignLanguage.values().forEach { lengua ->
+                val info = descripcion(lengua)
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp)
+                        .selectable(
+                            selected = lengua == activa,
+                            onClick = { onSignLanguage(lengua) },
+                            role = Role.RadioButton
+                        )
+                        .testTag("lengua_${lengua.code()}"),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    RadioButton(selected = lengua == activa, onClick = null)
+                    Text(info.nombre, style = HelpiType.BodyM, color = HelpiColors.LedSoft)
+                }
+            }
+        }
+        Text(
+            "Cambiar de lengua termina la frase en curso y carga el modelo de la lengua elegida.",
+            style = HelpiType.BodyS,
+            color = HelpiColors.LedMuted
         )
     }
 }
