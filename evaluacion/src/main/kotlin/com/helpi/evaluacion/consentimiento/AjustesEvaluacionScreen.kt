@@ -3,10 +3,11 @@ package com.helpi.evaluacion.consentimiento
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -28,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.helpi.evaluacion.R
 import com.helpi.evaluacion.datos.HelpiEvaluacionDatabaseProvider
+import com.helpi.evaluacion.ui.ColumnaAdaptativa
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -62,41 +64,53 @@ fun AjustesEvaluacionRoute(onVolver: () -> Unit, onBorrarDatos: () -> Unit = {})
     )
 
     if (confirmandoRevocacion) {
-        AlertDialog(
-            onDismissRequest = { confirmandoRevocacion = false },
-            title = { Text(stringResource(R.string.revocacion_confirmar_titulo)) },
-            text = { Text(stringResource(R.string.revocacion_confirmar_detalle)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        confirmandoRevocacion = false
-                        scope.launch {
-                            try {
-                                val revocada = withContext(Dispatchers.IO) { revocacion.revocar() }
-                                consentimientoVigente = !revocada &&
-                                    withContext(Dispatchers.IO) {
-                                        database.consentimientoDao().ultimo()
-                                            ?.let { it.revocadoEn == null } == true
-                                    }
-                                falloRevocacion = !revocada
-                            } catch (cancelacion: CancellationException) {
-                                throw cancelacion
-                            } catch (_: Exception) {
-                                falloRevocacion = true
+        DialogoRevocacion(
+            onConfirmar = {
+                confirmandoRevocacion = false
+                scope.launch {
+                    try {
+                        val revocada = withContext(Dispatchers.IO) { revocacion.revocar() }
+                        consentimientoVigente = !revocada &&
+                            withContext(Dispatchers.IO) {
+                                database.consentimientoDao().ultimo()
+                                    ?.let { it.revocadoEn == null } == true
                             }
-                        }
+                        falloRevocacion = !revocada
+                    } catch (cancelacion: CancellationException) {
+                        throw cancelacion
+                    } catch (_: Exception) {
+                        falloRevocacion = true
                     }
-                ) {
-                    Text(stringResource(R.string.revocacion_confirmar_accion))
                 }
             },
-            dismissButton = {
-                TextButton(onClick = { confirmandoRevocacion = false }) {
-                    Text(stringResource(R.string.revocacion_cancelar))
-                }
-            }
+            onCancelar = { confirmandoRevocacion = false }
         )
     }
+}
+
+/** Confirma la revocación del consentimiento; el detalle se recorre si no entra. */
+@Composable
+@Suppress("ktlint:standard:function-naming")
+private fun DialogoRevocacion(onConfirmar: () -> Unit, onCancelar: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onCancelar,
+        title = { Text(stringResource(R.string.revocacion_confirmar_titulo)) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text(stringResource(R.string.revocacion_confirmar_detalle))
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirmar) {
+                Text(stringResource(R.string.revocacion_confirmar_accion))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onCancelar) {
+                Text(stringResource(R.string.revocacion_cancelar))
+            }
+        }
+    )
 }
 
 @Composable
@@ -110,8 +124,8 @@ fun AjustesEvaluacionScreen(
     onPedirRevocacion: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = modifier.fillMaxSize().padding(24.dp),
+    ColumnaAdaptativa(
+        modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {

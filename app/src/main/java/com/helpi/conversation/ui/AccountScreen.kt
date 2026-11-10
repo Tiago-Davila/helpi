@@ -3,6 +3,7 @@ package com.helpi.conversation.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -47,9 +49,11 @@ import com.helpi.conversation.lsa.SignLanguage
 import com.helpi.conversation.session.SessionCoordinator
 import com.helpi.conversation.ui.components.EvaEstado
 import com.helpi.conversation.ui.components.EvaOrb
+import com.helpi.conversation.ui.theme.AnchoMaximoContenido
 import com.helpi.conversation.ui.theme.HelpiColors
 import com.helpi.conversation.ui.theme.HelpiShapes
 import com.helpi.conversation.ui.theme.HelpiType
+import com.helpi.conversation.ui.theme.margenLateral
 import kotlin.math.roundToInt
 
 internal fun porcentaje(value: Float) = "${(value * 100).roundToInt()} %"
@@ -76,56 +80,60 @@ internal fun PantallaCuenta(
     val creditos = remember { creditosDeLenguas(context) }
     val activa = descripcion(state.signLanguage)
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        Spacer(Modifier.height(10.dp))
-        TarjetaDePerfil(participantes.cuenta) { editando = true }
+    BoxWithConstraints(modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        val margen = maxWidth.margenLateral()
+        Column(
+            modifier = Modifier
+                .widthIn(max = AnchoMaximoContenido)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = margen),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Spacer(Modifier.height(10.dp))
+            TarjetaDePerfil(participantes.cuenta) { editando = true }
 
-        Seccion("Reconocimiento") {
-            SelectorDeLengua(state.signLanguage, actions.signLanguage)
-            ControlDeUmbral(state, actions.threshold)
-        }
+            Seccion("Reconocimiento") {
+                SelectorDeLengua(state.signLanguage, actions.signLanguage)
+                ControlDeUmbral(state, actions.threshold)
+            }
 
-        Seccion("Qué reconoce Helpi en ${activa.sigla}") {
-            Text(
-                activa.vocabulario + " Sin conexión y sin que el video salga del teléfono. " +
-                    "Una seña que no esté en ese vocabulario se informa como no reconocida: " +
-                    "Helpi no la fuerza a la más parecida.",
-                style = HelpiType.BodyS,
-                color = HelpiColors.LedMuted
-            )
-            Text(activa.limitaciones, style = HelpiType.BodyS, color = HelpiColors.LedMuted)
-            if (creditos.none { it.lengua == state.signLanguage && it.modeloInstalado }) {
+            Seccion("Qué reconoce Helpi en ${activa.sigla}") {
                 Text(
-                    "Esta versión de Helpi todavía no trae el modelo de ${activa.sigla}: la " +
-                        "cámara no va a reconocer señas. Podés seguir con voz o texto.",
+                    activa.vocabulario + " Sin conexión y sin que el video salga del teléfono. " +
+                        "Una seña que no esté en ese vocabulario se informa como no reconocida: " +
+                        "Helpi no la fuerza a la más parecida.",
+                    style = HelpiType.BodyS,
+                    color = HelpiColors.LedMuted
+                )
+                Text(activa.limitaciones, style = HelpiType.BodyS, color = HelpiColors.LedMuted)
+                if (creditos.none { it.lengua == state.signLanguage && it.modeloInstalado }) {
+                    Text(
+                        "Esta versión de Helpi todavía no trae el modelo de ${activa.sigla}: la " +
+                            "cámara no va a reconocer señas. Podés seguir con voz o texto.",
+                        style = HelpiType.BodyS,
+                        color = HelpiColors.Warning
+                    )
+                }
+                Text(
+                    "Helpi ayuda a comunicarse. No reemplaza a una persona intérprete y no sirve " +
+                        "para una emergencia: su vocabulario no incluye ninguna seña de auxilio.",
                     style = HelpiType.BodyS,
                     color = HelpiColors.Warning
                 )
             }
-            Text(
-                "Helpi ayuda a comunicarse. No reemplaza a una persona intérprete y no sirve " +
-                    "para una emergencia: su vocabulario no incluye ninguna seña de auxilio.",
-                style = HelpiType.BodyS,
-                color = HelpiColors.Warning
-            )
-        }
 
-        Seccion("Licencias") {
-            creditos.forEach { CreditoDeModelo(it) }
-            Text(
-                "Vosk español 0.42 · Apache 2.0. Atkinson Hyperlegible Next y Lexend · " +
-                    "SIL Open Font License.",
-                style = HelpiType.CaptionDisclaimer,
-                color = HelpiColors.LedMuted
-            )
+            Seccion("Licencias") {
+                creditos.forEach { CreditoDeModelo(it) }
+                Text(
+                    "Vosk español 0.42 · Apache 2.0. Atkinson Hyperlegible Next y Lexend · " +
+                        "SIL Open Font License.",
+                    style = HelpiType.CaptionDisclaimer,
+                    color = HelpiColors.LedMuted
+                )
+            }
+            com.helpi.conversation.VariantBindings.validationMenuEntry()
         }
-        com.helpi.conversation.VariantBindings.validationMenuEntry()
     }
 
     if (editando) {
@@ -186,7 +194,12 @@ internal fun SelectorDeLengua(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     RadioButton(selected = lengua == activa, onClick = null)
-                    Text(info.nombre, style = HelpiType.BodyM, color = HelpiColors.LedSoft)
+                    Text(
+                        info.nombre,
+                        style = HelpiType.BodyM,
+                        color = HelpiColors.LedSoft,
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             }
         }
@@ -261,7 +274,12 @@ internal fun ControlDeUmbral(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Umbral de confianza", style = HelpiType.BodyM, color = HelpiColors.LedSoft)
+            Text(
+                "Umbral de confianza",
+                style = HelpiType.BodyM,
+                color = HelpiColors.LedSoft,
+                modifier = Modifier.weight(1f)
+            )
             Text(
                 porcentaje(state.confidenceThreshold),
                 style = HelpiType.BodyM.copy(fontWeight = FontWeight.Bold),
@@ -342,7 +360,10 @@ internal fun DialogoDeNombre(
         containerColor = HelpiColors.Surface,
         title = { Text(titulo, style = HelpiType.LabelBoton) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
                 Text(explicacion, style = HelpiType.BodyS, color = HelpiColors.LedMuted)
                 OutlinedTextField(
                     value = texto,

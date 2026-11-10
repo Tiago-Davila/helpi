@@ -66,6 +66,9 @@ import com.helpi.conversation.ui.components.TurnoMensaje
 import com.helpi.conversation.ui.theme.HelpiColors
 import com.helpi.conversation.ui.theme.HelpiShapes
 import com.helpi.conversation.ui.theme.HelpiType
+import com.helpi.conversation.ui.theme.esApaisado
+import com.helpi.conversation.ui.theme.fraccion
+import com.helpi.conversation.ui.theme.margenLateral
 import com.helpi.conversation.vision.FramingEvaluator
 import com.helpi.conversation.vision.SigningDistanceGuide
 import kotlin.math.roundToInt
@@ -215,8 +218,9 @@ private fun Inicio(
     }
 }
 
-// Deuda previa registrada en el baseline de detekt de develop.
-@Suppress("LongMethod")
+// Deuda previa registrada en el baseline de detekt de develop. Las fracciones
+// de abajo son proporciones de diseño del espacio disponible, no números mágicos.
+@Suppress("LongMethod", "MagicNumber")
 @Composable
 private fun Bienvenida(
     state: SessionCoordinator.UiState,
@@ -283,37 +287,55 @@ private fun Bienvenida(
     }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val orbeApaisado = (maxHeight * 0.6f).coerceAtMost(200.dp)
-        if (maxWidth > maxHeight) {
-            // Horizontal (la app está fija así): el orbe a la izquierda y el
-            // texto con la acción a la derecha, para que todo entre en ~300 dp.
+        val margen = maxWidth.margenLateral()
+        if (esApaisado(maxWidth, maxHeight)) {
+            // Horizontal: el orbe a la izquierda y el texto con la acción a la
+            // derecha. El orbe sale del alto disponible; el texto se recorre si
+            // no entra.
+            val tamanoOrbe = minOf(maxHeight * 0.6f, maxWidth * 0.3f).coerceIn(96.dp, 220.dp)
+            val margenVertical = maxHeight.fraccion(0.05f, 8.dp, 24.dp)
+            val separacion = maxWidth.fraccion(0.05f, 16.dp, 48.dp)
+            val espacioAccion = maxHeight.fraccion(0.05f, 8.dp, 20.dp)
             Row(
-                Modifier.fillMaxSize().padding(horizontal = 28.dp, vertical = 16.dp),
+                Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = margen, vertical = margenVertical),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(32.dp)
+                horizontalArrangement = Arrangement.spacedBy(separacion)
             ) {
-                orbe(orbeApaisado)
+                orbe(tamanoOrbe)
                 Column(
-                    Modifier.weight(1f),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
                 ) {
                     textos()
-                    Spacer(Modifier.height(20.dp))
+                    Spacer(Modifier.height(espacioAccion))
                     accion()
                 }
             }
         } else {
+            // Vertical: orbe y textos centrados en el espacio que sobra y la
+            // acción abajo, siempre a la vista.
+            val tamanoOrbe = minOf(maxWidth * 0.55f, maxHeight * 0.28f).coerceIn(96.dp, 240.dp)
+            val espacioSuperior = maxHeight.fraccion(0.02f, 8.dp, 16.dp)
+            val espacioInferior = maxHeight.fraccion(0.03f, 12.dp, 24.dp)
             Column(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 28.dp),
+                modifier = Modifier.fillMaxSize().padding(horizontal = margen),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Spacer(Modifier.weight(1f))
-                orbe(200.dp)
-                Spacer(Modifier.height(12.dp))
-                textos()
-                Spacer(Modifier.weight(1f))
+                Column(
+                    Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    orbe(tamanoOrbe)
+                    Spacer(Modifier.height(12.dp))
+                    textos()
+                }
+                Spacer(Modifier.height(espacioSuperior))
                 accion()
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(espacioInferior))
             }
         }
     }
@@ -465,15 +487,17 @@ private fun SalaDeConversacion(
             onDismissRequest = actions.rejectPhrase,
             title = { Text("¿Usar esta frase?") },
             text = {
-                OutlinedTextField(
-                    value = candidateText,
-                    onValueChange = { candidateText = it.take(300) },
-                    label = { Text("Texto de la frase") },
-                    textStyle = HelpiType.BodyM,
-                    minLines = 2,
-                    maxLines = 5,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    OutlinedTextField(
+                        value = candidateText,
+                        onValueChange = { candidateText = it.take(300) },
+                        label = { Text("Texto de la frase") },
+                        textStyle = HelpiType.BodyM,
+                        minLines = 2,
+                        maxLines = 5,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             },
             confirmButton = {
                 TextButton(
@@ -527,7 +551,7 @@ private fun Confirmacion(
     AlertDialog(
         onDismissRequest = onCancelar,
         title = { Text(titulo) },
-        text = { Text(cuerpo) },
+        text = { Column(Modifier.verticalScroll(rememberScrollState())) { Text(cuerpo) } },
         confirmButton = { TextButton(onClick = onConfirmar) { Text(confirmar) } },
         dismissButton = { TextButton(onClick = onCancelar) { Text("Continuar") } },
         containerColor = HelpiColors.Surface
@@ -1195,10 +1219,12 @@ private fun HojaDeAjustes(
         containerColor = HelpiColors.Surface,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ) {
+        // La hoja ya limita su propio ancho; el margen sale del ancho de la ventana.
+        val margen = androidx.compose.ui.platform.LocalConfiguration.current
+            .screenWidthDp.dp.margenLateral()
         Column(
-            Modifier.fillMaxWidth().verticalScroll(
-                rememberScrollState()
-            ).padding(horizontal = 24.dp),
+            Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
+                .padding(horizontal = margen),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Row(
@@ -1291,6 +1317,9 @@ private fun DiagnosticoVisual(state: SessionCoordinator.UiState) {
     }
 }
 
+/** Ancho desde el cual las opciones de modo caben una al lado de la otra. */
+private val ANCHO_MINIMO_CHIPS_EN_FILA = 320.dp
+
 @Composable
 private fun SelectorDeModo(
     state: SessionCoordinator.UiState,
@@ -1302,23 +1331,36 @@ private fun SelectorDeModo(
             style = HelpiType.BodyM,
             color = HelpiColors.LedSoft
         )
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            FilterChip(
-                selected = state.recognitionMode == RecognitionMode.SINGLE_SIGN,
-                onClick = { onRecognitionMode(RecognitionMode.SINGLE_SIGN) },
-                label = { Text("Seña individual") },
-                modifier = Modifier.weight(1f)
-            )
-            FilterChip(
-                selected = state.recognitionMode == RecognitionMode.PHRASE_EXPERIMENTAL,
-                onClick = { onRecognitionMode(RecognitionMode.PHRASE_EXPERIMENTAL) },
-                enabled = state.capabilities.phraseVision,
-                label = { Text("Frase experimental") },
-                modifier = Modifier.weight(1f)
-            )
+        // Con poco ancho las dos opciones se apilan para que ninguna etiqueta se corte.
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val individual = @Composable { modificador: Modifier ->
+                FilterChip(
+                    selected = state.recognitionMode == RecognitionMode.SINGLE_SIGN,
+                    onClick = { onRecognitionMode(RecognitionMode.SINGLE_SIGN) },
+                    label = { Text("Seña individual") },
+                    modifier = modificador
+                )
+            }
+            val frase = @Composable { modificador: Modifier ->
+                FilterChip(
+                    selected = state.recognitionMode == RecognitionMode.PHRASE_EXPERIMENTAL,
+                    onClick = { onRecognitionMode(RecognitionMode.PHRASE_EXPERIMENTAL) },
+                    enabled = state.capabilities.phraseVision,
+                    label = { Text("Frase experimental") },
+                    modifier = modificador
+                )
+            }
+            if (maxWidth < ANCHO_MINIMO_CHIPS_EN_FILA) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    individual(Modifier.fillMaxWidth())
+                    frase(Modifier.fillMaxWidth())
+                }
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    individual(Modifier.weight(1f))
+                    frase(Modifier.weight(1f))
+                }
+            }
         }
         Text(
             if (state.capabilities.phraseVision) {

@@ -4,9 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -33,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import com.helpi.evaluacion.R
 import com.helpi.evaluacion.datos.HelpiEvaluacionDatabaseProvider
 import com.helpi.evaluacion.datos.entidades.ParticipanteEntity
+import com.helpi.evaluacion.ui.ColumnaAdaptativa
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -111,13 +110,7 @@ fun BorradoDatosScreen(
     modifier: Modifier = Modifier
 ) {
     var pedirConfirmacion by remember { mutableStateOf(false) }
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
+    ColumnaAdaptativa(modifier = modifier) {
         Text(
             text = stringResource(R.string.borrado_titulo),
             style = MaterialTheme.typography.headlineMedium,
@@ -161,27 +154,39 @@ fun BorradoDatosScreen(
     }
 
     if (pedirConfirmacion) {
-        AlertDialog(
-            onDismissRequest = { pedirConfirmacion = false },
-            title = { Text(stringResource(R.string.borrado_confirmar_titulo)) },
-            text = { Text(stringResource(R.string.borrado_confirmar_detalle)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        pedirConfirmacion = false
-                        onConfirmarBorrado()
-                    }
-                ) {
-                    Text(stringResource(R.string.borrado_confirmar_accion))
-                }
+        DialogoBorrado(
+            onConfirmar = {
+                pedirConfirmacion = false
+                onConfirmarBorrado()
             },
-            dismissButton = {
-                TextButton(onClick = { pedirConfirmacion = false }) {
-                    Text(stringResource(R.string.revocacion_cancelar))
-                }
-            }
+            onCancelar = { pedirConfirmacion = false }
         )
     }
+}
+
+/** Confirma el borrado definitivo; el detalle se recorre si no entra. */
+@Composable
+@Suppress("ktlint:standard:function-naming")
+private fun DialogoBorrado(onConfirmar: () -> Unit, onCancelar: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onCancelar,
+        title = { Text(stringResource(R.string.borrado_confirmar_titulo)) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text(stringResource(R.string.borrado_confirmar_detalle))
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirmar) {
+                Text(stringResource(R.string.borrado_confirmar_accion))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onCancelar) {
+                Text(stringResource(R.string.revocacion_cancelar))
+            }
+        }
+    )
 }
 
 @Composable

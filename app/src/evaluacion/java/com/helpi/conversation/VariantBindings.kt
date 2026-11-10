@@ -2,10 +2,17 @@ package com.helpi.conversation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -14,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -44,7 +52,7 @@ object VariantBindings {
 
     @Composable
     fun applicationContent(modifier: Modifier, content: @Composable () -> Unit) {
-        Box(modifier) {
+        ContenidoConInsignia(modifier) {
             when (EvaluacionGraph.currentRoute) {
                 EvaluacionGraph.VALIDATION_ROUTE -> ConsentimientoRoute(
                     onVolver = EvaluacionGraph::volver,
@@ -73,7 +81,6 @@ object VariantBindings {
 
                 else -> content()
             }
-            evaluationBadge(Modifier.align(Alignment.TopCenter))
         }
     }
 
@@ -86,7 +93,7 @@ object VariantBindings {
         content: @Composable () -> Unit
     ) {
         val state = sessionCoordinator.uiState.collectAsStateWithLifecycle().value
-        Box(modifier) {
+        ContenidoConInsignia(modifier) {
             when (EvaluacionGraph.currentRoute) {
                 EvaluacionGraph.VALIDATION_ROUTE -> ConsentimientoRoute(
                     onVolver = EvaluacionGraph::volver,
@@ -127,16 +134,24 @@ object VariantBindings {
 
                 else -> content()
             }
-            evaluationBadge(Modifier.align(Alignment.TopCenter))
         }
     }
 
+    /**
+     * Franja de aviso de modo evaluación. Ocupa su propio espacio arriba del
+     * contenido (con el fondo bajo la barra de estado) y no tapa los títulos.
+     */
     @Composable
     fun evaluationBadge(modifier: Modifier = Modifier) {
         Box(
             modifier = modifier
                 .fillMaxWidth()
                 .background(Color(0xFF8B1E1E))
+                .windowInsetsPadding(
+                    WindowInsets.safeDrawing.only(
+                        WindowInsetsSides.Horizontal + WindowInsetsSides.Top
+                    )
+                )
                 .padding(horizontal = 12.dp, vertical = 7.dp)
                 .testTag("evaluationBadge"),
             contentAlignment = Alignment.Center
@@ -145,7 +160,8 @@ object VariantBindings {
                 text = "EVALUACIÓN — registra lo que se seña",
                 color = Color.White,
                 fontSize = 12.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
             )
         }
     }
@@ -169,6 +185,26 @@ object VariantBindings {
 
     fun createSessionCoordinator(context: android.content.Context) =
         SessionCoordinator(context, recognitionObserver, deliveryMode)
+}
+
+/**
+ * Apila la insignia de evaluación sobre el contenido. La insignia ya absorbe
+ * la barra de estado, así que el contenido de abajo la da por consumida y no
+ * agrega un segundo margen superior.
+ */
+@Composable
+private fun ContenidoConInsignia(modifier: Modifier, contenido: @Composable () -> Unit) {
+    Column(modifier) {
+        VariantBindings.evaluationBadge()
+        Box(
+            Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .consumeWindowInsets(WindowInsets.safeDrawing.only(WindowInsetsSides.Top))
+        ) {
+            contenido()
+        }
+    }
 }
 
 private fun protocoloCamaraState(state: SessionCoordinator.UiState): ProtocoloCamaraUiState {
