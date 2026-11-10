@@ -19,16 +19,22 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helpi.conversation.lsa.sequence.RecognitionMode
+import com.helpi.conversation.ui.AnimacionDeEntrada
 import com.helpi.conversation.ui.ConversationScreen
 import com.helpi.conversation.ui.ConversationViewModel
 import com.helpi.conversation.ui.components.LandmarkOverlay
+import com.helpi.conversation.ui.debeMostrarAnimacionDeEntrada
 import com.helpi.conversation.ui.theme.HelpiColors
 import com.helpi.conversation.ui.theme.HelpiTheme
+import com.helpi.conversation.ui.theme.LocalAnimacionesActivas
 import com.helpi.conversation.vision.FrontCameraSource
 import com.helpi.conversation.vision.HolisticExtractor
 import com.helpi.conversation.vision.SamplingProfile
@@ -57,6 +63,17 @@ class MainActivity : ComponentActivity() {
         }
         setContent {
             HelpiTheme {
+                val animacionesActivas = LocalAnimacionesActivas.current
+                // Solo en arranque en frío: al recrear la actividad llega un estado guardado.
+                var mostrarEntrada by remember {
+                    mutableStateOf(
+                        debeMostrarAnimacionDeEntrada(
+                            arranqueEnFrio = savedInstanceState == null,
+                            sesion = viewModel.uiState.value.session,
+                            animacionesDelSistema = animacionesActivas
+                        )
+                    )
+                }
                 Surface(modifier = Modifier.fillMaxSize(), color = HelpiColors.BgBase) {
                     // Cada pantalla aplica sus propios márgenes seguros: en la
                     // conversación horizontal la cámara llega hasta el borde
@@ -76,6 +93,9 @@ class MainActivity : ComponentActivity() {
                             onStart = ::requestPermissionsAndPrepare,
                             cameraPreview = { CameraPreview() }
                         )
+                    }
+                    if (mostrarEntrada) {
+                        AnimacionDeEntrada(alTerminar = { mostrarEntrada = false })
                     }
                 }
             }
