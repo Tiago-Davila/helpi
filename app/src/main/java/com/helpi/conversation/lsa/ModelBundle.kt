@@ -57,6 +57,9 @@ class ModelBundle private constructor(
         fun load(context: Context, language: SignLanguage = SignLanguage.LSA): ModelBundleResult =
             load(language) { path -> readAsset(context, path) }
 
+        // Deuda previa registrada en el baseline de detekt de develop: cada
+        // validación corta la carga con su propio resultado.
+        @Suppress("ReturnCount")
         internal fun load(
             language: SignLanguage = SignLanguage.LSA,
             read: (String) -> ByteArray?
