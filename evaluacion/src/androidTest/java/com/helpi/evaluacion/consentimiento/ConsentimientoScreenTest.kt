@@ -40,7 +40,7 @@ class ConsentimientoScreenTest {
             }
         }
 
-        composeRule.onNodeWithTag("consentPlayVideoButton").assertIsDisplayed()
+        composeRule.onNodeWithTag("consentPlayVideoButton").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("consentAcceptButton").performScrollTo().performClick()
         composeRule.runOnIdle { assertTrue(aceptado) }
         archivo.delete()

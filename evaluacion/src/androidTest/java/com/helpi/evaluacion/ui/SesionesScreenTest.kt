@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import com.helpi.evaluacion.datos.entidades.EstadoSesion
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -45,12 +46,16 @@ class SesionesScreenTest {
             )
         }
 
-        composeRule.onNodeWithText("Avance: 48 de 470 intentos").assertIsDisplayed()
-        composeRule.onNodeWithText("Envío pendiente").assertIsDisplayed()
-        composeRule.onNodeWithText("Envío vencido").assertIsDisplayed()
-        composeRule.onNodeWithText("Última exportación:", substring = true).assertIsDisplayed()
-        composeRule.onNodeWithTag("sessionResume-$ID_PAUSADA").performClick()
-        composeRule.onNodeWithTag("sessionExport-$ID_PAUSADA").performClick()
+        composeRule.onNodeWithText("Avance: 48 de 470 intentos")
+            .performScrollTo()
+            .assertIsDisplayed()
+        composeRule.onNodeWithText("Envío pendiente").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Envío vencido").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Última exportación:", substring = true)
+            .performScrollTo()
+            .assertIsDisplayed()
+        composeRule.onNodeWithTag("sessionResume-$ID_PAUSADA").performScrollTo().performClick()
+        composeRule.onNodeWithTag("sessionExport-$ID_PAUSADA").performScrollTo().performClick()
         assertEquals(
             0,
             composeRule.onAllNodesWithTag("sessionSend-$ID_PAUSADA").fetchSemanticsNodes().size
@@ -76,7 +81,7 @@ class SesionesScreenTest {
             )
         }
 
-        composeRule.onNodeWithTag("sessionCard-$ID_COMPLETA").assertIsDisplayed()
+        composeRule.onNodeWithTag("sessionCard-$ID_COMPLETA").performScrollTo().assertIsDisplayed()
         assertEquals(
             0,
             composeRule.onAllNodesWithTag("sessionResume-$ID_COMPLETA").fetchSemanticsNodes().size
@@ -102,8 +107,8 @@ class SesionesScreenTest {
             )
         }
 
-        composeRule.onNodeWithTag("sessionSend-$ID_PAUSADA").assertIsDisplayed()
-        composeRule.onNodeWithTag("sessionSend-$ID_PAUSADA").performClick()
+        composeRule.onNodeWithTag("sessionSend-$ID_PAUSADA").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("sessionSend-$ID_PAUSADA").performScrollTo().performClick()
         assertEquals(ID_PAUSADA, sesionEnviada)
     }
 

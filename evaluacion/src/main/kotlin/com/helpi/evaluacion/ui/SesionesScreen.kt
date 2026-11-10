@@ -9,11 +9,8 @@ import android.content.Intent
 import android.database.SQLException
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.LinearProgressIndicator
@@ -23,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -235,10 +233,7 @@ internal fun SesionesScreen(
     acciones: SesionesAcciones,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
+    ColumnaAdaptativa(modifier = modifier) {
         Text(
             stringResource(R.string.sesiones_titulo),
             style = MaterialTheme.typography.headlineMedium
@@ -252,17 +247,19 @@ internal fun SesionesScreen(
         when {
             state.cargando -> Text(stringResource(R.string.sesiones_cargando))
             state.sesiones.isEmpty() -> Text(stringResource(R.string.sesiones_vacias))
-            else -> LazyColumn(
-                modifier = Modifier.weight(1f).fillMaxWidth().testTag("sessionsList"),
+            else -> Column(
+                modifier = Modifier.fillMaxWidth().testTag("sessionsList"),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(state.sesiones, key = SesionListaItem::sesionId) { sesion ->
-                    SesionCard(
-                        sesion = sesion,
-                        operando = state.sesionEnOperacion == sesion.sesionId,
-                        envioHabilitado = state.envioHabilitado,
-                        acciones = acciones
-                    )
+                state.sesiones.forEach { sesion ->
+                    key(sesion.sesionId) {
+                        SesionCard(
+                            sesion = sesion,
+                            operando = state.sesionEnOperacion == sesion.sesionId,
+                            envioHabilitado = state.envioHabilitado,
+                            acciones = acciones
+                        )
+                    }
                 }
             }
         }
