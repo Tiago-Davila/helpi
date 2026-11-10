@@ -22,6 +22,9 @@ import com.helpi.conversation.lsa.PhraseAssets
 import com.helpi.conversation.lsa.SignAcceptancePolicy
 import com.helpi.conversation.lsa.SignClassifier
 import com.helpi.conversation.lsa.SignDecision
+import com.helpi.conversation.lsa.SignLanguage
+import com.helpi.conversation.lsa.SignLanguageStore
+import com.helpi.conversation.lsa.VisualClassifier
 import com.helpi.conversation.lsa.sequence.PhraseCaptureState
 import com.helpi.conversation.lsa.sequence.RecognitionMode
 import com.helpi.conversation.lsa.sequence.SequenceAcceptancePolicy
@@ -68,7 +71,10 @@ import kotlinx.coroutines.flow.asStateFlow
 class SessionCoordinator(
     private val context: Context,
     private val recognitionObserver: RecognitionObserver = RecognitionObserver.NO_OP,
-    private val deliveryMode: DeliveryMode = DeliveryMode.CONVERSATION
+    private val deliveryMode: DeliveryMode = DeliveryMode.CONVERSATION,
+    private val languageStore: SignLanguageStore = SignLanguageStore(context),
+    private val loadBundle: (SignLanguage) -> ModelBundleResult = { ModelBundle.load(context, it) },
+    private val createClassifier: (ModelBundle) -> VisualClassifier = ::SignClassifier
 ) {
 
     enum class DeliveryMode {
@@ -107,6 +113,7 @@ class SessionCoordinator(
         val turns: List<Turn> = emptyList(),
         val capabilities: Capabilities = Capabilities(),
         val confidenceThreshold: Float = DEFAULT_THRESHOLD,
+        val signLanguage: SignLanguage = SignLanguage.LSA,
         val lastRecognition: RecognitionFeedback? = null,
         val visionMetrics: VisionMetrics = VisionMetrics(),
         val samplingProfile: SamplingProfile = SamplingProfile.IDLE,
@@ -149,7 +156,7 @@ class SessionCoordinator(
     private val frameBuffer = ArrayDeque<CapturedFrame>()
     private val preRollBuffer = ArrayDeque<CapturedFrame>()
 
-    private var classifier: SignClassifier? = null
+    private var classifier: VisualClassifier? = null
     private var acceptancePolicy: SignAcceptancePolicy? = null
     private var bundle: ModelBundle? = null
     private var phraseAssets: PhraseAssets = PhraseAssets.Disabled(PHRASES_WITHOUT_MODEL)
@@ -161,7 +168,12 @@ class SessionCoordinator(
     private val sequenceAcceptancePolicy = SequenceAcceptancePolicy()
     private var sequenceClassifying = false
     private var ticker: ScheduledFuture<*>? = null
-    private var confidenceThreshold = DEFAULT_THRESHOLD
+    private var signLanguage = languageStore.load()
+
+    /** Umbral de cada lengua: el de una no se aplica al modelo de otra. */
+    private val thresholds =
+        SignLanguage.values().associateWith { it.defaultConfidenceThreshold() }.toMutableMap()
+    private var confidenceThreshold = thresholds.getValue(signLanguage)
     private var lastRecognition: RecognitionFeedback? = null
     private var visionMetrics = VisionMetrics()
     private var samplingProfile = SamplingProfile.IDLE
@@ -187,7 +199,9 @@ class SessionCoordinator(
     private var capabilities = Capabilities()
     private var notice: String? = null
 
-    private val _uiState = MutableStateFlow(UiState())
+    private val _uiState = MutableStateFlow(
+        UiState(confidenceThreshold = confidenceThreshold, signLanguage = signLanguage)
+    )
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
     private val arbiter: AudioArbiter by lazy {
@@ -257,34 +271,7 @@ class SessionCoordinator(
         stateMachine.transition(SessionState.PREPARANDO)
         publish()
 
-        // Canal visual: modelo + catálogo (unidad verificada)
-        val visionCap = if (!hasPermission(Manifest.permission.CAMERA)) {
-            false to "permiso de cámara denegado"
-        } else {
-            when (val result = ModelBundle.load(context)) {
-                is ModelBundleResult.Ready -> {
-                    bundle = result.bundle
-                    phraseAssets = PhraseAssets.load(
-                        context,
-                        result.bundle.manifest,
-                        result.bundle.catalog
-                    )
-                    try {
-                        classifier = SignClassifier(result.bundle)
-                        acceptancePolicy = SignAcceptancePolicy(
-                            confidenceThreshold,
-                            result.bundle.manifest.outputsProbabilities,
-                            result.bundle.manifest.numClasses
-                        )
-                        true to ""
-                    } catch (e: Exception) {
-                        false to "modelo incompatible: ${e.message}"
-                    }
-                }
-                is ModelBundleResult.Missing -> false to "falta ${result.asset}"
-                is ModelBundleResult.Invalid -> false to result.cause
-            }
-        }
+        val visionCap = loadVisionChannel()
 
         // Canal experimental de frases: su ausencia nunca inhabilita a Eva.
         val phraseCap = if (!hasPermission(Manifest.permission.CAMERA)) {
@@ -517,9 +504,7 @@ class SessionCoordinator(
         speech?.close()
         speech = null
         arbiter.reset()
-        classifier?.let { closing -> classifierExecutor.execute { closing.close() } }
-        classifier = null
-        classifying = false
+        releaseVisionChannel()
         sequenceTranslator?.let { closing ->
             sequenceClassifierExecutor.execute { closing.close() }
         }
@@ -534,9 +519,6 @@ class SessionCoordinator(
         observationFactory.reset()
         signingDistanceGuide.reset()
         signingDistance = SigningDistanceGuide.State.UNKNOWN
-        acceptancePolicy = null
-        bundle = null
-        phraseAssets = PhraseAssets.Disabled(PHRASES_WITHOUT_MODEL)
         lastRecognition = null
         visionMetrics = VisionMetrics()
         samplingProfile = SamplingProfile.IDLE
@@ -1084,9 +1066,48 @@ class SessionCoordinator(
         publish()
     }
 
-    /** Ajusta la compuerta sin cambiar ni volver a cargar el modelo. */
+    /**
+     * Cambia la lengua de señas: guarda la elección, descarta la ventana y la
+     * clasificación en curso, libera el intérprete anterior y carga el modelo
+     * nuevo. Si el modelo de la lengua elegida falla, el canal visual queda
+     * inhabilitado con el motivo: nunca se vuelve a otra lengua en silencio.
+     */
+    fun setSignLanguage(language: SignLanguage) = submit(generation) {
+        if (language == signLanguage) return@submit
+        languageStore.save(language)
+        // La frase en curso se cierra con el catálogo de la lengua anterior.
+        closeSentence()
+        signLanguage = language
+        confidenceThreshold = thresholds.getValue(language)
+        visionRevision++
+        frameBuffer.clear()
+        preRollBuffer.clear()
+        segmenter = SignSegmenter(SegmenterConfig.defaults())
+        observationFactory.reset()
+        lastRecognition = null
+        if (sessionPrepared()) {
+            releaseVisionChannel()
+            val (available, detail) = loadVisionChannel()
+            capabilities = capabilities.copy(vision = available, visionDetail = detail)
+            if (isActive()) {
+                visualState = if (activeVisionAvailable() && cameraEnabled) {
+                    VisualChannelState.BUSCANDO_ENCUADRE
+                } else {
+                    VisualChannelState.NO_DISPONIBLE
+                }
+                val target = targetActiveState()
+                if (stateMachine.current() != target && stateMachine.canTransition(target)) {
+                    stateMachine.transition(target)
+                }
+            }
+        }
+        publish()
+    }
+
+    /** Ajusta la compuerta de la lengua actual sin cambiar ni volver a cargar el modelo. */
     fun setConfidenceThreshold(value: Float) = submit(generation) {
         confidenceThreshold = value.coerceIn(MIN_THRESHOLD, MAX_THRESHOLD)
+        thresholds[signLanguage] = confidenceThreshold
         bundle?.let { loaded ->
             acceptancePolicy = SignAcceptancePolicy(
                 confidenceThreshold,
@@ -1324,6 +1345,55 @@ class SessionCoordinator(
     // utilitarios
     // ------------------------------------------------------------------
 
+    /** Carga modelo y catálogo de la lengua elegida (unidad verificada); devuelve si hay canal y por qué no. */
+    private fun loadVisionChannel(): Pair<Boolean, String> {
+        if (!hasPermission(Manifest.permission.CAMERA)) return false to "permiso de cámara denegado"
+        return when (val result = loadBundle(signLanguage)) {
+            is ModelBundleResult.Ready -> {
+                bundle = result.bundle
+                phraseAssets = PhraseAssets.load(
+                    context,
+                    result.bundle.manifest,
+                    result.bundle.catalog
+                )
+                try {
+                    classifier = createClassifier(result.bundle)
+                    acceptancePolicy = SignAcceptancePolicy(
+                        confidenceThreshold,
+                        result.bundle.manifest.outputsProbabilities,
+                        result.bundle.manifest.numClasses
+                    )
+                    true to ""
+                } catch (e: Exception) {
+                    false to "modelo incompatible: ${e.message}"
+                }
+            }
+            is ModelBundleResult.Missing -> false to "falta ${result.asset}"
+            is ModelBundleResult.Invalid -> false to result.cause
+        }
+    }
+
+    /** Suelta el modelo cargado; el intérprete se cierra después de la inferencia en curso. */
+    private fun releaseVisionChannel() {
+        classifier?.let { closing -> classifierExecutor.execute { closing.close() } }
+        classifier = null
+        classifying = false
+        acceptancePolicy = null
+        bundle = null
+        phraseAssets = PhraseAssets.Disabled(PHRASES_WITHOUT_MODEL)
+    }
+
+    /** La sesión ya pasó por la preparación y todavía no se cerró. */
+    private fun sessionPrepared(): Boolean = stateMachine.current() !in setOf(
+        SessionState.INICIO,
+        SessionState.CERRANDO,
+        SessionState.CERRADA
+    )
+
+    /** Cuadros de la ventana en curso (pre-roll incluido); para tests. */
+    internal fun bufferedVisionFrames(): Int =
+        executor.submit<Int> { frameBuffer.size + preRollBuffer.size }.get()
+
     private fun targetActiveState(): SessionState =
         if (capabilities.vision && capabilities.stt && capabilities.tts) {
             SessionState.ACTIVA
@@ -1383,6 +1453,7 @@ class SessionCoordinator(
             turns = conversation.ordered().toList(),
             capabilities = capabilities,
             confidenceThreshold = confidenceThreshold,
+            signLanguage = signLanguage,
             lastRecognition = lastRecognition,
             visionMetrics = visionMetrics,
             samplingProfile = samplingProfile,

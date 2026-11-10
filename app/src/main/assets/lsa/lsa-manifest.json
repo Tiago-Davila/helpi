@@ -1,6 +1,13 @@
 {
+  "language": "lsa",
   "modelVersion": "eva-lsa94-v4",
   "catalogVersion": "3.0",
+  "dataset": {
+    "nombre": "LSA-94 (LSA64 + grabaciones propias)",
+    "version": "catalogo 3.0"
+  },
+  "license": "CC BY-NC-SA 4.0",
+  "attribution": "LSA64: Ronchetti et al., LIDI, UNLP. Grabaciones propias de Helpi (Hoy, Ayer, Mañana y abecedario).",
   "modelSha256": "751eab8b5cb6642556f227380dd1537154012c9341b8e26d9d593078d0e3a46b",
   "catalogSha256": "737026d776bd1e8f791b306b14166a9901ca0ebe7fcbd22f1d06d168829c356c",
   "numClasses": 94,

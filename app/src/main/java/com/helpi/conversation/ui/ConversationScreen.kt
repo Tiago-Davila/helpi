@@ -50,6 +50,7 @@ import com.helpi.conversation.R
 import com.helpi.conversation.chat.Speaker
 import com.helpi.conversation.chat.Turn
 import com.helpi.conversation.chat.TurnState
+import com.helpi.conversation.lsa.SignLanguage
 import com.helpi.conversation.lsa.sequence.PhraseCaptureState
 import com.helpi.conversation.lsa.sequence.RecognitionMode
 import com.helpi.conversation.session.AudioChannelState
@@ -76,6 +77,7 @@ internal data class ConversationActions(
     val microphone: () -> Unit = {},
     val camera: () -> Unit = {},
     val threshold: (Float) -> Unit = {},
+    val signLanguage: (SignLanguage) -> Unit = {},
     val recognitionMode: (RecognitionMode) -> Unit = {},
     val startPhrase: () -> Unit = {},
     val finishPhrase: () -> Unit = {},
@@ -109,6 +111,7 @@ fun ConversationScreen(
             microphone = viewModel::toggleMicrophone,
             camera = viewModel::toggleCamera,
             threshold = viewModel::setConfidenceThreshold,
+            signLanguage = viewModel::setSignLanguage,
             recognitionMode = viewModel::setRecognitionMode,
             startPhrase = viewModel::startPhraseCapture,
             finishPhrase = viewModel::finishPhraseCapture,
@@ -179,8 +182,7 @@ private fun Inicio(
                 SeccionHotbar.CUENTA -> PantallaCuenta(
                     state = state,
                     participantes = participantes,
-                    onThreshold = actions.threshold,
-                    onRenombrarCuenta = actions.renombrarCuenta
+                    actions = actions
                 )
             }
         }
@@ -455,7 +457,7 @@ private fun SalaDeConversacion(
     }
 
     if (ajustes) {
-        HojaDeAjustes(state, actions.threshold, actions.recognitionMode) { ajustes = false }
+        HojaDeAjustes(state, actions) { ajustes = false }
     }
     state.phraseCandidate?.let { candidate ->
         var candidateText by remember(candidate) { mutableStateOf(candidate.text) }
@@ -760,6 +762,11 @@ private fun PanelDeCaptura(
             )
         }
 
+        LenguaActiva(
+            state.signLanguage,
+            Modifier.align(Alignment.BottomStart).windowInsetsPadding(seguro).padding(10.dp)
+        )
+
         if (camaraViva) {
             Column(
                 Modifier
@@ -887,6 +894,29 @@ private fun GuiaDeDistancia(state: SigningDistanceGuide.State, modifier: Modifie
             StrokeCap.Round
         )
     }
+}
+
+/**
+ * Lengua con la que Eva está reconociendo. Queda siempre a la vista sobre la
+ * cámara: una seña hecha en otra lengua se traduciría mal sin ningún aviso.
+ */
+@Composable
+private fun LenguaActiva(lengua: SignLanguage, modifier: Modifier = Modifier) {
+    val info = descripcion(lengua)
+    Text(
+        info.sigla,
+        style = HelpiType.LabelBoton,
+        color = Color.White,
+        modifier = modifier
+            .background(HelpiColors.VeloCamara, HelpiShapes.Chip)
+            .border(1.dp, HelpiColors.VidrioBorde, HelpiShapes.Chip)
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .testTag("activeSignLanguage")
+            // TalkBack lee el nombre completo de la lengua, no la sigla.
+            .clearAndSetSemantics {
+                contentDescription = "Lengua de señas activa: ${info.nombre}"
+            }
+    )
 }
 
 @Composable
@@ -1156,8 +1186,7 @@ private fun Redactor(onEnviar: (String) -> Unit, compacto: Boolean = false) {
 @Composable
 private fun HojaDeAjustes(
     state: SessionCoordinator.UiState,
-    onThreshold: (Float) -> Unit,
-    onRecognitionMode: (RecognitionMode) -> Unit,
+    actions: ConversationActions,
     onDismiss: () -> Unit
 ) {
     var ayuda by remember { mutableStateOf(false) }
@@ -1180,8 +1209,9 @@ private fun HojaDeAjustes(
                 Text("Configuración", style = HelpiType.LabelBoton)
                 TextButton(onClick = onDismiss) { Text("Listo") }
             }
-            SelectorDeModo(state, onRecognitionMode)
-            ControlDeUmbral(state, onThreshold)
+            SelectorDeLengua(state.signLanguage, actions.signLanguage)
+            SelectorDeModo(state, actions.recognitionMode)
+            ControlDeUmbral(state, actions.threshold)
             DiagnosticoVisual(state)
             AvisosDeCapacidades(state)
             HorizontalDivider(color = HelpiColors.Divider)

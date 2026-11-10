@@ -1,0 +1,18 @@
+{
+  "language": "lse",
+  "modelVersion": "eva-lse300-v1",
+  "catalogVersion": "1.0",
+  "dataset": {
+    "nombre": "SWL-LSE",
+    "version": "Zenodo 13691887"
+  },
+  "license": "CC BY 4.0",
+  "attribution": "SWL-LSE: SignaMed. Zenodo, registro 13691887.",
+  "modelSha256": "8c499a8c56e3b8c9f851a88c4e7e3f416221ae778fa1781e0555a43e851e9890",
+  "catalogSha256": "a4ac2b1dbe5eca91b7f3c397fe8263d361559b1a6a6b6f507d4d8a39b5715c80",
+  "numClasses": 299,
+  "outputsProbabilities": false,
+  "frames": 40,
+  "coords": 168,
+  "contractVersion": 3
+}
