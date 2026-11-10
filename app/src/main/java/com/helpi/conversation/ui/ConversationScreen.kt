@@ -131,7 +131,8 @@ fun ConversationScreen(
             cancelarPedidoDeNombre = viewModel::cancelarPedidoDeNombre
         ),
         participantes,
-        cameraPreview
+        cameraPreview,
+        controlarOrientacion = true
     )
 }
 
@@ -140,12 +141,17 @@ internal fun ConversationContent(
     state: SessionCoordinator.UiState,
     actions: ConversationActions,
     participantes: Participantes = Participantes(),
-    cameraPreview: @Composable () -> Unit = {}
+    cameraPreview: @Composable () -> Unit = {},
+    controlarOrientacion: Boolean = false
 ) {
-    when (state.session) {
-        SessionState.ACTIVA, SessionState.ACTIVA_LIMITADA ->
-            SalaDeConversacion(state, actions, participantes, cameraPreview)
-        else -> Inicio(state, actions, participantes)
+    val enSala = state.session == SessionState.ACTIVA ||
+        state.session == SessionState.ACTIVA_LIMITADA
+    val sala = @Composable { SalaDeConversacion(state, actions, participantes, cameraPreview) }
+    val inicio = @Composable { Inicio(state, actions, participantes) }
+    when {
+        controlarOrientacion -> TransicionDeOrientacion(enSala, sala, inicio)
+        enSala -> sala()
+        else -> inicio()
     }
 }
 

@@ -30,6 +30,9 @@ import com.helpi.conversation.observation.RecognitionObserver
 import com.helpi.conversation.session.SessionCoordinator
 import com.helpi.conversation.session.SessionState
 import com.helpi.conversation.session.VisualChannelState
+import com.helpi.conversation.ui.FijarOrientacion
+import com.helpi.conversation.ui.Orientacion
+import com.helpi.conversation.ui.TransicionDeOrientacion
 import com.helpi.conversation.vision.FramingEvaluator
 import com.helpi.conversation.vision.SigningDistanceGuide
 import com.helpi.evaluacion.consentimiento.AjustesEvaluacionRoute
@@ -61,7 +64,8 @@ object VariantBindings {
                 )
 
                 EvaluacionGraph.ALTA_SESION_ROUTE -> AltaSesionRoute(
-                    onVolver = { EvaluacionGraph.navigate(EvaluacionGraph.VALIDATION_ROUTE) },
+                    // El aviso ya aceptado no se vuelve a mostrar: volver es salir.
+                    onVolver = EvaluacionGraph::volver,
                     onSesionCreada = EvaluacionGraph::establecerSesionActual
                 )
 
@@ -71,7 +75,7 @@ object VariantBindings {
                 )
 
                 EvaluacionGraph.SETTINGS_ROUTE -> AjustesEvaluacionRoute(
-                    onVolver = { EvaluacionGraph.navigate(EvaluacionGraph.VALIDATION_ROUTE) },
+                    onVolver = EvaluacionGraph::volver,
                     onBorrarDatos = { EvaluacionGraph.navigate(EvaluacionGraph.DELETE_ROUTE) }
                 )
 
@@ -102,7 +106,8 @@ object VariantBindings {
                 )
 
                 EvaluacionGraph.ALTA_SESION_ROUTE -> AltaSesionRoute(
-                    onVolver = { EvaluacionGraph.navigate(EvaluacionGraph.VALIDATION_ROUTE) },
+                    // El aviso ya aceptado no se vuelve a mostrar: volver es salir.
+                    onVolver = EvaluacionGraph::volver,
                     onSesionCreada = EvaluacionGraph::establecerSesionActual
                 )
 
@@ -111,20 +116,27 @@ object VariantBindings {
                     onRetomar = EvaluacionGraph::establecerSesionActual
                 )
 
-                EvaluacionGraph.PROTOCOL_ROUTE -> ProtocoloRoute(
-                    sessionId = EvaluacionGraph.sesionActualId,
-                    camara = protocoloCamaraState(state),
-                    observer = registroObserver,
-                    cameraPreview = cameraPreview,
-                    onStartRecognition = onStartRecognition,
-                    onExit = {
-                        sessionCoordinator.pause()
-                        EvaluacionGraph.volver()
-                    }
+                // El protocolo usa la cámara: va en horizontal, con el giro previo.
+                EvaluacionGraph.PROTOCOL_ROUTE -> TransicionDeOrientacion(
+                    enSala = true,
+                    sala = {
+                        ProtocoloRoute(
+                            sessionId = EvaluacionGraph.sesionActualId,
+                            camara = protocoloCamaraState(state),
+                            observer = registroObserver,
+                            cameraPreview = cameraPreview,
+                            onStartRecognition = onStartRecognition,
+                            onExit = {
+                                sessionCoordinator.pause()
+                                EvaluacionGraph.volver()
+                            }
+                        )
+                    },
+                    inicio = {}
                 )
 
                 EvaluacionGraph.SETTINGS_ROUTE -> AjustesEvaluacionRoute(
-                    onVolver = { EvaluacionGraph.navigate(EvaluacionGraph.VALIDATION_ROUTE) },
+                    onVolver = EvaluacionGraph::volver,
                     onBorrarDatos = { EvaluacionGraph.navigate(EvaluacionGraph.DELETE_ROUTE) }
                 )
 
@@ -180,6 +192,13 @@ object VariantBindings {
         ) {
             Text("Sesiones de evaluación")
         }
+        // El aviso aceptado no se vuelve a mostrar: revisarlo o revocarlo se hace acá.
+        TextButton(
+            onClick = { EvaluacionGraph.navigate(EvaluacionGraph.SETTINGS_ROUTE) },
+            modifier = Modifier.testTag("evaluationSettingsEntry")
+        ) {
+            Text("Ajustes de evaluación")
+        }
         Spacer(Modifier.height(24.dp))
     }
 
@@ -194,6 +213,12 @@ object VariantBindings {
  */
 @Composable
 private fun ContenidoConInsignia(modifier: Modifier, contenido: @Composable () -> Unit) {
+    // Las pantallas de evaluación se leen en vertical; el protocolo y la
+    // conversación eligen su propia orientación.
+    val ruta = EvaluacionGraph.currentRoute
+    if (ruta != null && ruta != EvaluacionGraph.PROTOCOL_ROUTE) {
+        FijarOrientacion(Orientacion.VERTICAL)
+    }
     Column(modifier) {
         VariantBindings.evaluationBadge()
         Box(
