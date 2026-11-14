@@ -3,6 +3,7 @@ package com.helpi.conversation.ui
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.content.pm.ActivityInfo
 import androidx.activity.compose.BackHandler
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.core.animateFloatAsState
@@ -142,10 +143,23 @@ internal fun ConversationContent(
     participantes: Participantes = Participantes(),
     cameraPreview: @Composable () -> Unit = {}
 ) {
-    when (state.session) {
-        SessionState.ACTIVA, SessionState.ACTIVA_LIMITADA ->
-            SalaDeConversacion(state, actions, participantes, cameraPreview)
-        else -> Inicio(state, actions, participantes)
+    val enConversacion = state.session == SessionState.ACTIVA ||
+        state.session == SessionState.ACTIVA_LIMITADA
+
+    // Inicio y cuenta en vertical; el traductor activo, apaisado.
+    val activity = LocalView.current.context.buscarActivity()
+    LaunchedEffect(enConversacion, activity) {
+        activity?.requestedOrientation = if (enConversacion) {
+            ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        } else {
+            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        }
+    }
+
+    if (enConversacion) {
+        SalaDeConversacion(state, actions, participantes, cameraPreview)
+    } else {
+        Inicio(state, actions, participantes)
     }
 }
 
