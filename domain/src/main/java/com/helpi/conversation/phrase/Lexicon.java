@@ -89,8 +89,13 @@ public final class Lexicon {
         if (form.trim().isEmpty()) {
             throw new IllegalArgumentException("forma vacía en el índice " + index);
         }
+        String firstPerson = optString(o, "formaYo");
+        if (firstPerson != null && firstPerson.trim().isEmpty()) {
+            throw new IllegalArgumentException("formaYo vacía en el índice " + index);
+        }
         return new LexicalEntry(index, o.getString("glosa"), category, form, gender,
-                o.optBoolean("plural", false), optString(o, "femenino"), optString(o, "articulo"));
+                o.optBoolean("plural", false), optString(o, "femenino"), optString(o, "articulo"),
+                firstPerson);
     }
 
     private static String optString(JSONObject o, String key) {

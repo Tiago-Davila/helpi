@@ -16,10 +16,19 @@ public final class LexicalEntry {
     private final boolean plural;
     private final String feminineForm;
     private final String article;
+    private final String firstPersonForm;
 
-    /** Crea una entrada; género, forma femenina y artículo pueden faltar (null). */
+    /** Crea una entrada sin forma en primera persona; género, femenino y artículo pueden faltar. */
     public LexicalEntry(int index, String gloss, SignCategory category, String form,
             Gender gender, boolean plural, String feminineForm, String article) {
+        this(index, gloss, category, form, gender, plural, feminineForm, article, null);
+    }
+
+    /** Crea una entrada completa; cualquier dato opcional puede faltar (null). */
+    public LexicalEntry(int index, String gloss, SignCategory category, String form,
+            Gender gender, boolean plural, String feminineForm, String article,
+            String firstPersonForm) {
+        this.firstPersonForm = firstPersonForm;
         this.index = index;
         this.gloss = Objects.requireNonNull(gloss);
         this.category = Objects.requireNonNull(category);
@@ -68,5 +77,10 @@ public final class LexicalEntry {
     /** Artículo que reemplaza al regular, como «el» en «el agua»; null si no hay. */
     public String article() {
         return article;
+    }
+
+    /** Forma conjugada para quien seña, como «me duele»; null si la seña no la tiene. */
+    public String firstPersonForm() {
+        return firstPersonForm;
     }
 }
