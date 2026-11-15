@@ -124,6 +124,7 @@ class SessionCoordinator(
         val recognitionMode: RecognitionMode = RecognitionMode.SINGLE_SIGN,
         val phraseCapture: PhraseCaptureState = PhraseCaptureState.UNAVAILABLE,
         val phraseCandidate: SequenceTranslationCandidate? = null,
+        val sentenceCandidate: SentenceCandidate? = null,
         val notice: String? = null,
         val microphoneEnabled: Boolean = true,
         val cameraEnabled: Boolean = true
@@ -156,6 +157,15 @@ class SessionCoordinator(
         val imageWidth: Int,
         val imageHeight: Int
     )
+
+    /**
+     * Oración del modo seña armada pero no publicada: espera que la persona
+     * sorda la confirme, la edite o la descarte.
+     */
+    data class SentenceCandidate(val turnId: Long, val text: String, val glosses: String)
+
+    /** Oraciones por confirmar, en el orden en que se cerraron; se muestra la primera. */
+    private val pendingSentences = ArrayDeque<SentenceCandidate>()
 
     /** Buffer de cuadros del segmento en curso. */
     private val frameBuffer = ArrayDeque<CapturedFrame>()
@@ -533,6 +543,7 @@ class SessionCoordinator(
         phraseCandidate = null
         phraseCandidateStartMs = -1L
         lastVisionTimestampMs = 0L
+        pendingSentences.clear()
         conversation.clear()
         frameBuffer.clear()
         preRollBuffer.clear()
@@ -1287,13 +1298,42 @@ class SessionCoordinator(
     /** Arma la frase, la publica con sus glosas y la ofrece a voz si no tiene huecos. */
     private fun deliverSentence(turnId: Long, signs: List<RecognizedSign>) {
         val result = phraseAssets.builder(confidenceThreshold).build(signs)
-        conversation.publishSentence(turnId, result.text(), result.glosses().joinToString(" "))
-        val spoken = sentenceVoice(result)
+        val glosses = result.glosses().joinToString(" ")
+        if (needsConfirmation(signLanguage, signs)) {
+            // La frase tiene interpretación: no llega al oyente sin que la persona la confirme.
+            pendingSentences.addLast(SentenceCandidate(turnId, result.text(), glosses))
+            return
+        }
+        publishAndSpeak(turnId, result.text(), glosses)
+    }
+
+    /** Publica la oración con sus glosas y la ofrece a voz si no tiene huecos. */
+    private fun publishAndSpeak(turnId: Long, text: String, glosses: String) {
+        conversation.publishSentence(turnId, text, glosses)
+        val spoken = text.takeIf { PhraseBuilder.GAP !in glosses.split(" ") }
         if (capabilities.tts && spoken != null) {
             arbiter.enqueue(turnId, spoken, now())
         } else {
             conversation.updateVoice(turnId, VoiceState.NOT_SPOKEN)
         }
+    }
+
+    /** Publica la oración en espera, con el texto editado si la persona lo cambió. */
+    fun confirmSentenceCandidate(editedText: String?) = submit(generation) {
+        val candidate = pendingSentences.pollFirst() ?: return@submit
+        val text = editedText?.trim()?.takeIf { it.isNotEmpty() } ?: candidate.text
+        if (hasTurn(candidate.turnId)) {
+            publishAndSpeak(candidate.turnId, text, candidate.glosses)
+        }
+        publish()
+    }
+
+    /** Descarta la oración en espera: no se publica ni se vocaliza. */
+    fun rejectSentenceCandidate() = submit(generation) {
+        val candidate = pendingSentences.pollFirst() ?: return@submit
+        if (hasTurn(candidate.turnId)) conversation.markRejected(candidate.turnId)
+        notice = "Frase descartada."
+        publish()
     }
 
     /** Reemplaza léxico y plantillas, para probar el armado sin cargar el modelo. */
@@ -1472,6 +1512,7 @@ class SessionCoordinator(
             recognitionMode = recognitionMode,
             phraseCapture = phraseCaptureState,
             phraseCandidate = phraseCandidate,
+            sentenceCandidate = pendingSentences.firstOrNull(),
             notice = notice,
             microphoneEnabled = microphoneEnabled,
             cameraEnabled = cameraEnabled
@@ -1498,6 +1539,19 @@ class SessionCoordinator(
             accepted ?: PRONOUNS[pointing.type()]
                 ?.let { index -> SyntheticSigns.entry(index) }
                 ?.let { entry -> RecognizedSign(entry.index(), entry.gloss(), 1f) }
+
+        /**
+         * Una oración se confirma antes de publicarse si contiene interpretación:
+         * siempre en LSE (primera persona por defecto) y en cualquier lengua si
+         * tiene un pronombre señalado. Una oración de LSA sin señalamiento no.
+         */
+        internal fun needsConfirmation(
+            language: SignLanguage,
+            signs: List<RecognizedSign>
+        ): Boolean {
+            val pointed = signs.any { SyntheticSigns.isSynthetic(it.classIndex()) }
+            return language == SignLanguage.LSE || pointed
+        }
 
         private val PRONOUNS = mapOf(
             Pointing.Type.YO to SyntheticSigns.YO,
