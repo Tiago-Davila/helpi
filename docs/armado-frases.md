@@ -1,11 +1,14 @@
 # Armado de frases
 
-Convierte una oración de LSA, ya cerrada, en una frase en español usando
+Convierte una oración de LSA o LSE, ya cerrada, en una frase en español usando
 plantillas determinísticas. No hay modelo de lenguaje ni modelo de traducción.
 Eva reconoce señas; este componente solo agrega gramática.
 
 Código: `domain/src/main/java/com/helpi/conversation/phrase/`.
-Datos: `app/src/main/assets/lsa/lexico_senas.json` y `plantillas_frases.json`.
+Datos: `app/src/main/assets/<lengua>/lexico_senas.json` y
+`plantillas_frases.json`. La carpeta sale del `language` del manifiesto ya
+validado: el léxico siempre es de la misma lengua que el modelo cargado. Una
+lengua sin léxico o plantillas muestra glosas sueltas; las demás no se afectan.
 
 ## Entrada y salida
 
@@ -25,9 +28,10 @@ Datos: `app/src/main/assets/lsa/lexico_senas.json` y `plantillas_frases.json`.
 
 ## Convenciones
 
-- **Verbos reconocidos en infinitivo, siempre.** En LSA la persona y el tiempo se marcan
+- **Verbos reconocidos en infinitivo.** En LSA la persona y el tiempo se marcan
   con dirección y espacio, y el modelo no los captura. No se infieren.
-  Ejemplo: «La mujer: comprar la leche.»
+  Ejemplo: «La mujer: comprar la leche.» La única excepción es la primera
+  persona de LSE (ver «LSE: primera persona por defecto»).
 - **Dos puntos entre la persona y el verbo.** Con el verbo en infinitivo, «La
   mujer comprar la leche» se lee como un error. Los dos puntos expresan tema y
   comentario. Como son dato, se cambian en el JSON.
@@ -59,6 +63,69 @@ Datos: `app/src/main/assets/lsa/lexico_senas.json` y `plantillas_frases.json`.
   la frase se siguen mostrando las letras sueltas (`A N A`). Si una letra queda
   bajo el umbral no se deletrea nada: `A ¿? A`.
 
+## LSE: primera persona por defecto (funcionalidad 007)
+
+El vocabulario de LSE (SWL-LSE, 299 clases) es médico: quien seña casi siempre
+habla de sí. Por eso, en LSE, una oración sin persona se arma en primera persona.
+
+- La conjugación **no la agregan las plantillas**, que siguen limitadas a
+  palabras de función. La aporta el léxico con el campo opcional `formaYo`
+  («Dolor» → «tengo dolor»; «Fiebre» → «tengo fiebre»; «Toser» → «toso»).
+- El marcador `{i.yo}` usa `formaYo` si existe y la forma base si no:
+  «ESTOMAGO DOLOR» → «Tengo dolor en el estómago.»; «ICTUS» → «Ictus.».
+- Se activa con los datos: las plantillas de LSE usan `{i.yo}` y las de LSA no.
+  No hay un interruptor en el código y LSA no cambia.
+- Con «usted» o «él o ella» no se conjuga: «Usted: ayudar.».
+- Los adjetivos con género para quien seña no tienen `formaYo` o usan una
+  forma neutra («Nervioso» → «tengo nervios»), porque el género de quien seña
+  no es observable.
+- Las variantes de una glosa comparten forma («Diarrea (variante 2)» →
+  «diarrea») y las clases compuestas se reescriben para leerse en español, sin
+  conjugar («Comer sin» → «sin comer»).
+- Categorías propias: `cuerpo` (partes del cuerpo) y `sintoma` (malestares y
+  estados).
+- El léxico no tiene validación lingüística: la interfaz muestra
+  «LSE · frases experimentales».
+
+## Señas señaladas: pronombres y zonas (funcionalidad 007)
+
+Los pronombres no son clases del modelo: en LSA y LSE se hacen señalando con el
+índice. `PointingDetector` (`vision/`) los detecta por geometría sobre los mismos
+cuadros del segmento, después de la inferencia y sin tocar el vector de 168.
+
+| Gesto | Seña sintética | Índice | Categoría |
+|---|---|---|---|
+| Índice al pecho | `YO` | -1 | `persona` |
+| Índice hacia la cámara | `USTED` | -2 | `persona` |
+| Índice a un costado | `EL_ELLA` | -3 | `persona` |
+| Índice tocando la cabeza | `CABEZA` | -10 | `cuerpo` |
+| Índice tocando la garganta | `GARGANTA` | -11 | `cuerpo` |
+| Índice tocando el abdomen | `ABDOMEN` | -12 | `cuerpo` |
+
+- Las define `SyntheticSigns`, comunes a todas las lenguas. `Lexicon.entry`
+  resuelve los índices negativos y las plantillas pueden nombrarlas como glosa
+  literal (`glosa:YO`).
+- Señala la mano que tenga el índice extendido, izquierda o derecha; con las
+  dos, no se clasifica. El índice debe sostenerse quieto (`PointingConfig`).
+- **Orden de decisión** por segmento (`SessionCoordinator.segmentSign`): si el
+  modelo acepta la seña, gana el modelo; si no, entra la seña señalada; si
+  tampoco, queda el hueco `¿?`. Un señalamiento ambiguo es `¿?`.
+- Una zona sin su referencia (cara para cabeza y garganta, caderas para
+  abdomen) no se evalúa.
+- Los umbrales son valores iniciales: falta calibrarlos con segmentos reales.
+
+## Confirmación (funcionalidad 007)
+
+Una oración que contiene interpretación no se publica sola: queda como frase
+sugerida en el diálogo «¿Usar esta frase?», con el texto editable y las señas
+reconocidas debajo. Confirmar la publica y la ofrece a voz; descartar no
+publica ni vocaliza.
+
+- Se confirma **siempre en LSE** y, en cualquier lengua, **si la oración tiene
+  una seña señalada**. Una oración de LSA sin señalamiento se publica como antes.
+- Las señas señaladas aparecen entre las glosas (`YO CORRER`); la primera
+  persona por defecto no, porque nadie la señó.
+
 ## Algoritmo
 
 1. Si alguna seña quedó por debajo del umbral, no se aplica ninguna plantilla:
@@ -82,13 +149,14 @@ Datos: `app/src/main/assets/lsa/lexico_senas.json` y `plantillas_frases.json`.
 ```
 
 - `patron`: lista de categorías (`persona`, `verbo`, `objeto`, `cualidad`,
-  `lugar`, `expresion`, `conector`, `tiempo`, `letra`) o de glosas literales
-  (`glosa:<Glosa>`).
+  `lugar`, `expresion`, `conector`, `tiempo`, `letra`, `cuerpo`, `sintoma`) o
+  de glosas literales (`glosa:<Glosa>`), incluidas las sintéticas (`glosa:YO`).
 - `{i}`: forma de la seña `i`.
 - `{i.art}`: artículo definido que concuerda con `i`. Usa el artículo
   especial del léxico cuando existe, como en «el agua». Queda vacío si la
   palabra no tiene género, como «Argentina».
 - `{i.concuerda:j}`: forma de `i` en el género y número de `j`.
+- `{i.yo}`: forma en primera persona de `i` (`formaYo`), o su forma base.
 - El renderizador colapsa los espacios repetidos y pone la mayúscula inicial.
 
 ## Versiones

@@ -171,8 +171,8 @@ señalamiento, el flujo es el de siempre.
 
 ## Phase 6: Documentación y cierre
 
-- [ ] T601 [P] `docs/armado-frases.md`: excepción de primera persona en LSE, marcador `{i.yo}`, campo `formaYo`, categorías `cuerpo` y `sintoma`, señas sintéticas e índices negativos, orden de decisión modelo / señalamiento, regla de confirmación. — Deps: T402, T503 · Ref: spec.md (Reglas vigentes, excepción)
-- [ ] T602 Correr ktlint, detekt, SpotBugs y la suite completa (`domain` y `app`); abrir el PR hacia `develop` con el número 007 en el cuerpo. — Deps: todas · Ref: CLAUDE.md §8
+- [X] T601 [P] `docs/armado-frases.md`: excepción de primera persona en LSE, marcador `{i.yo}`, campo `formaYo`, categorías `cuerpo` y `sintoma`, señas sintéticas e índices negativos, orden de decisión modelo / señalamiento, regla de confirmación. — Deps: T402, T503 · Ref: spec.md (Reglas vigentes, excepción)
+- [X] T602 Correr ktlint, detekt, SpotBugs y la suite completa (`domain` y `app`); abrir el PR hacia `develop` con el número 007 en el cuerpo. — Deps: todas · Ref: CLAUDE.md §8
 
 ---
 
