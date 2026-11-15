@@ -12,9 +12,9 @@ import java.io.IOException
  * catálogo cargados. Si algo no corresponde, el armado se deshabilita y la
  * conversación muestra glosas sueltas; el reconocimiento sigue funcionando.
  *
- * Rutas esperadas en assets:
- *   lsa/lexico_senas.json
- *   lsa/plantillas_frases.json
+ * Rutas esperadas en assets, en la carpeta de la lengua del manifiesto:
+ *   <lengua>/lexico_senas.json
+ *   <lengua>/plantillas_frases.json
  */
 sealed class PhraseAssets {
 
@@ -37,8 +37,8 @@ sealed class PhraseAssets {
     }
 
     companion object {
-        private const val LEXICON_ASSET = "lsa/lexico_senas.json"
-        private const val TEMPLATES_ASSET = "lsa/plantillas_frases.json"
+        private const val LEXICON_NAME = "lexico_senas.json"
+        private const val TEMPLATES_NAME = "plantillas_frases.json"
 
         /** Carga desde los assets de la app, contra el modelo y el catálogo ya validados. */
         fun load(
@@ -53,11 +53,14 @@ sealed class PhraseAssets {
             catalog: SignCatalog,
             read: (String) -> ByteArray?
         ): PhraseAssets {
-            val lexiconJson = read(LEXICON_ASSET)
-            val templatesJson = read(TEMPLATES_ASSET)
+            // La carpeta sale del manifiesto ya validado: léxico y modelo son de la misma lengua.
+            val lexiconAsset = "${manifest.language}/$LEXICON_NAME"
+            val templatesAsset = "${manifest.language}/$TEMPLATES_NAME"
+            val lexiconJson = read(lexiconAsset)
+            val templatesJson = read(templatesAsset)
             return when {
-                lexiconJson == null -> Disabled("falta $LEXICON_ASSET")
-                templatesJson == null -> Disabled("falta $TEMPLATES_ASSET")
+                lexiconJson == null -> Disabled("falta $lexiconAsset")
+                templatesJson == null -> Disabled("falta $templatesAsset")
                 else -> parseAndCheck(manifest, catalog, lexiconJson, templatesJson)
             }
         }

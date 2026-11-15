@@ -80,4 +80,33 @@ class PhraseAssetsTest {
         val otherModel = manifest.copy(modelVersion = "eva-lsa94-v5")
         assertTrue(PhraseAssets.load(otherModel, catalog) { assets()[it] } is PhraseAssets.Disabled)
     }
+
+    @Test
+    fun eachLanguageReadsItsOwnFolder() {
+        val lseManifest = manifest.copy(
+            language = "lse",
+            modelVersion = "eva-lse300-v1",
+            catalogVersion = "1.0",
+            numClasses = 299
+        )
+        val requested = mutableListOf<String>()
+        val loaded = PhraseAssets.load(lseManifest, catalog) {
+            requested += it
+            null
+        }
+        assertEquals(listOf("lse/lexico_senas.json", "lse/plantillas_frases.json"), requested)
+        assertTrue(loaded is PhraseAssets.Disabled)
+        assertEquals("falta lse/lexico_senas.json", (loaded as PhraseAssets.Disabled).reason)
+
+        // Las carpetas de LSE no afectan a LSA.
+        val lsa = PhraseAssets.load(manifest, catalog) { assets()[it] }
+        assertTrue(lsa is PhraseAssets.Ready)
+    }
+
+    @Test
+    fun lseAssetsInTheLsaFolderAreNotUsed() {
+        val lseManifest = manifest.copy(language = "lse")
+        val loaded = PhraseAssets.load(lseManifest, catalog) { assets()[it] }
+        assertTrue(loaded is PhraseAssets.Disabled)
+    }
 }
