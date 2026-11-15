@@ -150,12 +150,15 @@ class SessionCoordinator(
     /**
      * Cuadro del segmento en curso: 168 coords crudas más el tamaño de la
      * imagen analizada, que el contrato v3 necesita para pasar a píxeles.
+     * [head] guarda aparte nariz y boca (pose 0, 9 y 10) para las zonas del
+     * cuerpo del detector de señalamiento; nunca entra al modelo.
      */
     private class CapturedFrame(
         val timestampMs: Long,
         val vector: FloatArray,
         val imageWidth: Int,
-        val imageHeight: Int
+        val imageHeight: Int,
+        val head: FloatArray?
     )
 
     /**
@@ -626,7 +629,13 @@ class SessionCoordinator(
         val vector = KeypointContract.flattenFrame(frame.leftHand, frame.rightHand, frame.pose)
 
         // pre-roll: cuadros previos al inicio detectado
-        val captured = CapturedFrame(frame.timestampMs, vector, frame.imageWidth, frame.imageHeight)
+        val captured = CapturedFrame(
+            frame.timestampMs,
+            vector,
+            frame.imageWidth,
+            frame.imageHeight,
+            headLandmarks(frame.pose)
+        )
         preRollBuffer.addLast(captured)
         while (preRollBuffer.size > PRE_ROLL_FRAMES) preRollBuffer.removeFirst()
 
@@ -759,6 +768,7 @@ class SessionCoordinator(
         }
         val frames = segment.map { it.vector }
         val timestamps = LongArray(segment.size) { segment[it].timestampMs }
+        val heads = segment.map { it.head }
         // Sin hombros el contrato v3 no tiene escala: se avisa en lugar de
         // reportarlo como una falla del modelo.
         if (frames.none { KeypointContract.hasShoulders(it) }) {
@@ -789,7 +799,7 @@ class SessionCoordinator(
             }
             // Después de la inferencia y sobre los mismos cuadros, sin tocar el tensor.
             val pointing = runCatching {
-                pointingDetector.detect(frames, timestamps, imageWidth, imageHeight)
+                pointingDetector.detect(frames, heads, timestamps, imageWidth, imageHeight)
             }.getOrDefault(Pointing.NONE)
             submit(gen) {
                 classifying = false
@@ -1533,17 +1543,36 @@ class SessionCoordinator(
 
         /**
          * Seña que entra a la oración por un segmento: el modelo gana si aceptó;
-         * si no, un pronombre señalado; si tampoco, ninguna (hueco).
+         * si no, un pronombre o una zona señalados; si tampoco, ninguna (hueco).
          */
         internal fun segmentSign(accepted: RecognizedSign?, pointing: Pointing): RecognizedSign? =
-            accepted ?: PRONOUNS[pointing.type()]
+            accepted ?: POINTED_SIGNS[pointing.type()]
                 ?.let { index -> SyntheticSigns.entry(index) }
                 ?.let { entry -> RecognizedSign(entry.index(), entry.gloss(), 1f) }
+
+        /** Nariz y comisuras de la boca (pose 0, 9 y 10) como 9 floats; null sin pose. */
+        internal fun headLandmarks(pose: FloatArray?): FloatArray? {
+            if (pose == null || pose.size < POSE_COORDS) return null
+            val head = FloatArray(HEAD_COORDS)
+            HEAD_POSE_LANDMARKS.forEachIndexed { i, landmark ->
+                System.arraycopy(pose, landmark * AXES, head, i * AXES, AXES)
+            }
+            return head
+        }
+
+        private const val NOSE = 0
+        private const val MOUTH_LEFT = 9
+        private const val MOUTH_RIGHT = 10
+        private const val AXES = 3
+        private val HEAD_POSE_LANDMARKS = intArrayOf(NOSE, MOUTH_LEFT, MOUTH_RIGHT)
+        private val HEAD_COORDS = HEAD_POSE_LANDMARKS.size * AXES
+        private const val POSE_COORDS = 33 * AXES
 
         /**
          * Una oración se confirma antes de publicarse si contiene interpretación:
          * siempre en LSE (primera persona por defecto) y en cualquier lengua si
-         * tiene un pronombre señalado. Una oración de LSA sin señalamiento no.
+         * tiene una seña señalada (pronombre o zona). Una oración de LSA sin
+         * señalamiento no.
          */
         internal fun needsConfirmation(
             language: SignLanguage,
@@ -1553,10 +1582,13 @@ class SessionCoordinator(
             return language == SignLanguage.LSE || pointed
         }
 
-        private val PRONOUNS = mapOf(
+        private val POINTED_SIGNS = mapOf(
             Pointing.Type.YO to SyntheticSigns.YO,
             Pointing.Type.USTED to SyntheticSigns.USTED,
-            Pointing.Type.EL_ELLA to SyntheticSigns.EL_ELLA
+            Pointing.Type.EL_ELLA to SyntheticSigns.EL_ELLA,
+            Pointing.Type.CABEZA to SyntheticSigns.CABEZA,
+            Pointing.Type.GARGANTA to SyntheticSigns.GARGANTA,
+            Pointing.Type.ABDOMEN to SyntheticSigns.ABDOMEN
         )
         const val MIN_THRESHOLD = 0.50f
         const val MAX_THRESHOLD = 0.99f

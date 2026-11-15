@@ -275,6 +275,15 @@ class SessionCoordinatorTest {
     }
 
     @Test
+    fun headLandmarksKeepOnlyNoseAndMouth() {
+        val pose = FloatArray(99) { it.toFloat() }
+        val head = SessionCoordinator.headLandmarks(pose)!!
+        // pose 0 (nariz), 9 y 10 (comisuras de la boca)
+        assertEquals(listOf(0f, 1f, 2f, 27f, 28f, 29f, 30f, 31f, 32f), head.toList())
+        assertNull(SessionCoordinator.headLandmarks(null))
+    }
+
+    @Test
     fun confirmationRuleDependsOnLanguageAndPointing() {
         val correr = RecognizedSign(60, "Correr", 0.95f)
         val yo = pointed(Pointing.Type.YO)!!
@@ -295,6 +304,9 @@ class SessionCoordinatorTest {
         assertEquals("USTED", pronoun.gloss())
         assertEquals(SyntheticSigns.YO, pointed(Pointing.Type.YO)?.classIndex())
         assertEquals(SyntheticSigns.EL_ELLA, pointed(Pointing.Type.EL_ELLA)?.classIndex())
+
+        assertEquals(SyntheticSigns.ABDOMEN, pointed(Pointing.Type.ABDOMEN)?.classIndex())
+        assertEquals("GARGANTA", pointed(Pointing.Type.GARGANTA)?.gloss())
 
         assertNull(pointed(Pointing.Type.AMBIGUOUS))
         assertNull(pointed(Pointing.Type.NONE))
