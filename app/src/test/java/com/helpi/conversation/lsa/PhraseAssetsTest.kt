@@ -104,6 +104,30 @@ class PhraseAssetsTest {
     }
 
     @Test
+    fun realLseAssetsEnableTemplates() {
+        val lseCatalog =
+            SignCatalog.parse(File("src/main/assets/lse/catalogo_senas.json").readText())
+        val lseManifest = manifest.copy(
+            language = "lse",
+            modelVersion = "eva-lse300-v1",
+            catalogVersion = "1.0",
+            numClasses = 299
+        )
+        val loaded = PhraseAssets.load(lseManifest, lseCatalog) { path ->
+            File("src/main/assets/$path").takeIf { it.exists() }?.readBytes()
+        }
+        assertTrue(loaded is PhraseAssets.Ready)
+        val estomagoDolor = listOf(
+            RecognizedSign(141, "Estomago", 0.9f),
+            RecognizedSign(110, "Dolor", 0.9f)
+        )
+        assertEquals(
+            "Tengo dolor en el estómago.",
+            loaded.builder(0.5f).build(estomagoDolor).text()
+        )
+    }
+
+    @Test
     fun lseAssetsInTheLsaFolderAreNotUsed() {
         val lseManifest = manifest.copy(language = "lse")
         val loaded = PhraseAssets.load(lseManifest, catalog) { assets()[it] }

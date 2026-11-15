@@ -1,0 +1,25 @@
+{
+  "version": "1",
+  "lexicoVersion": "1",
+  "plantillas": [
+    {"id": "expresion", "patron": ["expresion"], "salida": "{0}."},
+    {"id": "cuerpo-sintoma", "patron": ["cuerpo", "sintoma"], "salida": "{1.yo} en {0.art} {0}."},
+    {"id": "sintoma-cuerpo", "patron": ["sintoma", "cuerpo"], "salida": "{0.yo} en {1.art} {1}."},
+    {"id": "persona-sintoma", "patron": ["persona", "sintoma"], "salida": "{0.art} {0}: {1}."},
+    {"id": "persona-verbo-objeto", "patron": ["persona", "verbo", "objeto"], "salida": "{0.art} {0}: {1} {2.art} {2}."},
+    {"id": "persona-verbo-cuerpo", "patron": ["persona", "verbo", "cuerpo"], "salida": "{0.art} {0}: {1} {2.art} {2}."},
+    {"id": "persona-verbo", "patron": ["persona", "verbo"], "salida": "{0.art} {0}: {1}."},
+    {"id": "persona-cualidad", "patron": ["persona", "cualidad"], "salida": "{0.art} {0} {1.concuerda:0}."},
+    {"id": "verbo-cuerpo", "patron": ["verbo", "cuerpo"], "salida": "{0} {1.art} {1}."},
+    {"id": "verbo-objeto", "patron": ["verbo", "objeto"], "salida": "{0} {1.art} {1}."},
+    {"id": "verbo-lugar", "patron": ["verbo", "lugar"], "salida": "{0} en {1.art} {1}."},
+    {"id": "objeto-cualidad", "patron": ["objeto", "cualidad"], "salida": "{0.art} {0} es {1.concuerda:0}."},
+    {"id": "sintoma", "patron": ["sintoma"], "salida": "{0.yo}."},
+    {"id": "verbo", "patron": ["verbo"], "salida": "{0.yo}."},
+    {"id": "cualidad", "patron": ["cualidad"], "salida": "{0.yo}."},
+    {"id": "cuerpo", "patron": ["cuerpo"], "salida": "{0.art} {0}."},
+    {"id": "objeto", "patron": ["objeto"], "salida": "{0.art} {0}."},
+    {"id": "lugar", "patron": ["lugar"], "salida": "{0.art} {0}."},
+    {"id": "persona", "patron": ["persona"], "salida": "{0.art} {0}."}
+  ]
+}

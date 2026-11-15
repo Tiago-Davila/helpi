@@ -31,6 +31,7 @@ dependencies {
 tasks.test {
     useJUnit()
     systemProperty("lsa.assets", rootProject.file("app/src/main/assets/lsa").path)
+    systemProperty("lse.assets", rootProject.file("app/src/main/assets/lse").path)
 }
 
 jacoco { toolVersion = "0.8.12" }
