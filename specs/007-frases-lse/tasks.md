@@ -65,6 +65,10 @@ FR-040a, FR-050, FR-050a, US4, US5). Ninguna tarea queda bloqueada por la spec.
   interfaz. Si se cierran varias oraciones seguidas, se confirman en orden.
 - **T404**: el aviso va en el indicador de lengua activa («LSE · frases experimentales»)
   y TalkBack lo lee.
+- **T503**: el pecho se acota por arriba de `abdomenTop` (0,9 anchos de hombro bajo los
+  hombros). Debajo es abdomen si hay caderas; sin caderas no es ni abdomen ni YO, para
+  no confundir «me duele la panza» con un pronombre. Las zonas también se calibran en
+  T307.
 - **Variante evaluación**: falla por Robolectric + SQLite (`Illegal connection pointer`)
   también en `develop` sin estos cambios (34 de 84 tests). No es de esta funcionalidad.
 
@@ -158,10 +162,10 @@ señalamiento, el flujo es el de siempre.
 
 **Goal**: tocarse el abdomen y señar «DOLOR» produce «Tengo dolor en el abdomen.».
 
-- [ ] T501 [US4] `SessionCoordinator.CapturedFrame`: conservar pose 0, 9 y 10 crudos junto al `vector`. `KeypointContract` y el tensor no cambian; T309 debe seguir en verde. — Deps: T306 · Ref: FR-040a
-- [ ] T502 [P] [US4] **Test primero**: en `PointingDetectorTest.java`, contacto de la punta con cabeza, garganta y abdomen → zona; contacto con el pecho → YO; zona sin su landmark de referencia (cara no detectada, caderas fuera de cuadro) → nada. Debe fallar hasta T503. — Deps: T304 · Ref: FR-040, US4-1, US4-2
-- [ ] T503 [US4] `PointingDetector` recibe los landmarks de cabeza opcionales y detecta las tres zonas; `SyntheticSigns` suma `-10` CABEZA, `-11` GARGANTA, `-12` ABDOMEN con categoría `cuerpo` (forma y género para el artículo). — Deps: T501, T502 · Ref: FR-040, FR-041
-- [ ] T504 [US4] Casos en `LsePhraseTest.kt`: «ABDOMEN DOLOR» → «Tengo dolor en el abdomen.»; «YO GARGANTA DOLOR» → «Tengo dolor en la garganta.». — Deps: T503 · Ref: FR-041, US4-1
+- [X] T501 [US4] `SessionCoordinator.CapturedFrame`: conservar pose 0, 9 y 10 crudos junto al `vector`. `KeypointContract` y el tensor no cambian; T309 debe seguir en verde. — Deps: T306 · Ref: FR-040a
+- [X] T502 [P] [US4] **Test primero**: en `PointingDetectorTest.java`, contacto de la punta con cabeza, garganta y abdomen → zona; contacto con el pecho → YO; zona sin su landmark de referencia (cara no detectada, caderas fuera de cuadro) → nada. Debe fallar hasta T503. — Deps: T304 · Ref: FR-040, US4-1, US4-2
+- [X] T503 [US4] `PointingDetector` recibe los landmarks de cabeza opcionales y detecta las tres zonas; `SyntheticSigns` suma `-10` CABEZA, `-11` GARGANTA, `-12` ABDOMEN con categoría `cuerpo` (forma y género para el artículo). — Deps: T501, T502 · Ref: FR-040, FR-041
+- [X] T504 [US4] Casos en `LsePhraseTest.kt`: «ABDOMEN DOLOR» → «Tengo dolor en el abdomen.»; «YO GARGANTA DOLOR» → «Tengo dolor en la garganta.». — Deps: T503 · Ref: FR-041, US4-1
 
 ---
 
