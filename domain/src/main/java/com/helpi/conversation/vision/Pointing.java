@@ -5,9 +5,12 @@ import java.util.Objects;
 /** Resultado del detector de señalamiento para un segmento. */
 public final class Pointing {
 
-    /** Qué se señaló; AMBIGUOUS es un señalamiento claro sin dirección definida. */
+    /**
+     * Qué se señaló; AMBIGUOUS es un señalamiento claro sin dirección definida.
+     * CABEZA, GARGANTA y ABDOMEN son zonas del cuerpo tocadas con el índice.
+     */
     public enum Type {
-        NONE, AMBIGUOUS, YO, USTED, EL_ELLA
+        NONE, AMBIGUOUS, YO, USTED, EL_ELLA, CABEZA, GARGANTA, ABDOMEN
     }
 
     /** Segmento sin señalamiento. */
@@ -35,5 +38,10 @@ public final class Pointing {
     /** Indica si el resultado es un pronombre que puede entrar a la oración. */
     public boolean isPronoun() {
         return type == Type.YO || type == Type.USTED || type == Type.EL_ELLA;
+    }
+
+    /** Indica si el resultado es una zona del cuerpo tocada con el índice. */
+    public boolean isBodyZone() {
+        return type == Type.CABEZA || type == Type.GARGANTA || type == Type.ABDOMEN;
     }
 }

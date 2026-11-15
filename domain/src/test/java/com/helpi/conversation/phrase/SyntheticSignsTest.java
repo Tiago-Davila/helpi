@@ -27,6 +27,16 @@ public class SyntheticSignsTest {
     }
 
     @Test
+    public void lasZonasDelCuerpoSonSustantivosConGenero() {
+        assertEquals("cabeza", LEXICON.entry(SyntheticSigns.CABEZA).form());
+        assertEquals(Gender.FEMENINO, LEXICON.entry(SyntheticSigns.GARGANTA).gender());
+        assertEquals(Gender.MASCULINO, LEXICON.entry(SyntheticSigns.ABDOMEN).gender());
+        for (int index : new int[] {SyntheticSigns.CABEZA, SyntheticSigns.GARGANTA, SyntheticSigns.ABDOMEN}) {
+            assertEquals(SignCategory.CUERPO, LEXICON.entry(index).category());
+        }
+    }
+
+    @Test
     public void unaPlantillaPuedeNombrarUnPronombreComoGlosaLiteral() {
         TemplateSet conYo = TemplateSet.parse("{\"version\":\"1\",\"lexicoVersion\":\"" + LEXICON.version()
                 + "\",\"plantillas\":[{\"id\":\"yo\",\"patron\":[\"glosa:YO\"],\"salida\":\"{0}.\"}]}");

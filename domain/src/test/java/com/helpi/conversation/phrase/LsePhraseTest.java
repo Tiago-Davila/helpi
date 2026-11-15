@@ -27,6 +27,9 @@ public class LsePhraseTest {
         SYNTHETIC.put("YO", SyntheticSigns.YO);
         SYNTHETIC.put("USTED", SyntheticSigns.USTED);
         SYNTHETIC.put("EL_ELLA", SyntheticSigns.EL_ELLA);
+        SYNTHETIC.put("CABEZA", SyntheticSigns.CABEZA);
+        SYNTHETIC.put("GARGANTA", SyntheticSigns.GARGANTA);
+        SYNTHETIC.put("ABDOMEN", SyntheticSigns.ABDOMEN);
     }
 
     @Test
@@ -97,6 +100,11 @@ public class LsePhraseTest {
             {"USTED|Revisar|Resultado", "Usted: revisar el resultado.", "persona-verbo-objeto"},
             {"EL_ELLA|Fiebre (variante 2)", "Él o ella: fiebre.", "persona-sintoma"},
             {"EL_ELLA|Espalda|Dolor", "Él o ella: dolor en la espalda.", "persona-cuerpo-sintoma"},
+            // zonas del cuerpo tocadas con el índice
+            {"ABDOMEN|Dolor", "Tengo dolor en el abdomen.", "cuerpo-sintoma"},
+            {"YO|GARGANTA|Dolor", "Tengo dolor en la garganta.", "yo-cuerpo-sintoma"},
+            {"Dolor|CABEZA", "Tengo dolor en la cabeza.", "sintoma-cuerpo"},
+            {"USTED|ABDOMEN|Bulto", "Usted: bulto en el abdomen.", "persona-cuerpo-sintoma"},
             // sin plantilla: glosa en mayúsculas
             {"Contra", "CONTRA", ""},
             // bajo el umbral: ninguna plantilla ni primera persona

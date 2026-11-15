@@ -18,6 +18,8 @@ public final class PointingDetector {
     private static final int RIGHT_HAND = 63;
     private static final int LEFT_SHOULDER = 126;
     private static final int RIGHT_SHOULDER = 129;
+    private static final int LEFT_HIP = 162;
+    private static final int RIGHT_HIP = 165;
     private static final int WRIST = 0;
     private static final int INDEX_MCP = 5;
     private static final int INDEX_PIP = 6;
@@ -37,8 +39,18 @@ public final class PointingDetector {
      * timestamps y el tamaño de la imagen que analizó MediaPipe.
      */
     public Pointing detect(List<float[]> vectors, long[] timestampsMs, int width, int height) {
-        if (vectors.size() != timestampsMs.length) {
-            throw new IllegalArgumentException("cuadros y timestamps de distinto largo");
+        return detect(vectors, null, timestampsMs, width, height);
+    }
+
+    /**
+     * Igual que {@link #detect(List, long[], int, int)}, con la cara de cada
+     * cuadro (nariz y comisuras de la boca, 9 floats crudos, o null) para las
+     * zonas cabeza y garganta. Sin cara, esas zonas no se evalúan.
+     */
+    public Pointing detect(List<float[]> vectors, List<float[]> heads, long[] timestampsMs,
+            int width, int height) {
+        if (vectors.size() != timestampsMs.length || (heads != null && heads.size() != vectors.size())) {
+            throw new IllegalArgumentException("cuadros, caras y timestamps de distinto largo");
         }
         float shoulderWidth = medianShoulderWidth(vectors, width, height);
         if (shoulderWidth <= 0f) {
@@ -46,7 +58,8 @@ public final class PointingDetector {
         }
         List<Sample> samples = new ArrayList<>(vectors.size());
         for (int i = 0; i < vectors.size(); i++) {
-            samples.add(sample(vectors.get(i), timestampsMs[i], width, height));
+            float[] head = heads == null ? null : heads.get(i);
+            samples.add(sample(vectors.get(i), head, timestampsMs[i], width, height));
         }
         Window best = longestStableWindow(samples, shoulderWidth);
         if (best == null || best.durationMs < config.minHoldMs) {
@@ -78,7 +91,7 @@ public final class PointingDetector {
     }
 
     // Un cuadro señala si exactamente una mano tiene la forma de señalar y hay hombros.
-    private Sample sample(float[] v, long timestampMs, int width, int height) {
+    private Sample sample(float[] v, float[] head, long timestampMs, int width, int height) {
         if (!present(v, LEFT_SHOULDER) || !present(v, RIGHT_SHOULDER)) {
             return Sample.notPointing(timestampMs);
         }
@@ -94,7 +107,20 @@ public final class PointingDetector {
             (v[LEFT_SHOULDER] + v[RIGHT_SHOULDER]) / 2f * width,
             (v[LEFT_SHOULDER + 1] + v[RIGHT_SHOULDER + 1]) / 2f * height,
         };
-        return new Sample(timestampMs, hand, tip, sub(tip, mcp), shoulderCenter);
+        Sample sample = new Sample(timestampMs, hand, tip, sub(tip, mcp), shoulderCenter);
+        if (head != null && present(head, 0)) {
+            sample.nose = new float[] {head[0] * width, head[1] * height};
+        }
+        if (head != null && present(head, 3) && present(head, 6)) {
+            sample.mouth = new float[] {(head[3] + head[6]) / 2f * width, (head[4] + head[7]) / 2f * height};
+        }
+        if (present(v, LEFT_HIP) && present(v, RIGHT_HIP)) {
+            sample.hipCenter = new float[] {
+                (v[LEFT_HIP] + v[RIGHT_HIP]) / 2f * width,
+                (v[LEFT_HIP + 1] + v[RIGHT_HIP + 1]) / 2f * height,
+            };
+        }
+        return sample;
     }
 
     // Índice extendido y recto; medio, anular y meñique plegados hacia la palma.
@@ -173,8 +199,11 @@ public final class PointingDetector {
         float relY = (tip[1] - center[1]) / shoulderWidth;
         boolean inTorso = relX <= config.torsoHalfWidth && relY >= config.torsoTop && relY <= config.torsoBottom;
         // z crece al alejarse de la cámara: el índice apunta hacia el propio cuerpo.
-        if (inTorso && direction[2] > 0f) {
-            return Pointing.Type.YO;
+        if (direction[2] > 0f) {
+            Pointing.Type touched = touchedZone(window, tip, center, shoulderWidth, inTorso, relY);
+            if (touched != null) {
+                return touched;
+            }
         }
         if (direction[2] < 0f && az >= config.dominanceRatio * Math.max(ax, ay)) {
             return Pointing.Type.USTED;
@@ -183,6 +212,52 @@ public final class PointingDetector {
             return Pointing.Type.EL_ELLA;
         }
         return Pointing.Type.AMBIGUOUS;
+    }
+
+    /**
+     * Zona que toca un índice que apunta al cuerpo: cabeza y garganta con la
+     * cara del tramo, abdomen con las caderas, y el pecho es YO. Null si no toca
+     * ninguna; una zona sin su referencia no se evalúa.
+     */
+    private Pointing.Type touchedZone(Window window, float[] tip, float[] center, float shoulderWidth,
+            boolean inTorso, float relY) {
+        float[] nose = mean(window, s -> s.nose);
+        if (nose != null && distance2d(tip, nose) <= config.headRadius * shoulderWidth) {
+            return Pointing.Type.CABEZA;
+        }
+        float[] mouth = mean(window, s -> s.mouth);
+        if (mouth != null) {
+            float[] throat = {
+                mouth[0] + config.throatPosition * (center[0] - mouth[0]),
+                mouth[1] + config.throatPosition * (center[1] - mouth[1]),
+            };
+            if (distance2d(tip, throat) <= config.throatRadius * shoulderWidth) {
+                return Pointing.Type.GARGANTA;
+            }
+        }
+        if (inTorso && relY >= config.abdomenTop) {
+            return mean(window, s -> s.hipCenter) != null ? Pointing.Type.ABDOMEN : null;
+        }
+        return inTorso ? Pointing.Type.YO : null;
+    }
+
+    // Promedio de un punto 2D del tramo; null si falta en la mitad de los cuadros o más.
+    private static float[] mean(Window window, java.util.function.Function<Sample, float[]> point) {
+        float sumX = 0f;
+        float sumY = 0f;
+        int count = 0;
+        for (Sample s : window.samples) {
+            float[] p = point.apply(s);
+            if (p != null) {
+                sumX += p[0];
+                sumY += p[1];
+                count++;
+            }
+        }
+        if (count * 2 <= window.samples.size()) {
+            return null;
+        }
+        return new float[] {sumX / count, sumY / count};
     }
 
     // Landmark en píxeles con la misma convención del contrato: X=x·W, Y=y·H, Z=z·W.
@@ -232,6 +307,9 @@ public final class PointingDetector {
         final float[] tip;
         final float[] direction;
         final float[] shoulderCenter;
+        float[] nose;
+        float[] mouth;
+        float[] hipCenter;
 
         Sample(long timestampMs, int hand, float[] tip, float[] direction, float[] shoulderCenter) {
             this.timestampMs = timestampMs;

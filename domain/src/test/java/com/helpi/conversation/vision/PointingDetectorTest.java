@@ -1,6 +1,7 @@
 package com.helpi.conversation.vision;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -106,12 +107,70 @@ public class PointingDetectorTest {
         assertEquals(Pointing.Type.USTED, detect(frames).type());
     }
 
+    // Cara de prueba: nariz en (480, 120) y comisuras de la boca a la altura 160.
+    private static final float[] HEAD = {
+        480f / W, 120f / H, 0, 465f / W, 160f / H, 0, 495f / W, 160f / H, 0,
+    };
+    // Zonas en píxeles: garganta a mitad de camino entre boca y hombros, abdomen bajo el pecho.
+    private static final float[] TOWARD_BODY = {0f, -0.3f, 1f};
+
+    @Test
+    public void tocarseLaCabezaLaGargantaOElAbdomenEsUnaZona() {
+        assertEquals(Pointing.Type.CABEZA,
+                detectWithHead(Hand.touching(480, 125, 0f, -0.6f, 0.8f), HEAD).type());
+        assertEquals(Pointing.Type.GARGANTA, detectWithHead(Hand.touching(480, 205, TOWARD_BODY), HEAD).type());
+        assertEquals(Pointing.Type.ABDOMEN, detectWithHead(Hand.touching(480, 458, TOWARD_BODY), HEAD).type());
+    }
+
+    @Test
+    public void tocarseElPechoSigueSiendoYo() {
+        assertEquals(Pointing.Type.YO, detectWithHead(Hand.touching(480, 330, TOWARD_BODY), HEAD).type());
+    }
+
+    @Test
+    public void sinLaReferenciaDeUnaZonaNoSeAgregaEsaZona() {
+        // Sin cara detectada, la cabeza no se evalúa.
+        Pointing head = detectWithHead(Hand.touching(480, 125, 0f, -0.6f, 0.8f), null);
+        assertFalse(head.isBodyZone());
+        assertFalse(head.isPronoun());
+        // Sin caderas, tampoco el abdomen; y el abdomen no se confunde con el pecho.
+        List<float[]> frames = new ArrayList<>();
+        List<float[]> heads = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            float[] v = vector(null, Hand.touching(480, 458, TOWARD_BODY), true);
+            for (int k = 162; k < 168; k++) {
+                v[k] = 0f;
+            }
+            frames.add(v);
+            heads.add(HEAD);
+        }
+        Pointing belly = detect(frames, heads);
+        assertFalse(belly.isBodyZone());
+        assertFalse(belly.isPronoun());
+    }
+
+    private Pointing detectWithHead(Hand hand, float[] head) {
+        List<float[]> frames = new ArrayList<>();
+        List<float[]> heads = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            frames.add(vector(null, hand, true));
+            heads.add(head);
+        }
+        return detect(frames, heads);
+    }
+
     private Pointing detect(List<float[]> frames) {
+        return detect(frames, null);
+    }
+
+    private Pointing detect(List<float[]> frames, List<float[]> heads) {
         long[] timestamps = new long[frames.size()];
         for (int i = 0; i < timestamps.length; i++) {
             timestamps[i] = 1000 + i * FRAME_MS;
         }
-        return detector.detect(frames, timestamps, W, H);
+        return heads == null
+                ? detector.detect(frames, timestamps, W, H)
+                : detector.detect(frames, heads, timestamps, W, H);
     }
 
     private static List<float[]> segment(Hand left, Hand right, int count) {
@@ -162,6 +221,13 @@ public class PointingDetectorTest {
             }
             hand.foldFingers(wx, wy, d, 9, 13, 17);
             return hand;
+        }
+
+        // Mano que señala con la punta del índice apoyada en (tx, ty).
+        static Hand touching(float tx, float ty, float... direction) {
+            float[] d = unit(direction[0], direction[1], direction[2]);
+            // La punta queda a 1,9 palmas de la muñeca a lo largo del dedo.
+            return pointing(tx - d[0] * PALM * 1.9f, ty - d[1] * PALM * 1.9f, d[0], d[1], d[2]);
         }
 
         // Todos los dedos extendidos hacia arriba.
