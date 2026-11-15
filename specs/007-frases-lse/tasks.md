@@ -50,8 +50,18 @@ FR-040a, FR-050, FR-050a, US4, US5). Ninguna tarea queda bloqueada por la spec.
 - **Redacción**: «DOLOR» con parte del cuerpo produce «Tengo dolor en el estómago.» y no
   «Me duele el estómago.», para que también sea gramatical con plurales («Tengo dolor en
   las amígdalas.»). Spec, plan y tareas se actualizaron con ese texto.
-- **Pendiente detectado**: en la fase 3, `LexiconTest` espera `entry(-1) == null`; cambia
-  cuando `SyntheticSigns` resuelva índices negativos (T302).
+- **T302**: `LexiconTest` ahora espera `entry(-99) == null`; los índices -1..-3 son los
+  pronombres. `PhraseResult.hasSynthetic()` no se agregó: la regla de confirmación de la
+  fase 4 puede mirar los índices de la oración (`SyntheticSigns.isSynthetic`).
+- **T306**: la regla modelo / señalamiento / hueco vive en
+  `SessionCoordinator.segmentSign`, probada sin cámara. El recorrido completo desde
+  `onLandmarks` con un señalamiento real queda para T307 en el dispositivo.
+- **T307, T308** (pendientes): requieren grabar segmentos y medir en el dispositivo de
+  referencia. `PointingConfig.defaults()` todavía no está calibrado.
+- **T309**: `KeypointContractTest` y `SequenceKeypointContractTest` pasan sin cambios en
+  producción. `ModelReferenceTest` es instrumentado: no se corrió sin dispositivo.
+- **Variante evaluación**: falla por Robolectric + SQLite (`Illegal connection pointer`)
+  también en `develop` sin estos cambios (34 de 84 tests). No es de esta funcionalidad.
 
 ---
 
@@ -107,12 +117,12 @@ de las dos manos, sin tocar el contrato v3.
 **Independent Test**: `PointingDetectorTest` con secuencias sintéticas y grabadas; test de
 contrato v3 sin cambios.
 
-- [ ] T301 [P] [US3] **Test primero**: `domain-test/…/phrase/SyntheticSignsTest.java`: `Lexicon.entry(-1|-2|-3)` devuelve YO / USTED / EL_ELLA con categoría `persona` y formas «yo», «usted», «él o ella»; un índice negativo desconocido devuelve null; `PhraseCompatibility` acepta `glosa:YO` aunque no esté en el catálogo y sigue rechazando una glosa literal inexistente. Debe fallar hasta T302. — Deps: T103 · Ref: FR-034
-- [ ] T302 [US3] Crear `domain/…/phrase/SyntheticSigns.java` (índices negativos fijos, compartidos por las dos lenguas); `Lexicon.entry` resuelve `i < 0` ahí; `PhraseCompatibility` suma las glosas sintéticas a las válidas para plantillas; `PhraseResult.hasSynthetic()`. — Deps: T301 · Ref: FR-034, FR-050a
-- [ ] T303 [P] [US3] **Test primero**: `domain-test/…/vision/PointingDetectorTest.java` con secuencias **sintéticas** de vectores de 168 construidas en el test: índice extendido hacia el torso → YO; hacia la cámara → USTED; a cada costado → EL_ELLA; misma forma con la mano izquierda → mismo resultado; dos índices extendidos → nada; mano abierta, puño → nada; dirección entre dos zonas → ambiguo; punta en movimiento (deriva > `maxDrift`) → nada; sin hombros → nada. Debe fallar hasta T304. — Deps: T000 · Ref: FR-030, FR-032, FR-033, FR-035, FR-036, US3-1, US3-2, US3-3, US3-5
-- [ ] T304 [US3] Crear `domain/…/vision/PointingConfig.java` (`defaults()`: `minHoldMs`, `maxDrift`, `contactDistance`, `dominanceRatio`), `Pointing.java` (tipo + confianza geométrica) y `PointingDetector.java` según plan.md Fase 3.2: escala propia en anchos de hombro, mano con el índice extendido, quietud, dirección punta 8 − nudillo 5. Lee los offsets del vector (mano izquierda 0, derecha 63, hombros 126/129); no modifica ni normaliza el vector. — Deps: T303 · Ref: FR-030 a FR-036
-- [ ] T305 [US3] Agregar a `lse/plantillas_frases.json` las plantillas con `glosa:YO` (`yo-sintoma`, `yo-cuerpo-sintoma`) y casos en `LsePhraseTest.kt`: «YO DOLOR» → «Tengo dolor.»; «USTED AYUDAR» → «Usted: ayudar.»; «EL_ELLA FIEBRE» → infinitivo / forma base, sin `formaYo`. — Deps: T203, T302 · Ref: FR-022, FR-034, caso borde "Otra persona en LSE"
-- [ ] T306 [US3] Integrar en `app/…/session/SessionCoordinator.kt`, en el ejecutor del clasificador y después de la inferencia: si el modelo acepta → modelo; si no acepta y el detector devuelve un pronombre → `RecognizedSign` sintético con confianza 1; si no → hueco, como hoy. Tests en `app-test/…/session/SessionCoordinatorTest.kt` con clasificador falso: los tres caminos, y en LSA el mismo comportamiento. — Deps: T302, T304 · Ref: US3-4, US3-6, FR-030
+- [X] T301 [P] [US3] **Test primero**: `domain-test/…/phrase/SyntheticSignsTest.java`: `Lexicon.entry(-1|-2|-3)` devuelve YO / USTED / EL_ELLA con categoría `persona` y formas «yo», «usted», «él o ella»; un índice negativo desconocido devuelve null; `PhraseCompatibility` acepta `glosa:YO` aunque no esté en el catálogo y sigue rechazando una glosa literal inexistente. Debe fallar hasta T302. — Deps: T103 · Ref: FR-034
+- [X] T302 [US3] Crear `domain/…/phrase/SyntheticSigns.java` (índices negativos fijos, compartidos por las dos lenguas); `Lexicon.entry` resuelve `i < 0` ahí; `PhraseCompatibility` suma las glosas sintéticas a las válidas para plantillas; `PhraseResult.hasSynthetic()`. — Deps: T301 · Ref: FR-034, FR-050a
+- [X] T303 [P] [US3] **Test primero**: `domain-test/…/vision/PointingDetectorTest.java` con secuencias **sintéticas** de vectores de 168 construidas en el test: índice extendido hacia el torso → YO; hacia la cámara → USTED; a cada costado → EL_ELLA; misma forma con la mano izquierda → mismo resultado; dos índices extendidos → nada; mano abierta, puño → nada; dirección entre dos zonas → ambiguo; punta en movimiento (deriva > `maxDrift`) → nada; sin hombros → nada. Debe fallar hasta T304. — Deps: T000 · Ref: FR-030, FR-032, FR-033, FR-035, FR-036, US3-1, US3-2, US3-3, US3-5
+- [X] T304 [US3] Crear `domain/…/vision/PointingConfig.java` (`defaults()`: `minHoldMs`, `maxDrift`, `contactDistance`, `dominanceRatio`), `Pointing.java` (tipo + confianza geométrica) y `PointingDetector.java` según plan.md Fase 3.2: escala propia en anchos de hombro, mano con el índice extendido, quietud, dirección punta 8 − nudillo 5. Lee los offsets del vector (mano izquierda 0, derecha 63, hombros 126/129); no modifica ni normaliza el vector. — Deps: T303 · Ref: FR-030 a FR-036
+- [X] T305 [US3] Agregar a `lse/plantillas_frases.json` las plantillas con `glosa:YO` (`yo-sintoma`, `yo-cuerpo-sintoma`) y casos en `LsePhraseTest.kt`: «YO DOLOR» → «Tengo dolor.»; «USTED AYUDAR» → «Usted: ayudar.»; «EL_ELLA FIEBRE» → infinitivo / forma base, sin `formaYo`. — Deps: T203, T302 · Ref: FR-022, FR-034, caso borde "Otra persona en LSE"
+- [X] T306 [US3] Integrar en `app/…/session/SessionCoordinator.kt`, en el ejecutor del clasificador y después de la inferencia: si el modelo acepta → modelo; si no acepta y el detector devuelve un pronombre → `RecognizedSign` sintético con confianza 1; si no → hueco, como hoy. Tests en `app-test/…/session/SessionCoordinatorTest.kt` con clasificador falso: los tres caminos, y en LSA el mismo comportamiento. — Deps: T302, T304 · Ref: US3-4, US3-6, FR-030
 - [ ] T307 [US3] Grabar segmentos reales con el build de evaluación (YO, USTED, EL_ELLA, seña léxica con índice extendido como la letra «D» de LSA, reposo; con las dos manos), exportarlos como vectores de 168 a `domain/src/test/resources/pointing/` y etiquetarlos. Agregar a `PointingDetectorTest` la medición de SC-004 (≥ 90 % de aciertos en señalamientos claros, < 5 % de pronombres en señas léxicas) y registrar cuántos señalamientos acepta además el modelo de LSE con umbral 0,50. — Deps: T304 · Ref: SC-004, plan.md Riesgos
 - [ ] T308 [US3] Medir en el dispositivo de referencia el p95 del detector por segmento; debe ser < 2 ms. Dejar el número en el PR. — Deps: T306 · Ref: NFR-001
 - [ ] T309 [US3] Verificar que el test de contrato v3 (`contract_v3_fixture.json`) y `ModelReferenceTest` pasan sin cambios. — Deps: T306 · Ref: FR-031, CLAUDE.md §2 y §6
