@@ -5,7 +5,9 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.junit.Test;
 
 /** Frases armadas con los léxico y plantillas reales de LSE (funcionalidad 007). */
@@ -19,6 +21,13 @@ public class LsePhraseTest {
     private static final Lexicon LEXICON = Lexicon.parse(LseAssets.read("lexico_senas.json"));
     private static final TemplateSet TEMPLATES = TemplateSet.parse(LseAssets.read("plantillas_frases.json"));
     private static final PhraseBuilder BUILDER = PhraseBuilder.enabled(LEXICON, TEMPLATES, THRESHOLD);
+    private static final Map<String, Integer> SYNTHETIC = new HashMap<>();
+
+    static {
+        SYNTHETIC.put("YO", SyntheticSigns.YO);
+        SYNTHETIC.put("USTED", SyntheticSigns.USTED);
+        SYNTHETIC.put("EL_ELLA", SyntheticSigns.EL_ELLA);
+    }
 
     @Test
     public void elLexicoEsCompatibleConElModeloYElCatalogo() {
@@ -79,6 +88,15 @@ public class LsePhraseTest {
             {"Urgente", "Urgente.", "expresion"},
             {"Mierda", "Mierda.", "expresion"},
             {"Urgente|Ambulancia", "Urgente. La ambulancia.", "expresion objeto"},
+            // pronombres detectados por señalamiento
+            {"YO|Dolor", "Tengo dolor.", "yo-sintoma"},
+            {"YO|Estomago|Dolor", "Tengo dolor en el estómago.", "yo-cuerpo-sintoma"},
+            {"YO|Toser", "Toso.", "yo-verbo"},
+            {"YO|Debil", "Estoy débil.", "yo-cualidad"},
+            {"USTED|Ayudar", "Usted: ayudar.", "persona-verbo"},
+            {"USTED|Revisar|Resultado", "Usted: revisar el resultado.", "persona-verbo-objeto"},
+            {"EL_ELLA|Fiebre (variante 2)", "Él o ella: fiebre.", "persona-sintoma"},
+            {"EL_ELLA|Espalda|Dolor", "Él o ella: dolor en la espalda.", "persona-cuerpo-sintoma"},
             // sin plantilla: glosa en mayúsculas
             {"Contra", "CONTRA", ""},
             // bajo el umbral: ninguna plantilla ni primera persona
@@ -99,8 +117,8 @@ public class LsePhraseTest {
         for (String token : spec.split("\\|")) {
             boolean low = token.startsWith("*");
             String gloss = low ? token.substring(1) : token;
-            int index = CATALOG.indexOf(gloss);
-            assertTrue("glosa inexistente en el catálogo: " + gloss, index >= 0);
+            int index = SYNTHETIC.containsKey(gloss) ? SYNTHETIC.get(gloss) : CATALOG.indexOf(gloss);
+            assertTrue("glosa inexistente: " + gloss, index != -1 || SYNTHETIC.containsKey(gloss));
             assertNotNull(LEXICON.entry(index));
             signs.add(new RecognizedSign(index, gloss, low ? LOW : HIGH));
         }
