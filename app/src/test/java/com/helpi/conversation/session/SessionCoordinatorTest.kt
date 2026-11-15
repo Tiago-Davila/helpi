@@ -13,6 +13,8 @@ import com.helpi.conversation.observation.NoResultCause
 import com.helpi.conversation.observation.RecognitionObserver
 import com.helpi.conversation.phrase.PhraseResult
 import com.helpi.conversation.phrase.RecognizedSign
+import com.helpi.conversation.phrase.SyntheticSigns
+import com.helpi.conversation.vision.Pointing
 import java.io.File
 import java.time.Duration
 import kotlinx.coroutines.flow.first
@@ -176,6 +178,40 @@ class SessionCoordinatorTest {
         assertEquals(TurnState.FINAL, turns[0].state())
         assertEquals(TurnState.PARTIAL, turns[1].state())
         assertEquals("SORDO", turns[1].text())
+    }
+
+    @Test
+    fun theModelWinsOverPointingAndPointingFillsARejectedSegment() {
+        val correr = RecognizedSign(60, "Correr", 0.95f)
+        val usted = Pointing(Pointing.Type.USTED, 400L)
+
+        assertEquals(correr, SessionCoordinator.segmentSign(correr, usted))
+
+        val pronoun = SessionCoordinator.segmentSign(null, usted)!!
+        assertEquals(SyntheticSigns.USTED, pronoun.classIndex())
+        assertEquals("USTED", pronoun.gloss())
+        assertEquals(SyntheticSigns.YO, pointed(Pointing.Type.YO)?.classIndex())
+        assertEquals(SyntheticSigns.EL_ELLA, pointed(Pointing.Type.EL_ELLA)?.classIndex())
+
+        assertNull(pointed(Pointing.Type.AMBIGUOUS))
+        assertNull(pointed(Pointing.Type.NONE))
+    }
+
+    private fun pointed(type: Pointing.Type): RecognizedSign? =
+        SessionCoordinator.segmentSign(null, Pointing(type, 400L))
+
+    @Test
+    fun aPointedPronounJoinsTheSentence() {
+        startSentenceSession()
+        val yo = pointed(Pointing.Type.YO)!!
+        coordinator.recognizeForSentence(yo, yo.classIndex(), 1_000L, 1_500L)
+        coordinator.recognizeForSentence(RecognizedSign(60, "Correr", 0.95f), 60, 2_000L, 2_500L)
+        coordinator.advanceVisionClock(10_000L)
+
+        val closed = awaitState { it.turns.singleOrNull()?.state() == TurnState.FINAL }
+            .turns.single()
+        assertEquals("Yo: correr.", closed.text())
+        assertEquals("YO CORRER", closed.glosses())
     }
 
     @Test

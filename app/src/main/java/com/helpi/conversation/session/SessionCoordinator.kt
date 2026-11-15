@@ -40,11 +40,15 @@ import com.helpi.conversation.phrase.PhraseBuilder
 import com.helpi.conversation.phrase.PhraseResult
 import com.helpi.conversation.phrase.RecognizedSign
 import com.helpi.conversation.phrase.SentenceAssembler
+import com.helpi.conversation.phrase.SyntheticSigns
 import com.helpi.conversation.vision.CameraCaptureMetrics
 import com.helpi.conversation.vision.FramingEvaluator
 import com.helpi.conversation.vision.LandmarkExtractionMetrics
 import com.helpi.conversation.vision.LandmarkFrame
 import com.helpi.conversation.vision.ObservationFactory
+import com.helpi.conversation.vision.Pointing
+import com.helpi.conversation.vision.PointingConfig
+import com.helpi.conversation.vision.PointingDetector
 import com.helpi.conversation.vision.SamplingProfile
 import com.helpi.conversation.vision.SegmentEvent
 import com.helpi.conversation.vision.SegmenterConfig
@@ -132,6 +136,7 @@ class SessionCoordinator(
     private var stateMachine = SessionStateMachine()
     private val conversation = Conversation()
     private var segmenter = SignSegmenter(SegmenterConfig.defaults())
+    private val pointingDetector = PointingDetector(PointingConfig.defaults())
     private val framingEvaluator = FramingEvaluator()
     private val signingDistanceGuide = SigningDistanceGuide()
     private val observationFactory = ObservationFactory()
@@ -742,6 +747,7 @@ class SessionCoordinator(
             return
         }
         val frames = segment.map { it.vector }
+        val timestamps = LongArray(segment.size) { segment[it].timestampMs }
         // Sin hombros el contrato v3 no tiene escala: se avisa en lugar de
         // reportarlo como una falla del modelo.
         if (frames.none { KeypointContract.hasShoulders(it) }) {
@@ -770,6 +776,10 @@ class SessionCoordinator(
                 val tensor = KeypointContract.buildInputTensor(frames, imageWidth, imageHeight)
                 policy.evaluate(cls.classify(tensor))
             }
+            // Después de la inferencia y sobre los mismos cuadros, sin tocar el tensor.
+            val pointing = runCatching {
+                pointingDetector.detect(frames, timestamps, imageWidth, imageHeight)
+            }.getOrDefault(Pointing.NONE)
             submit(gen) {
                 classifying = false
                 visionMetrics = visionMetrics.copy(
@@ -801,16 +811,18 @@ class SessionCoordinator(
                             predictions = predictions
                         )
                         dispatchDecision(decision, thresholdUsed, endMs) {
-                            if (decision.accepted && acceptedGloss != null) {
-                                addToSentence(
-                                    RecognizedSign(
-                                        decision.classIndex,
-                                        acceptedGloss,
-                                        decision.confidence
-                                    ),
+                            val accepted = if (decision.accepted && acceptedGloss != null) {
+                                RecognizedSign(
                                     decision.classIndex,
-                                    endMs
+                                    acceptedGloss,
+                                    decision.confidence
                                 )
+                            } else {
+                                null
+                            }
+                            val sign = segmentSign(accepted, pointing)
+                            if (sign != null) {
+                                addToSentence(sign, sign.classIndex(), endMs)
                             } else {
                                 addToSentence(null, decision.classIndex, endMs)
                                 turn?.let {
@@ -1477,6 +1489,21 @@ class SessionCoordinator(
         /** Texto que la voz dice para una oración: la frase, o nada si tiene huecos. */
         internal fun sentenceVoice(result: PhraseResult): String? =
             result.text().takeIf { PhraseBuilder.GAP !in result.glosses() }
+
+        /**
+         * Seña que entra a la oración por un segmento: el modelo gana si aceptó;
+         * si no, un pronombre señalado; si tampoco, ninguna (hueco).
+         */
+        internal fun segmentSign(accepted: RecognizedSign?, pointing: Pointing): RecognizedSign? =
+            accepted ?: PRONOUNS[pointing.type()]
+                ?.let { index -> SyntheticSigns.entry(index) }
+                ?.let { entry -> RecognizedSign(entry.index(), entry.gloss(), 1f) }
+
+        private val PRONOUNS = mapOf(
+            Pointing.Type.YO to SyntheticSigns.YO,
+            Pointing.Type.USTED to SyntheticSigns.USTED,
+            Pointing.Type.EL_ELLA to SyntheticSigns.EL_ELLA
+        )
         const val MIN_THRESHOLD = 0.50f
         const val MAX_THRESHOLD = 0.99f
 
