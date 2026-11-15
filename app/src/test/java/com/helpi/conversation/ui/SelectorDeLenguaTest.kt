@@ -115,7 +115,9 @@ class SelectorDeLenguaTest {
         state.value = state.value.copy(signLanguage = SignLanguage.LSE)
         render(active = true)
         compose.onNodeWithTag("activeSignLanguage")
-            .assertContentDescriptionEquals("Lengua de señas activa: LSE · España")
+            .assertContentDescriptionEquals(
+                "Lengua de señas activa: LSE · España. Las frases son experimentales."
+            )
     }
 
     private fun textoContiene(texto: String) = SemanticsMatcher("texto contiene «$texto»") { node ->
