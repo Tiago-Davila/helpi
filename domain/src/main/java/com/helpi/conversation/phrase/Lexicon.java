@@ -46,9 +46,12 @@ public final class Lexicon {
         return entries.size();
     }
 
-    /** Entrada de un índice de clase; null si el índice no existe. */
+    /** Entrada de un índice de clase o de una seña sintética; null si el índice no existe. */
     public LexicalEntry entry(int classIndex) {
-        if (classIndex < 0 || classIndex >= entries.size()) {
+        if (SyntheticSigns.isSynthetic(classIndex)) {
+            return SyntheticSigns.entry(classIndex);
+        }
+        if (classIndex >= entries.size()) {
             return null;
         }
         return entries.get(classIndex);

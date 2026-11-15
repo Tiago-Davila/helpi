@@ -22,7 +22,8 @@ public class LexiconTest {
             assertEquals(i, lexicon.entry(i).index());
         }
         assertNull(lexicon.entry(94));
-        assertNull(lexicon.entry(-1));
+        // Los índices negativos son señas sintéticas (pronombres); uno desconocido sigue sin entrada.
+        assertNull(lexicon.entry(-99));
     }
 
     @Test
