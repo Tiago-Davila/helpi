@@ -60,6 +60,11 @@ FR-040a, FR-050, FR-050a, US4, US5). Ninguna tarea queda bloqueada por la spec.
   referencia. `PointingConfig.defaults()` todavía no está calibrado.
 - **T309**: `KeypointContractTest` y `SequenceKeypointContractTest` pasan sin cambios en
   producción. `ModelReferenceTest` es instrumentado: no se corrió sin dispositivo.
+- **T402**: no se reusa `phraseCandidate` (atado al traductor de secuencias): las oraciones
+  del modo seña usan su propia cola, `SentenceCandidate`, y el mismo diálogo de la
+  interfaz. Si se cierran varias oraciones seguidas, se confirman en orden.
+- **T404**: el aviso va en el indicador de lengua activa («LSE · frases experimentales»)
+  y TalkBack lo lee.
 - **Variante evaluación**: falla por Robolectric + SQLite (`Illegal connection pointer`)
   también en `develop` sin estos cambios (34 de 84 tests). No es de esta funcionalidad.
 
@@ -139,10 +144,10 @@ contrato v3 sin cambios.
 **Independent Test**: tests del coordinador para los caminos de confirmación; prueba manual en
 el dispositivo.
 
-- [ ] T401 [US5] **Test primero**: en `app-test/…/session/SessionCoordinatorTest.kt`: oración LSE cerrada → queda como candidata, no se publica ni se encola voz; `confirmPhraseCandidate` → se publica y se encola; con texto editado → se publica el texto editado; `rejectPhraseCandidate` → nada; oración LSA sin sintéticos → se publica directo como hoy; oración LSA con YO → candidata. Debe fallar hasta T402. — Deps: T306 · Ref: FR-050, FR-050a, US5-2
-- [ ] T402 [US5] `SessionCoordinator.deliverSentence`: aplicar la regla de FR-050a; la candidata reutiliza `phraseCandidate` y los métodos `confirmPhraseCandidate` / `rejectPhraseCandidate`, conservando las glosas de la oración. — Deps: T401 · Ref: FR-050, FR-050a
-- [ ] T403 [US5] `app/…/ui/ConversationScreen.kt`: el diálogo «¿Usar esta frase?» muestra debajo del campo de texto las glosas en MAYÚSCULAS, incluidos los pronombres detectados; la primera persona por defecto no aparece como glosa. — Deps: T402 · Ref: FR-051, US5-1
-- [ ] T404 [P] [US5] `ConversationScreen.kt`: aviso fijo y breve «Frases en LSE: experimental» cuando la lengua seleccionada es LSE. — Deps: T105 · Ref: FR-052
+- [X] T401 [US5] **Test primero**: en `app-test/…/session/SessionCoordinatorTest.kt`: oración LSE cerrada → queda como candidata, no se publica ni se encola voz; `confirmPhraseCandidate` → se publica y se encola; con texto editado → se publica el texto editado; `rejectPhraseCandidate` → nada; oración LSA sin sintéticos → se publica directo como hoy; oración LSA con YO → candidata. Debe fallar hasta T402. — Deps: T306 · Ref: FR-050, FR-050a, US5-2
+- [X] T402 [US5] `SessionCoordinator.deliverSentence`: aplicar la regla de FR-050a; la candidata reutiliza `phraseCandidate` y los métodos `confirmPhraseCandidate` / `rejectPhraseCandidate`, conservando las glosas de la oración. — Deps: T401 · Ref: FR-050, FR-050a
+- [X] T403 [US5] `app/…/ui/ConversationScreen.kt`: el diálogo «¿Usar esta frase?» muestra debajo del campo de texto las glosas en MAYÚSCULAS, incluidos los pronombres detectados; la primera persona por defecto no aparece como glosa. — Deps: T402 · Ref: FR-051, US5-1
+- [X] T404 [P] [US5] `ConversationScreen.kt`: aviso fijo y breve «Frases en LSE: experimental» cuando la lengua seleccionada es LSE. — Deps: T105 · Ref: FR-052
 
 **Checkpoint F4**: en el dispositivo, con LSE, cada oración pasa por el diálogo; con LSA sin
 señalamiento, el flujo es el de siempre.
