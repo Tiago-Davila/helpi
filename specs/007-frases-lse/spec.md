@@ -80,7 +80,7 @@ documentar esta excepción. LSA no cambia.
   que nadie señó y contradice el principio de preferir silencio a una traducción
   incorrecta.
 - Q: ¿Se usa la primera persona por defecto? → A: Sí, en LSE. Si la oración no tiene
-  persona, se arma en primera persona («ESTOMAGO DOLOR» → «Me duele el estómago.»). Es una
+  persona, se arma en primera persona («ESTOMAGO DOLOR» → «Tengo dolor en el estómago.»). Es una
   excepción explícita a la regla de no inferir la persona de la funcionalidad 002, limitada
   a LSE (FR-015, FR-022).
 - Q: ¿Cómo se muestran las clases compuestas? → A: Reescritas para leerse mejor en
@@ -97,7 +97,7 @@ documentar esta excepción. LSA no cambia.
 
 Una persona sorda que seña en LSE selecciona LSE y seña «ESTOMAGO DOLOR». Hoy ve dos glosas
 sueltas. Con esta funcionalidad ve una frase armada con el motor de LSA y en primera
-persona: «Me duele el estómago.».
+persona: «Tengo dolor en el estómago.».
 
 **Why this priority**: sin léxico ni plantillas, LSE no arma ninguna frase. Es la condición
 mínima para que la lengua nueva sea usable en una conversación, y no requiere ningún
@@ -109,7 +109,7 @@ conocidas (sin cámara) y verificar la frase producida contra una tabla de casos
 **Acceptance Scenarios**:
 
 1. **Given** LSE seleccionada y su léxico y plantillas válidos, **When** se cierra la
-   oración «ESTOMAGO DOLOR», **Then** la conversación muestra «Me duele el estómago.» y
+   oración «ESTOMAGO DOLOR», **Then** la conversación muestra «Tengo dolor en el estómago.» y
    debajo las glosas originales.
 2. **Given** LSE seleccionada y una oración sin persona, **When** se arma «FIEBRE», **Then**
    produce «Tengo fiebre.», con la forma en primera persona del léxico.
@@ -154,7 +154,7 @@ las variantes de una glosa comparten forma.
 
 La persona señala hacia la cámara con el índice y después seña «AYUDAR». La frase muestra
 «Usted: ayudar.». Si se señala el pecho antes de «DOLOR», el resultado es el mismo que sin
-señalar en LSE («Me duele.»), pero en LSA la persona queda explícita: «Yo: …».
+señalar en LSE («Tengo dolor.»), pero en LSA la persona queda explícita: «Yo: …».
 
 **Why this priority**: es la única forma de expresar quién hace o siente algo, en las dos
 lenguas. Requiere un componente nuevo (detector geométrico) y por eso va después de P1.
@@ -275,7 +275,7 @@ publica sin pasar por el diálogo.
   plantillas de LSE sin casos especiales por glosa. Agregar una categoría no cambia el
   comportamiento de LSA.
 - **FR-015**: Las entradas de LSE con categoría `sintoma`, `verbo` o `cualidad` MAY
-  declarar una forma en primera persona (`formaYo`: «me duele», «tengo fiebre», «estoy
+  declarar una forma en primera persona (`formaYo`: «tengo dolor», «tengo fiebre», «estoy
   débil», «no puedo dormir»). La conjugación vive en el léxico, nunca en las plantillas.
 
 **Plantillas de LSE**
@@ -284,7 +284,7 @@ publica sin pasar por el diálogo.
   función. Si una plantilla necesita una palabra nueva, se agrega a `FUNCTION_WORDS` solo
   si es una palabra de función (por ejemplo, «en», «sin»), nunca un verbo conjugado.
 - **FR-021**: Las plantillas MUST cubrir como mínimo: `sintoma` sola, `cuerpo` + `sintoma`
-  («Me duele el estómago.»), `persona` + `sintoma`, `persona` + `verbo`, `verbo` +
+  («Tengo dolor en el estómago.»), `persona` + `sintoma`, `persona` + `verbo`, `verbo` +
   `cuerpo`, `cualidad` sola, `persona` + `cualidad`.
 - **FR-022**: En LSE, si la oración no contiene ninguna `persona`, o si contiene `YO`, las
   plantillas MUST usar la forma en primera persona (`{i.yo}`) cuando la entrada la tenga,

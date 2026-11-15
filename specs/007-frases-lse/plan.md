@@ -167,7 +167,7 @@ Cada fase cierra con sus tests en verde y se puede entregar sola.
    {"id": "cualidad",           "patron": ["cualidad"],                 "salida": "{0.yo}."}
    ```
 
-   «ESTOMAGO DOLOR» → «Me duele el estómago.»; «FIEBRE» → «Tengo fiebre.»; «USTED
+   «ESTOMAGO DOLOR» → «Tengo dolor en el estómago.»; «FIEBRE» → «Tengo fiebre.»; «USTED
    AYUDAR» → «Usted: ayudar.».
 6. Primera versión del léxico de LSE con las categorías y las formas base (las 299
    entradas; las formas finas de variantes y compuestos se completan en la fase 2).
@@ -180,7 +180,7 @@ LSA existentes sin modificar (NFR-003, SC-003).
 
 1. Completar el léxico: variantes con forma compartida (FR-012); compuestos reescritos
    («Comer sin» → «sin comer», «Dormir insomnio» → «insomnio», «Mente olvidar» → «olvidar»)
-   (FR-013); `formaYo` donde aplique («me duele», «tengo fiebre», «estoy débil», «no puedo
+   (FR-013); `formaYo` donde aplique («tengo dolor», «tengo fiebre», «estoy débil», «no puedo
    dormir»).
 2. Generar el borrador con un script de una sola vez (`scripts/`), que copia índice y glosa
    del catálogo y deja categoría y forma para completar a mano. El script no queda en el
@@ -255,7 +255,7 @@ LSA sin sintéticos → publicada directo (sin regresión).
    caderas). El pecho sigue siendo `YO` (E-4). Sin el landmark de referencia de una zona,
    esa zona no se evalúa (US4.2).
 3. Señas sintéticas `-10` CABEZA, `-11` GARGANTA, `-12` ABDOMEN, categoría `cuerpo`.
-   «ABDOMEN DOLOR» → «Me duele el abdomen.» con la plantilla `cuerpo-sintoma` de la fase 1.
+   «ABDOMEN DOLOR» → «Tengo dolor en el abdomen.» con la plantilla `cuerpo-sintoma` de la fase 1.
 
 **Tests**: secuencias sintéticas por zona; zona fuera de cuadro; caderas ausentes.
 
