@@ -85,7 +85,9 @@ fun ConsentimientoRoute(
         consentimientoVigente = withContext(Dispatchers.IO) {
             repositorio.obtenerVigente(asset) != null
         }
-        cargando = false
+        // El aviso se acepta una sola vez: con un consentimiento vigente no se
+        // vuelve a mostrar. Para revisarlo o revocarlo están los ajustes.
+        if (consentimientoVigente) onContinuar() else cargando = false
     }
 
     if (cargando) {
@@ -107,6 +109,7 @@ fun ConsentimientoRoute(
                                     repositorio.aceptar(asset, System.currentTimeMillis())
                                 }
                                 consentimientoVigente = true
+                                onContinuar()
                             } catch (cancelacion: CancellationException) {
                                 throw cancelacion
                             } catch (_: Exception) {
