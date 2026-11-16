@@ -1,0 +1,32 @@
+{
+  "version": "2",
+  "lexicoVersion": "1",
+  "plantillas": [
+    {"id": "expresion", "patron": ["expresion"], "salida": "{0}."},
+    {"id": "yo-cuerpo-sintoma", "patron": ["glosa:YO", "cuerpo", "sintoma"], "salida": "{2.yo} en {1.art} {1}."},
+    {"id": "yo-sintoma-cuerpo", "patron": ["glosa:YO", "sintoma", "cuerpo"], "salida": "{1.yo} en {2.art} {2}."},
+    {"id": "yo-verbo-objeto", "patron": ["glosa:YO", "verbo", "objeto"], "salida": "{1.yo} {2.art} {2}."},
+    {"id": "yo-sintoma", "patron": ["glosa:YO", "sintoma"], "salida": "{1.yo}."},
+    {"id": "yo-verbo", "patron": ["glosa:YO", "verbo"], "salida": "{1.yo}."},
+    {"id": "yo-cualidad", "patron": ["glosa:YO", "cualidad"], "salida": "{1.yo}."},
+    {"id": "persona-cuerpo-sintoma", "patron": ["persona", "cuerpo", "sintoma"], "salida": "{0.art} {0}: {2} en {1.art} {1}."},
+    {"id": "cuerpo-sintoma", "patron": ["cuerpo", "sintoma"], "salida": "{1.yo} en {0.art} {0}."},
+    {"id": "sintoma-cuerpo", "patron": ["sintoma", "cuerpo"], "salida": "{0.yo} en {1.art} {1}."},
+    {"id": "persona-sintoma", "patron": ["persona", "sintoma"], "salida": "{0.art} {0}: {1}."},
+    {"id": "persona-verbo-objeto", "patron": ["persona", "verbo", "objeto"], "salida": "{0.art} {0}: {1} {2.art} {2}."},
+    {"id": "persona-verbo-cuerpo", "patron": ["persona", "verbo", "cuerpo"], "salida": "{0.art} {0}: {1} {2.art} {2}."},
+    {"id": "persona-verbo", "patron": ["persona", "verbo"], "salida": "{0.art} {0}: {1}."},
+    {"id": "persona-cualidad", "patron": ["persona", "cualidad"], "salida": "{0.art} {0} {1.concuerda:0}."},
+    {"id": "verbo-cuerpo", "patron": ["verbo", "cuerpo"], "salida": "{0} {1.art} {1}."},
+    {"id": "verbo-objeto", "patron": ["verbo", "objeto"], "salida": "{0} {1.art} {1}."},
+    {"id": "verbo-lugar", "patron": ["verbo", "lugar"], "salida": "{0} en {1.art} {1}."},
+    {"id": "objeto-cualidad", "patron": ["objeto", "cualidad"], "salida": "{0.art} {0} es {1.concuerda:0}."},
+    {"id": "sintoma", "patron": ["sintoma"], "salida": "{0.yo}."},
+    {"id": "verbo", "patron": ["verbo"], "salida": "{0.yo}."},
+    {"id": "cualidad", "patron": ["cualidad"], "salida": "{0.yo}."},
+    {"id": "cuerpo", "patron": ["cuerpo"], "salida": "{0.art} {0}."},
+    {"id": "objeto", "patron": ["objeto"], "salida": "{0.art} {0}."},
+    {"id": "lugar", "patron": ["lugar"], "salida": "{0.art} {0}."},
+    {"id": "persona", "patron": ["persona"], "salida": "{0.art} {0}."}
+  ]
+}

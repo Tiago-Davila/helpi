@@ -69,6 +69,35 @@ public class TemplateRendererTest {
         }
     }
 
+    @Test
+    public void laPrimeraPersonaUsaFormaYoYSinoLaFormaBase() {
+        LexicalEntry dolor = new LexicalEntry(0, "Dolor", SignCategory.SINTOMA, "dolor",
+                Gender.MASCULINO, false, null, null, "me duele");
+        LexicalEntry mareo = new LexicalEntry(1, "Mareo", SignCategory.SINTOMA, "mareo",
+                Gender.MASCULINO, false, null, null, null);
+        LexicalEntry estomago = new LexicalEntry(2, "Estomago", SignCategory.CUERPO, "estómago",
+                Gender.MASCULINO, false, null, null, null);
+        PhraseTemplate sola = new PhraseTemplate("s", Arrays.asList("sintoma"), "{0.yo}.");
+        PhraseTemplate conCuerpo = new PhraseTemplate(
+                "c", Arrays.asList("cuerpo", "sintoma"), "{1.yo} {0.art} {0}.");
+
+        assertEquals("Me duele.", TemplateRenderer.render(sola, Arrays.asList(dolor)));
+        assertEquals("Mareo.", TemplateRenderer.render(sola, Arrays.asList(mareo)));
+        assertEquals("Me duele el estómago.",
+                TemplateRenderer.render(conCuerpo, Arrays.asList(estomago, dolor)));
+    }
+
+    @Test
+    public void elMarcadorYoNoHabilitaPalabrasDeContenido() {
+        new PhraseTemplate("ok", Arrays.asList("sintoma"), "{0.yo}.");
+        try {
+            new PhraseTemplate("mal", Arrays.asList("sintoma"), "Tengo {0.yo}.");
+            fail("debió rechazar «Tengo»");
+        } catch (IllegalArgumentException expected) {
+            // la conjugación vive en el léxico, nunca en la plantilla
+        }
+    }
+
     private static List<LexicalEntry> entries(int[] indices) {
         List<LexicalEntry> list = new ArrayList<>();
         for (int index : indices) {

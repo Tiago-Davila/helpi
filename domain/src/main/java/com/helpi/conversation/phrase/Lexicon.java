@@ -46,9 +46,12 @@ public final class Lexicon {
         return entries.size();
     }
 
-    /** Entrada de un índice de clase; null si el índice no existe. */
+    /** Entrada de un índice de clase o de una seña sintética; null si el índice no existe. */
     public LexicalEntry entry(int classIndex) {
-        if (classIndex < 0 || classIndex >= entries.size()) {
+        if (SyntheticSigns.isSynthetic(classIndex)) {
+            return SyntheticSigns.entry(classIndex);
+        }
+        if (classIndex >= entries.size()) {
             return null;
         }
         return entries.get(classIndex);
@@ -89,8 +92,13 @@ public final class Lexicon {
         if (form.trim().isEmpty()) {
             throw new IllegalArgumentException("forma vacía en el índice " + index);
         }
+        String firstPerson = optString(o, "formaYo");
+        if (firstPerson != null && firstPerson.trim().isEmpty()) {
+            throw new IllegalArgumentException("formaYo vacía en el índice " + index);
+        }
         return new LexicalEntry(index, o.getString("glosa"), category, form, gender,
-                o.optBoolean("plural", false), optString(o, "femenino"), optString(o, "articulo"));
+                o.optBoolean("plural", false), optString(o, "femenino"), optString(o, "articulo"),
+                firstPerson);
     }
 
     private static String optString(JSONObject o, String key) {

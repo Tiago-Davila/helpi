@@ -35,6 +35,9 @@ public final class TemplateRenderer {
         if (m.group(2) == null) {
             return entry.form();
         }
+        if ("yo".equals(m.group(2))) {
+            return firstPerson(entry);
+        }
         if (m.group(3) == null) {
             return article(entry);
         }
@@ -53,6 +56,11 @@ public final class TemplateRenderer {
             return noun.article();
         }
         return noun.gender() == Gender.FEMENINO ? "la" : "el";
+    }
+
+    /** Forma conjugada para quien seña; sin ella, la forma base sin conjugar. */
+    static String firstPerson(LexicalEntry entry) {
+        return entry.firstPersonForm() != null ? entry.firstPersonForm() : entry.form();
     }
 
     /** Forma del adjetivo en el género y número del sustantivo al que acompaña. */

@@ -50,6 +50,8 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
     fun cancelPhraseCapture() = coordinator.cancelPhraseCapture()
     fun confirmPhraseCandidate(text: String? = null) = coordinator.confirmPhraseCandidate(text)
     fun rejectPhraseCandidate() = coordinator.rejectPhraseCandidate()
+    fun confirmSentenceCandidate(text: String? = null) = coordinator.confirmSentenceCandidate(text)
+    fun rejectSentenceCandidate() = coordinator.rejectSentenceCandidate()
     fun submitTyped(text: String) = coordinator.submitTyped(text)
     fun repeatTurn(turnId: Long) = coordinator.repeatTurn(turnId)
 

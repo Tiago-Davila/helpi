@@ -22,7 +22,8 @@ public class LexiconTest {
             assertEquals(i, lexicon.entry(i).index());
         }
         assertNull(lexicon.entry(94));
-        assertNull(lexicon.entry(-1));
+        // Los índices negativos son señas sintéticas (pronombres); uno desconocido sigue sin entrada.
+        assertNull(lexicon.entry(-99));
     }
 
     @Test
@@ -54,6 +55,20 @@ public class LexiconTest {
     }
 
     @Test
+    public void leeLaFormaEnPrimeraPersonaYLasCategoriasMedicas() {
+        String json = "{\"version\":\"1\",\"modelVersion\":\"m\",\"catalogVersion\":\"c\",\"entradas\":["
+                + "{\"indice\":0,\"glosa\":\"Dolor\",\"categoria\":\"sintoma\",\"forma\":\"dolor\","
+                + "\"genero\":\"m\",\"formaYo\":\"me duele\"},"
+                + "{\"indice\":1,\"glosa\":\"Estomago\",\"categoria\":\"cuerpo\",\"forma\":\"estómago\","
+                + "\"genero\":\"m\"}]}";
+        Lexicon lexicon = Lexicon.parse(json);
+        assertEquals(SignCategory.SINTOMA, lexicon.entry(0).category());
+        assertEquals("me duele", lexicon.entry(0).firstPersonForm());
+        assertEquals(SignCategory.CUERPO, lexicon.entry(1).category());
+        assertNull(lexicon.entry(1).firstPersonForm());
+    }
+
+    @Test
     public void rechazaDatosIncompletosOMalformados() {
         String head = "{\"version\":\"1\",\"modelVersion\":\"m\",\"catalogVersion\":\"c\",\"entradas\":";
         String[] invalid = {
@@ -64,6 +79,7 @@ public class LexiconTest {
             head + "[{\"indice\":0,\"glosa\":\"A\",\"categoria\":\"animal\",\"forma\":\"a\"}]}",
             head + "[{\"indice\":0,\"glosa\":\"A\",\"categoria\":\"objeto\",\"forma\":\"a\",\"genero\":\"x\"}]}",
             head + "[{\"indice\":0,\"glosa\":\"A\",\"categoria\":\"verbo\",\"forma\":\" \"}]}",
+            head + "[{\"indice\":0,\"glosa\":\"A\",\"categoria\":\"verbo\",\"forma\":\"a\",\"formaYo\":\" \"}]}",
         };
         for (String json : invalid) {
             try {

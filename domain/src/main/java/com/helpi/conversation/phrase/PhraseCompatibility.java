@@ -71,7 +71,7 @@ public final class PhraseCompatibility {
 
     // Una glosa literal que ya no existe dejaría su plantilla muerta sin avisar.
     private static String missingLiteral(Lexicon lexicon, TemplateSet templates) {
-        Set<String> glosses = new HashSet<>();
+        Set<String> glosses = new HashSet<>(SyntheticSigns.glosses());
         for (int i = 0; i < lexicon.size(); i++) {
             glosses.add(lexicon.entry(i).gloss());
         }

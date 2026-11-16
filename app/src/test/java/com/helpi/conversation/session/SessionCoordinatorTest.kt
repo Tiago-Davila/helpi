@@ -9,10 +9,13 @@ import com.helpi.conversation.lsa.PhraseAssets
 import com.helpi.conversation.lsa.SignAcceptancePolicy
 import com.helpi.conversation.lsa.SignCatalog
 import com.helpi.conversation.lsa.SignDecision
+import com.helpi.conversation.lsa.SignLanguage
 import com.helpi.conversation.observation.NoResultCause
 import com.helpi.conversation.observation.RecognitionObserver
 import com.helpi.conversation.phrase.PhraseResult
 import com.helpi.conversation.phrase.RecognizedSign
+import com.helpi.conversation.phrase.SyntheticSigns
+import com.helpi.conversation.vision.Pointing
 import java.io.File
 import java.time.Duration
 import kotlinx.coroutines.flow.first
@@ -176,6 +179,157 @@ class SessionCoordinatorTest {
         assertEquals(TurnState.FINAL, turns[0].state())
         assertEquals(TurnState.PARTIAL, turns[1].state())
         assertEquals("SORDO", turns[1].text())
+    }
+
+    private fun lsePhraseAssets(): PhraseAssets {
+        val catalog = SignCatalog.parse(File("src/main/assets/lse/catalogo_senas.json").readText())
+        val manifest = ModelBundle.Manifest(
+            language = "lse",
+            modelVersion = "eva-lse300-v1",
+            catalogVersion = "1.0",
+            modelSha256 = "",
+            catalogSha256 = "",
+            numClasses = 299,
+            outputsProbabilities = false,
+            frames = 40,
+            coords = 168,
+            contractVersion = 3,
+            license = "CC BY 4.0",
+            attribution = "SWL-LSE"
+        )
+        return PhraseAssets.load(manifest, catalog) { path ->
+            File("src/main/assets/$path").readBytes()
+        }
+    }
+
+    private fun startLseSentenceSession() {
+        coordinator.prepare(autoStart = true)
+        awaitState { it.session == SessionState.ACTIVA_LIMITADA }
+        coordinator.setSignLanguage(SignLanguage.LSE)
+        awaitState { it.signLanguage == SignLanguage.LSE }
+        coordinator.usePhraseAssets(lsePhraseAssets())
+    }
+
+    // ESTOMAGO (141) DOLOR (110) en LSE.
+    private fun signLseStomachPain() {
+        coordinator.recognizeForSentence(RecognizedSign(141, "Estomago", 0.9f), 141, 1_000L, 1_500L)
+        coordinator.recognizeForSentence(RecognizedSign(110, "Dolor", 0.9f), 110, 2_000L, 2_500L)
+        coordinator.advanceVisionClock(10_000L)
+    }
+
+    @Test
+    fun anLseSentenceWaitsForConfirmationBeforeReachingTheChat() {
+        startLseSentenceSession()
+        signLseStomachPain()
+
+        val waiting = awaitState { it.sentenceCandidate != null }
+        assertEquals("Tengo dolor en el estómago.", waiting.sentenceCandidate!!.text)
+        assertEquals("ESTOMAGO DOLOR", waiting.sentenceCandidate!!.glosses)
+        val turn = waiting.turns.single()
+        assertTrue("no se publica sin confirmar", turn.state() != TurnState.FINAL)
+        assertEquals(VoiceState.NONE, turn.voiceState())
+
+        coordinator.confirmSentenceCandidate(null)
+        val published = awaitState { it.turns.singleOrNull()?.state() == TurnState.FINAL }
+        assertNull(published.sentenceCandidate)
+        assertEquals("Tengo dolor en el estómago.", published.turns.single().text())
+        assertEquals("ESTOMAGO DOLOR", published.turns.single().glosses())
+    }
+
+    @Test
+    fun anEditedLseSentenceIsPublishedWithTheEditedText() {
+        startLseSentenceSession()
+        signLseStomachPain()
+        awaitState { it.sentenceCandidate != null }
+
+        coordinator.confirmSentenceCandidate("Me duele mucho la panza.")
+        val published = awaitState { it.turns.singleOrNull()?.state() == TurnState.FINAL }
+        assertEquals("Me duele mucho la panza.", published.turns.single().text())
+        assertEquals("ESTOMAGO DOLOR", published.turns.single().glosses())
+    }
+
+    @Test
+    fun aDiscardedLseSentenceIsNeitherPublishedNorSpoken() {
+        startLseSentenceSession()
+        signLseStomachPain()
+        awaitState { it.sentenceCandidate != null }
+
+        coordinator.rejectSentenceCandidate()
+        val after = awaitState { it.sentenceCandidate == null }
+        val turn = after.turns.single()
+        assertEquals(TurnState.REJECTED, turn.state())
+        assertEquals(VoiceState.NONE, turn.voiceState())
+    }
+
+    @Test
+    fun anLsaSentenceWithAPointedPronounAlsoWaitsForConfirmation() {
+        startSentenceSession()
+        val yo = pointed(Pointing.Type.YO)!!
+        coordinator.recognizeForSentence(yo, yo.classIndex(), 1_000L, 1_500L)
+        coordinator.recognizeForSentence(RecognizedSign(60, "Correr", 0.95f), 60, 2_000L, 2_500L)
+        coordinator.advanceVisionClock(10_000L)
+
+        val waiting = awaitState { it.sentenceCandidate != null }
+        assertEquals("Yo: correr.", waiting.sentenceCandidate!!.text)
+        assertEquals("YO CORRER", waiting.sentenceCandidate!!.glosses)
+    }
+
+    @Test
+    fun headLandmarksKeepOnlyNoseAndMouth() {
+        val pose = FloatArray(99) { it.toFloat() }
+        val head = SessionCoordinator.headLandmarks(pose)!!
+        // pose 0 (nariz), 9 y 10 (comisuras de la boca)
+        assertEquals(listOf(0f, 1f, 2f, 27f, 28f, 29f, 30f, 31f, 32f), head.toList())
+        assertNull(SessionCoordinator.headLandmarks(null))
+    }
+
+    @Test
+    fun confirmationRuleDependsOnLanguageAndPointing() {
+        val correr = RecognizedSign(60, "Correr", 0.95f)
+        val yo = pointed(Pointing.Type.YO)!!
+        assertFalse(SessionCoordinator.needsConfirmation(SignLanguage.LSA, listOf(correr)))
+        assertTrue(SessionCoordinator.needsConfirmation(SignLanguage.LSA, listOf(yo, correr)))
+        assertTrue(SessionCoordinator.needsConfirmation(SignLanguage.LSE, listOf(correr)))
+    }
+
+    @Test
+    fun theModelWinsOverPointingAndPointingFillsARejectedSegment() {
+        val correr = RecognizedSign(60, "Correr", 0.95f)
+        val usted = Pointing(Pointing.Type.USTED, 400L)
+
+        assertEquals(correr, SessionCoordinator.segmentSign(correr, usted))
+
+        val pronoun = SessionCoordinator.segmentSign(null, usted)!!
+        assertEquals(SyntheticSigns.USTED, pronoun.classIndex())
+        assertEquals("USTED", pronoun.gloss())
+        assertEquals(SyntheticSigns.YO, pointed(Pointing.Type.YO)?.classIndex())
+        assertEquals(SyntheticSigns.EL_ELLA, pointed(Pointing.Type.EL_ELLA)?.classIndex())
+
+        assertEquals(SyntheticSigns.ABDOMEN, pointed(Pointing.Type.ABDOMEN)?.classIndex())
+        assertEquals("GARGANTA", pointed(Pointing.Type.GARGANTA)?.gloss())
+
+        assertNull(pointed(Pointing.Type.AMBIGUOUS))
+        assertNull(pointed(Pointing.Type.NONE))
+    }
+
+    private fun pointed(type: Pointing.Type): RecognizedSign? =
+        SessionCoordinator.segmentSign(null, Pointing(type, 400L))
+
+    @Test
+    fun aPointedPronounJoinsTheSentence() {
+        startSentenceSession()
+        val yo = pointed(Pointing.Type.YO)!!
+        coordinator.recognizeForSentence(yo, yo.classIndex(), 1_000L, 1_500L)
+        coordinator.recognizeForSentence(RecognizedSign(60, "Correr", 0.95f), 60, 2_000L, 2_500L)
+        coordinator.advanceVisionClock(10_000L)
+
+        val waiting = awaitState { it.sentenceCandidate != null }
+        assertEquals("YO CORRER", waiting.sentenceCandidate!!.glosses)
+        coordinator.confirmSentenceCandidate(null)
+        val closed = awaitState { it.turns.singleOrNull()?.state() == TurnState.FINAL }
+            .turns.single()
+        assertEquals("Yo: correr.", closed.text())
+        assertEquals("YO CORRER", closed.glosses())
     }
 
     @Test

@@ -87,6 +87,8 @@ internal data class ConversationActions(
     val cancelPhrase: () -> Unit = {},
     val confirmPhrase: (String?) -> Unit = {},
     val rejectPhrase: () -> Unit = {},
+    val confirmSentence: (String?) -> Unit = {},
+    val rejectSentence: () -> Unit = {},
     val send: (String) -> Unit = {},
     val repeat: (Long) -> Unit = {},
     val incorrect: (Long) -> Unit = {},
@@ -121,6 +123,8 @@ fun ConversationScreen(
             cancelPhrase = viewModel::cancelPhraseCapture,
             confirmPhrase = viewModel::confirmPhraseCandidate,
             rejectPhrase = viewModel::rejectPhraseCandidate,
+            confirmSentence = viewModel::confirmSentenceCandidate,
+            rejectSentence = viewModel::rejectSentenceCandidate,
             send = viewModel::submitTyped,
             repeat = viewModel::repeatTurn,
             incorrect = viewModel::markIncorrect,
@@ -488,34 +492,18 @@ private fun SalaDeConversacion(
         HojaDeAjustes(state, actions) { ajustes = false }
     }
     state.phraseCandidate?.let { candidate ->
-        var candidateText by remember(candidate) { mutableStateOf(candidate.text) }
-        AlertDialog(
-            onDismissRequest = actions.rejectPhrase,
-            title = { Text("¿Usar esta frase?") },
-            text = {
-                Column(Modifier.verticalScroll(rememberScrollState())) {
-                    OutlinedTextField(
-                        value = candidateText,
-                        onValueChange = { candidateText = it.take(300) },
-                        label = { Text("Texto de la frase") },
-                        textStyle = HelpiType.BodyM,
-                        minLines = 2,
-                        maxLines = 5,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = { actions.confirmPhrase(candidateText.trim()) },
-                    enabled = candidateText.isNotBlank()
-                ) { Text("Confirmar") }
-            },
-            dismissButton = {
-                TextButton(onClick = actions.rejectPhrase) { Text("Descartar") }
-            },
-            containerColor = HelpiColors.Surface
-        )
+        ConfirmarFrase(candidate, candidate.text, null, actions.confirmPhrase, actions.rejectPhrase)
+    }
+    if (state.phraseCandidate == null) {
+        state.sentenceCandidate?.let { candidate ->
+            ConfirmarFrase(
+                candidate,
+                candidate.text,
+                candidate.glosses,
+                actions.confirmSentence,
+                actions.rejectSentence
+            )
+        }
     }
     if (finalizando) {
         Confirmacion(
@@ -930,11 +918,63 @@ private fun GuiaDeDistancia(state: SigningDistanceGuide.State, modifier: Modifie
  * Lengua con la que Eva está reconociendo. Queda siempre a la vista sobre la
  * cámara: una seña hecha en otra lengua se traduciría mal sin ningún aviso.
  */
+/**
+ * Frase sugerida que espera confirmación: texto editable y, si las hay, las
+ * glosas reconocidas debajo, para que quien seña vea qué se entendió.
+ */
+@Composable
+private fun ConfirmarFrase(
+    clave: Any,
+    textoInicial: String,
+    glosas: String?,
+    onConfirmar: (String?) -> Unit,
+    onDescartar: () -> Unit
+) {
+    var texto by remember(clave) { mutableStateOf(textoInicial) }
+    AlertDialog(
+        onDismissRequest = onDescartar,
+        title = { Text("¿Usar esta frase?") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                OutlinedTextField(
+                    value = texto,
+                    onValueChange = { texto = it.take(300) },
+                    label = { Text("Texto de la frase") },
+                    textStyle = HelpiType.BodyM,
+                    minLines = 2,
+                    maxLines = 5,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                glosas?.let {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Señas reconocidas: $it",
+                        style = HelpiType.BodyS,
+                        modifier = Modifier.testTag("sentenceCandidateGlosses")
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirmar(texto.trim()) },
+                enabled = texto.isNotBlank()
+            ) { Text("Confirmar") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDescartar) { Text("Descartar") }
+        },
+        containerColor = HelpiColors.Surface
+    )
+}
+
 @Composable
 private fun LenguaActiva(lengua: SignLanguage, modifier: Modifier = Modifier) {
     val info = descripcion(lengua)
+    // Las frases de LSE se arman con un léxico sin validación lingüística (FR-052).
+    val experimental = lengua == SignLanguage.LSE
     Text(
-        info.sigla,
+        if (experimental) "${info.sigla} · frases experimentales" else info.sigla,
         style = HelpiType.LabelBoton,
         color = Color.White,
         modifier = modifier
@@ -944,7 +984,8 @@ private fun LenguaActiva(lengua: SignLanguage, modifier: Modifier = Modifier) {
             .testTag("activeSignLanguage")
             // TalkBack lee el nombre completo de la lengua, no la sigla.
             .clearAndSetSemantics {
-                contentDescription = "Lengua de señas activa: ${info.nombre}"
+                contentDescription = "Lengua de señas activa: ${info.nombre}" +
+                    if (experimental) ". Las frases son experimentales." else ""
             }
     )
 }

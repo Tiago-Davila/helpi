@@ -40,11 +40,15 @@ import com.helpi.conversation.phrase.PhraseBuilder
 import com.helpi.conversation.phrase.PhraseResult
 import com.helpi.conversation.phrase.RecognizedSign
 import com.helpi.conversation.phrase.SentenceAssembler
+import com.helpi.conversation.phrase.SyntheticSigns
 import com.helpi.conversation.vision.CameraCaptureMetrics
 import com.helpi.conversation.vision.FramingEvaluator
 import com.helpi.conversation.vision.LandmarkExtractionMetrics
 import com.helpi.conversation.vision.LandmarkFrame
 import com.helpi.conversation.vision.ObservationFactory
+import com.helpi.conversation.vision.Pointing
+import com.helpi.conversation.vision.PointingConfig
+import com.helpi.conversation.vision.PointingDetector
 import com.helpi.conversation.vision.SamplingProfile
 import com.helpi.conversation.vision.SegmentEvent
 import com.helpi.conversation.vision.SegmenterConfig
@@ -120,6 +124,7 @@ class SessionCoordinator(
         val recognitionMode: RecognitionMode = RecognitionMode.SINGLE_SIGN,
         val phraseCapture: PhraseCaptureState = PhraseCaptureState.UNAVAILABLE,
         val phraseCandidate: SequenceTranslationCandidate? = null,
+        val sentenceCandidate: SentenceCandidate? = null,
         val notice: String? = null,
         val microphoneEnabled: Boolean = true,
         val cameraEnabled: Boolean = true
@@ -132,6 +137,7 @@ class SessionCoordinator(
     private var stateMachine = SessionStateMachine()
     private val conversation = Conversation()
     private var segmenter = SignSegmenter(SegmenterConfig.defaults())
+    private val pointingDetector = PointingDetector(PointingConfig.defaults())
     private val framingEvaluator = FramingEvaluator()
     private val signingDistanceGuide = SigningDistanceGuide()
     private val observationFactory = ObservationFactory()
@@ -144,13 +150,25 @@ class SessionCoordinator(
     /**
      * Cuadro del segmento en curso: 168 coords crudas más el tamaño de la
      * imagen analizada, que el contrato v3 necesita para pasar a píxeles.
+     * [head] guarda aparte nariz y boca (pose 0, 9 y 10) para las zonas del
+     * cuerpo del detector de señalamiento; nunca entra al modelo.
      */
     private class CapturedFrame(
         val timestampMs: Long,
         val vector: FloatArray,
         val imageWidth: Int,
-        val imageHeight: Int
+        val imageHeight: Int,
+        val head: FloatArray?
     )
+
+    /**
+     * Oración del modo seña armada pero no publicada: espera que la persona
+     * sorda la confirme, la edite o la descarte.
+     */
+    data class SentenceCandidate(val turnId: Long, val text: String, val glosses: String)
+
+    /** Oraciones por confirmar, en el orden en que se cerraron; se muestra la primera. */
+    private val pendingSentences = ArrayDeque<SentenceCandidate>()
 
     /** Buffer de cuadros del segmento en curso. */
     private val frameBuffer = ArrayDeque<CapturedFrame>()
@@ -528,6 +546,7 @@ class SessionCoordinator(
         phraseCandidate = null
         phraseCandidateStartMs = -1L
         lastVisionTimestampMs = 0L
+        pendingSentences.clear()
         conversation.clear()
         frameBuffer.clear()
         preRollBuffer.clear()
@@ -610,7 +629,13 @@ class SessionCoordinator(
         val vector = KeypointContract.flattenFrame(frame.leftHand, frame.rightHand, frame.pose)
 
         // pre-roll: cuadros previos al inicio detectado
-        val captured = CapturedFrame(frame.timestampMs, vector, frame.imageWidth, frame.imageHeight)
+        val captured = CapturedFrame(
+            frame.timestampMs,
+            vector,
+            frame.imageWidth,
+            frame.imageHeight,
+            headLandmarks(frame.pose)
+        )
         preRollBuffer.addLast(captured)
         while (preRollBuffer.size > PRE_ROLL_FRAMES) preRollBuffer.removeFirst()
 
@@ -742,6 +767,8 @@ class SessionCoordinator(
             return
         }
         val frames = segment.map { it.vector }
+        val timestamps = LongArray(segment.size) { segment[it].timestampMs }
+        val heads = segment.map { it.head }
         // Sin hombros el contrato v3 no tiene escala: se avisa en lugar de
         // reportarlo como una falla del modelo.
         if (frames.none { KeypointContract.hasShoulders(it) }) {
@@ -770,6 +797,10 @@ class SessionCoordinator(
                 val tensor = KeypointContract.buildInputTensor(frames, imageWidth, imageHeight)
                 policy.evaluate(cls.classify(tensor))
             }
+            // Después de la inferencia y sobre los mismos cuadros, sin tocar el tensor.
+            val pointing = runCatching {
+                pointingDetector.detect(frames, heads, timestamps, imageWidth, imageHeight)
+            }.getOrDefault(Pointing.NONE)
             submit(gen) {
                 classifying = false
                 visionMetrics = visionMetrics.copy(
@@ -801,16 +832,18 @@ class SessionCoordinator(
                             predictions = predictions
                         )
                         dispatchDecision(decision, thresholdUsed, endMs) {
-                            if (decision.accepted && acceptedGloss != null) {
-                                addToSentence(
-                                    RecognizedSign(
-                                        decision.classIndex,
-                                        acceptedGloss,
-                                        decision.confidence
-                                    ),
+                            val accepted = if (decision.accepted && acceptedGloss != null) {
+                                RecognizedSign(
                                     decision.classIndex,
-                                    endMs
+                                    acceptedGloss,
+                                    decision.confidence
                                 )
+                            } else {
+                                null
+                            }
+                            val sign = segmentSign(accepted, pointing)
+                            if (sign != null) {
+                                addToSentence(sign, sign.classIndex(), endMs)
                             } else {
                                 addToSentence(null, decision.classIndex, endMs)
                                 turn?.let {
@@ -1275,13 +1308,42 @@ class SessionCoordinator(
     /** Arma la frase, la publica con sus glosas y la ofrece a voz si no tiene huecos. */
     private fun deliverSentence(turnId: Long, signs: List<RecognizedSign>) {
         val result = phraseAssets.builder(confidenceThreshold).build(signs)
-        conversation.publishSentence(turnId, result.text(), result.glosses().joinToString(" "))
-        val spoken = sentenceVoice(result)
+        val glosses = result.glosses().joinToString(" ")
+        if (needsConfirmation(signLanguage, signs)) {
+            // La frase tiene interpretación: no llega al oyente sin que la persona la confirme.
+            pendingSentences.addLast(SentenceCandidate(turnId, result.text(), glosses))
+            return
+        }
+        publishAndSpeak(turnId, result.text(), glosses)
+    }
+
+    /** Publica la oración con sus glosas y la ofrece a voz si no tiene huecos. */
+    private fun publishAndSpeak(turnId: Long, text: String, glosses: String) {
+        conversation.publishSentence(turnId, text, glosses)
+        val spoken = text.takeIf { PhraseBuilder.GAP !in glosses.split(" ") }
         if (capabilities.tts && spoken != null) {
             arbiter.enqueue(turnId, spoken, now())
         } else {
             conversation.updateVoice(turnId, VoiceState.NOT_SPOKEN)
         }
+    }
+
+    /** Publica la oración en espera, con el texto editado si la persona lo cambió. */
+    fun confirmSentenceCandidate(editedText: String?) = submit(generation) {
+        val candidate = pendingSentences.pollFirst() ?: return@submit
+        val text = editedText?.trim()?.takeIf { it.isNotEmpty() } ?: candidate.text
+        if (hasTurn(candidate.turnId)) {
+            publishAndSpeak(candidate.turnId, text, candidate.glosses)
+        }
+        publish()
+    }
+
+    /** Descarta la oración en espera: no se publica ni se vocaliza. */
+    fun rejectSentenceCandidate() = submit(generation) {
+        val candidate = pendingSentences.pollFirst() ?: return@submit
+        if (hasTurn(candidate.turnId)) conversation.markRejected(candidate.turnId)
+        notice = "Frase descartada."
+        publish()
     }
 
     /** Reemplaza léxico y plantillas, para probar el armado sin cargar el modelo. */
@@ -1460,6 +1522,7 @@ class SessionCoordinator(
             recognitionMode = recognitionMode,
             phraseCapture = phraseCaptureState,
             phraseCandidate = phraseCandidate,
+            sentenceCandidate = pendingSentences.firstOrNull(),
             notice = notice,
             microphoneEnabled = microphoneEnabled,
             cameraEnabled = cameraEnabled
@@ -1477,6 +1540,56 @@ class SessionCoordinator(
         /** Texto que la voz dice para una oración: la frase, o nada si tiene huecos. */
         internal fun sentenceVoice(result: PhraseResult): String? =
             result.text().takeIf { PhraseBuilder.GAP !in result.glosses() }
+
+        /**
+         * Seña que entra a la oración por un segmento: el modelo gana si aceptó;
+         * si no, un pronombre o una zona señalados; si tampoco, ninguna (hueco).
+         */
+        internal fun segmentSign(accepted: RecognizedSign?, pointing: Pointing): RecognizedSign? =
+            accepted ?: POINTED_SIGNS[pointing.type()]
+                ?.let { index -> SyntheticSigns.entry(index) }
+                ?.let { entry -> RecognizedSign(entry.index(), entry.gloss(), 1f) }
+
+        /** Nariz y comisuras de la boca (pose 0, 9 y 10) como 9 floats; null sin pose. */
+        internal fun headLandmarks(pose: FloatArray?): FloatArray? {
+            if (pose == null || pose.size < POSE_COORDS) return null
+            val head = FloatArray(HEAD_COORDS)
+            HEAD_POSE_LANDMARKS.forEachIndexed { i, landmark ->
+                System.arraycopy(pose, landmark * AXES, head, i * AXES, AXES)
+            }
+            return head
+        }
+
+        private const val NOSE = 0
+        private const val MOUTH_LEFT = 9
+        private const val MOUTH_RIGHT = 10
+        private const val AXES = 3
+        private val HEAD_POSE_LANDMARKS = intArrayOf(NOSE, MOUTH_LEFT, MOUTH_RIGHT)
+        private val HEAD_COORDS = HEAD_POSE_LANDMARKS.size * AXES
+        private const val POSE_COORDS = 33 * AXES
+
+        /**
+         * Una oración se confirma antes de publicarse si contiene interpretación:
+         * siempre en LSE (primera persona por defecto) y en cualquier lengua si
+         * tiene una seña señalada (pronombre o zona). Una oración de LSA sin
+         * señalamiento no.
+         */
+        internal fun needsConfirmation(
+            language: SignLanguage,
+            signs: List<RecognizedSign>
+        ): Boolean {
+            val pointed = signs.any { SyntheticSigns.isSynthetic(it.classIndex()) }
+            return language == SignLanguage.LSE || pointed
+        }
+
+        private val POINTED_SIGNS = mapOf(
+            Pointing.Type.YO to SyntheticSigns.YO,
+            Pointing.Type.USTED to SyntheticSigns.USTED,
+            Pointing.Type.EL_ELLA to SyntheticSigns.EL_ELLA,
+            Pointing.Type.CABEZA to SyntheticSigns.CABEZA,
+            Pointing.Type.GARGANTA to SyntheticSigns.GARGANTA,
+            Pointing.Type.ABDOMEN to SyntheticSigns.ABDOMEN
+        )
         const val MIN_THRESHOLD = 0.50f
         const val MAX_THRESHOLD = 0.99f
 
