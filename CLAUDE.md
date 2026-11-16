@@ -187,7 +187,8 @@ la guía solo cuida que el espacio de señado entre en el cuadro. Ese espacio
 LSA64; en 16:9 horizontal el rango queda en ~0,13..0,24 del ancho de la
 imagen. No bloquea la captura.
 
-La app está fija en horizontal (`sensorLandscape`) y la cámara analiza en
+La conversación va en horizontal (`SENSOR_LANDSCAPE`, pedido en tiempo de
+ejecución; el resto de las pantallas va en vertical) y la cámara analiza en
 16:9 (960×540), el mismo formato que LSA64.
 
 ---
