@@ -1,0 +1,16 @@
+{
+  "version": "1",
+  "lexicoVersion": "3",
+  "transiciones": {
+    "inicio":  {"tiempo": 1.6, "persona": 1.6},
+    "tiempo":  {"tiempo": 0.3, "persona": 1.6, "verbo": 1.6, "cualidad": 0.8},
+    "persona": {"tiempo": 0.6, "persona": 0.8, "verbo": 1.6, "cualidad": 1.3},
+    "verbo":   {"tiempo": 0.6, "persona": 1.3, "verbo": 1.3, "objeto": 1.6, "lugar": 1.3, "cualidad": 0.8},
+    "objeto":  {"tiempo": 0.6, "verbo": 1.3, "cualidad": 1.3},
+    "lugar":   {"tiempo": 0.6},
+    "cualidad":{"tiempo": 0.6},
+    "expresion": {},
+    "conector": {"tiempo": 0.6},
+    "letra":   {"tiempo": 0.6, "letra": 1.6}
+  }
+}

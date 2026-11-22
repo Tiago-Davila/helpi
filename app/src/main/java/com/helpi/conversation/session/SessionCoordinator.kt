@@ -142,7 +142,7 @@ class SessionCoordinator(
     private val signingDistanceGuide = SigningDistanceGuide()
     private val observationFactory = ObservationFactory()
     private val phraseBuffer = SequenceCaptureBuffer()
-    private val sentence = SentenceAssembler(SENTENCE_PAUSE_MS)
+    private val sentence = SentenceAssembler(SENTENCE_PAUSE_MS, SENTENCE_PAUSE_AFTER_FAILURE_MS)
 
     /** Burbuja de la oración en curso; -1 si todavía no hubo ningún intento. */
     private var sentenceTurnId: Long = -1
@@ -790,12 +790,15 @@ class SessionCoordinator(
         val gen = generation
         val thresholdUsed = confidenceThreshold
         val revision = visionRevision
+        // El contexto se toma acá, en el executor serial: `classifying` impide que
+        // otra seña entre a la oración mientras esta se clasifica.
+        val contextWeights = phraseAssets.contextWeights(sentence.signs())
         classifying = true
         classifierExecutor.execute {
             val startedAt = now()
             val result = runCatching {
                 val tensor = KeypointContract.buildInputTensor(frames, imageWidth, imageHeight)
-                policy.evaluate(cls.classify(tensor))
+                policy.evaluate(cls.classify(tensor), contextWeights)
             }
             // Después de la inferencia y sobre los mismos cuadros, sin tocar el tensor.
             val pointing = runCatching {
@@ -843,9 +846,9 @@ class SessionCoordinator(
                             }
                             val sign = segmentSign(accepted, pointing)
                             if (sign != null) {
-                                addToSentence(sign, sign.classIndex(), endMs)
+                                addToSentence(sign, endMs)
                             } else {
-                                addToSentence(null, decision.classIndex, endMs)
+                                addToSentence(null, endMs)
                                 turn?.let {
                                     val confidencePercent = (decision.confidence * 100).roundToInt()
                                     val thresholdPercent = (thresholdUsed * 100).roundToInt()
@@ -1245,17 +1248,13 @@ class SessionCoordinator(
     }
 
     /** Suma un intento a la oración en curso; para probar el armado sin modelo ni cámara. */
-    internal fun recognizeForSentence(
-        sign: RecognizedSign?,
-        classIndex: Int,
-        startMs: Long,
-        endMs: Long
-    ) = submit(generation) {
-        if (!isActive() || deliveryMode == DeliveryMode.OBSERVER_ONLY) return@submit
-        sentenceTurn(startMs)
-        addToSentence(sign, classIndex, endMs)
-        publish()
-    }
+    internal fun recognizeForSentence(sign: RecognizedSign?, startMs: Long, endMs: Long) =
+        submit(generation) {
+            if (!isActive() || deliveryMode == DeliveryMode.OBSERVER_ONLY) return@submit
+            sentenceTurn(startMs)
+            addToSentence(sign, endMs)
+            publish()
+        }
 
     /** Avanza el reloj de la cámara sin cuadros; para probar el cierre por pausa. */
     internal fun advanceVisionClock(timestampMs: Long) = submit(generation) {
@@ -1269,11 +1268,16 @@ class SessionCoordinator(
         return conversation.open(Speaker.DEAF, startMs).also { sentenceTurnId = it.id() }
     }
 
-    /** Suma una seña (o un hueco, si es null) y muestra las glosas en la burbuja, sin voz. */
-    private fun addToSentence(sign: RecognizedSign?, classIndex: Int, segmentEndMs: Long) {
+    /** Suma una seña (si es null solo extiende la pausa) y muestra las glosas aceptadas, sin voz. */
+    private fun addToSentence(sign: RecognizedSign?, segmentEndMs: Long) {
         if (sentenceTurnId < 0 || !hasTurn(sentenceTurnId)) return
         if (sign == null) {
-            sentence.addGap(classIndex, segmentEndMs)
+            sentence.noteFailure(segmentEndMs)
+            // sin señas aceptadas no queda burbuja vacía colgando
+            if (sentence.isEmpty()) {
+                abandonAttempt(sentenceTurnId)
+                return
+            }
         } else {
             sentence.add(sign, segmentEndMs)
         }
@@ -1534,7 +1538,10 @@ class SessionCoordinator(
         const val DEFAULT_THRESHOLD = 0.90f
 
         /** Sin señas nuevas durante este tiempo, la oración se da por terminada. */
-        const val SENTENCE_PAUSE_MS = 2_500L
+        const val SENTENCE_PAUSE_MS = 4_000L
+
+        /** Tras una seña no reconocida se espera más, para dar tiempo a repetirla. */
+        const val SENTENCE_PAUSE_AFTER_FAILURE_MS = 6_000L
         private const val PHRASES_WITHOUT_MODEL = "modelo LSA no cargado"
 
         /** Texto que la voz dice para una oración: la frase, o nada si tiene huecos. */

@@ -5,6 +5,7 @@ import java.io.File
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -49,6 +50,42 @@ class PhraseAssetsTest {
         val builder = loaded.builder(0.7f)
         assertTrue(builder.isEnabled)
         assertEquals("La mujer es sorda.", builder.build(mujerSordo()).text())
+    }
+
+    @Test
+    fun contextWeightsFollowTheLastAcceptedSign() {
+        val withContext = assets().apply {
+            put(
+                "lsa/contexto_oracion.json",
+                File("src/main/assets/lsa/contexto_oracion.json").readBytes()
+            )
+        }
+        val loaded = PhraseAssets.load(manifest, catalog) { withContext[it] }
+        val start = loaded.contextWeights(emptyList())!!
+        assertEquals(94, start.size)
+        assertTrue(start[HOY] > start[ENCONTRAR])
+        val afterTomorrow = loaded.contextWeights(listOf(RecognizedSign(MANANA, "Mañana", 0.95f)))!!
+        assertTrue(afterTomorrow[HOY] < afterTomorrow[ENCONTRAR])
+        // una seña con índice corrido anula el contexto en vez de adivinar la categoría
+        assertNull(loaded.contextWeights(listOf(RecognizedSign(MANANA, "Hoy", 0.95f))))
+    }
+
+    @Test
+    fun missingOrForeignContextOnlyDisablesTheContext() {
+        val without = PhraseAssets.load(manifest, catalog) { assets()[it] }
+        assertTrue(without is PhraseAssets.Ready)
+        assertNull(without.contextWeights(emptyList()))
+
+        val foreign = assets().apply {
+            put(
+                "lsa/contexto_oracion.json",
+                File("src/main/assets/lsa/contexto_oracion.json").readText()
+                    .replace("\"lexicoVersion\": \"3\"", "\"lexicoVersion\": \"99\"").toByteArray()
+            )
+        }
+        val loaded = PhraseAssets.load(manifest, catalog) { foreign[it] }
+        assertTrue(loaded is PhraseAssets.Ready)
+        assertNull(loaded.contextWeights(emptyList()))
     }
 
     @Test
@@ -132,5 +169,11 @@ class PhraseAssetsTest {
         val lseManifest = manifest.copy(language = "lse")
         val loaded = PhraseAssets.load(lseManifest, catalog) { assets()[it] }
         assertTrue(loaded is PhraseAssets.Disabled)
+    }
+
+    private companion object {
+        const val ENCONTRAR = 63
+        const val HOY = 64
+        const val MANANA = 66
     }
 }
