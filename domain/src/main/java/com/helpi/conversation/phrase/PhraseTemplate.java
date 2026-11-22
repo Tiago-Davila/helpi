@@ -17,12 +17,21 @@ import java.util.regex.Pattern;
  */
 public final class PhraseTemplate {
 
-    /** Marcadores {i}, {i.art}, {i.yo} y {i.concuerda:j}; el renderer usa los mismos grupos. */
-    static final Pattern PLACEHOLDER = Pattern.compile("\\{(\\d+)(?:\\.(art|yo|concuerda:(\\d+)))?\\}");
+    /**
+     * Marcadores {i}, {i.art}, {i.yo}, {i.concuerda:j}, {i.conj} (verbo en primera persona) y
+     * {i.conj:j} (verbo en tercera persona, sujeto en la ranura j). El renderer usa los
+     * mismos grupos: 1 ranura, 2 modificador, 3 sustantivo que concuerda, 4 sujeto del verbo.
+     */
+    static final Pattern PLACEHOLDER = Pattern.compile(
+            "\\{(\\d+)(?:\\.(art|yo|concuerda:(\\d+)|conj(?::(\\d+))?))?\\}");
 
-    /** Palabras que una plantilla puede agregar: artículos, preposiciones, conjunciones y cópulas. */
+    /**
+     * Palabras que una plantilla puede agregar: artículos, preposiciones, conjunciones,
+     * cópulas y el posesivo de primera persona, que es la persona por defecto del armado.
+     */
     static final Set<String> FUNCTION_WORDS = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
-            "el", "la", "los", "las", "de", "a", "en", "con", "y", "o", "para", "es", "son", "está")));
+            "el", "la", "los", "las", "de", "a", "en", "con", "y", "o", "para",
+            "es", "son", "está", "están", "soy", "estoy", "mi")));
 
     private static final String GLOSS_PREFIX = "glosa:";
 
@@ -47,6 +56,17 @@ public final class PhraseTemplate {
     /** Identificador estable; se informa en el resultado cuando la plantilla se aplica. */
     public String id() {
         return id;
+    }
+
+    /** Indica si la salida conjuga algún verbo; exige conjugaciones en el léxico. */
+    public boolean conjugates() {
+        Matcher m = PLACEHOLDER.matcher(output);
+        while (m.find()) {
+            if (m.group(2) != null && m.group(2).startsWith("conj")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Cantidad de señas que cubre la plantilla. */
@@ -104,6 +124,12 @@ public final class PhraseTemplate {
             if (m.group(3) != null) {
                 requireSlot(m.group(3));
             }
+            if (m.group(2) != null && m.group(2).startsWith("conj")) {
+                requireVerb(m.group(1));
+            }
+            if (m.group(4) != null) {
+                requireSlot(m.group(4));
+            }
         }
         String literal = PLACEHOLDER.matcher(output).replaceAll(" ");
         if (literal.contains("{") || literal.contains("}")) {
@@ -114,6 +140,13 @@ public final class PhraseTemplate {
                 throw new IllegalArgumentException(
                         "plantilla " + id + " agrega una palabra de contenido: " + word);
             }
+        }
+    }
+
+    // Solo un verbo tiene conjugación; una glosa literal no garantiza la categoría.
+    private void requireVerb(String digits) {
+        if (!"verbo".equals(pattern.get(Integer.parseInt(digits)))) {
+            throw new IllegalArgumentException("plantilla " + id + ": conj sobre una ranura que no es verbo");
         }
     }
 

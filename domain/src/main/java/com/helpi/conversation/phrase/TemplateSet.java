@@ -11,17 +11,21 @@ import org.json.JSONObject;
 
 /**
  * Conjunto de plantillas en el orden del archivo; ese orden desempata
- * plantillas igual de largas y específicas. Declara el léxico que asume.
+ * plantillas igual de largas y específicas. Declara el léxico que asume y
+ * el tiempo verbal de una oración sin seña de tiempo.
  */
 public final class TemplateSet {
 
     private final String version;
     private final String lexiconVersion;
+    private final VerbTense defaultTense;
     private final List<PhraseTemplate> templates;
 
-    private TemplateSet(String version, String lexiconVersion, List<PhraseTemplate> templates) {
+    private TemplateSet(String version, String lexiconVersion, VerbTense defaultTense,
+            List<PhraseTemplate> templates) {
         this.version = version;
         this.lexiconVersion = lexiconVersion;
+        this.defaultTense = defaultTense;
         this.templates = Collections.unmodifiableList(templates);
     }
 
@@ -33,6 +37,11 @@ public final class TemplateSet {
     /** Versión del léxico sobre la que se escribieron las plantillas. */
     public String lexiconVersion() {
         return lexiconVersion;
+    }
+
+    /** Tiempo de los verbos cuando nadie señó hoy, ayer ni mañana; pasado si el archivo no lo declara. */
+    public VerbTense defaultTense() {
+        return defaultTense;
     }
 
     /** Plantillas en el orden declarado. */
@@ -57,7 +66,11 @@ public final class TemplateSet {
             if (templates.isEmpty()) {
                 throw new IllegalArgumentException("sin plantillas");
             }
-            return new TemplateSet(root.getString("version"), root.getString("lexicoVersion"), templates);
+            VerbTense defaultTense = root.has("tiempoPorDefecto")
+                    ? VerbTense.fromJson(root.getString("tiempoPorDefecto"))
+                    : VerbTense.PASADO;
+            return new TemplateSet(root.getString("version"), root.getString("lexicoVersion"),
+                    defaultTense, templates);
         } catch (JSONException e) {
             throw new IllegalArgumentException("plantillas ilegibles: " + e.getMessage(), e);
         }

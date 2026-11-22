@@ -113,7 +113,7 @@ class SessionCoordinatorTest {
         )
         val turn = awaitState { it.turns.size == 1 }.turns.single()
         assertEquals(Speaker.DEAF, turn.speaker())
-        assertEquals("La mujer sorda.", turn.text())
+        assertEquals("La mujer es sorda.", turn.text())
         assertEquals("MUJER SORDO", turn.glosses())
         // sin voz instalada en Robolectric: se muestra pero no se pronuncia
         assertEquals(VoiceState.NOT_SPOKEN, turn.voiceState())
@@ -163,7 +163,7 @@ class SessionCoordinatorTest {
         coordinator.advanceVisionClock(2_500L + SessionCoordinator.SENTENCE_PAUSE_MS)
         val closed = awaitState { it.turns.singleOrNull()?.state() == TurnState.FINAL }
             .turns.single()
-        assertEquals("La mujer sorda.", closed.text())
+        assertEquals("La mujer es sorda.", closed.text())
         assertEquals("MUJER SORDO", closed.glosses())
         assertEquals(building.id(), closed.id())
     }
@@ -270,7 +270,7 @@ class SessionCoordinatorTest {
         coordinator.advanceVisionClock(10_000L)
 
         val waiting = awaitState { it.sentenceCandidate != null }
-        assertEquals("Yo: correr.", waiting.sentenceCandidate!!.text)
+        assertEquals("Yo corrí.", waiting.sentenceCandidate!!.text)
         assertEquals("YO CORRER", waiting.sentenceCandidate!!.glosses)
     }
 
@@ -328,7 +328,7 @@ class SessionCoordinatorTest {
         coordinator.confirmSentenceCandidate(null)
         val closed = awaitState { it.turns.singleOrNull()?.state() == TurnState.FINAL }
             .turns.single()
-        assertEquals("Yo: correr.", closed.text())
+        assertEquals("Yo corrí.", closed.text())
         assertEquals("YO CORRER", closed.glosses())
     }
 
@@ -354,7 +354,7 @@ class SessionCoordinatorTest {
         coordinator.pause()
 
         val paused = awaitState { it.session == SessionState.PAUSADA }
-        assertEquals("La mujer sorda.", paused.turns.single().text())
+        assertEquals("La mujer es sorda.", paused.turns.single().text())
         assertEquals(TurnState.FINAL, paused.turns.single().state())
     }
 

@@ -61,7 +61,7 @@ public class PhraseCompatibilityTest {
             {MODEL, CATALOG, catalog, templates("1", "expresion")},
             {MODEL, CATALOG, shorter, deployedTemplates()},
             {MODEL, CATALOG, shifted, deployedTemplates()},
-            {MODEL, CATALOG, catalog, templates("2", "glosa:Pescado")},
+            {MODEL, CATALOG, catalog, templates("3", "glosa:Pescado")},
         };
         for (Object[] c : cases) {
             @SuppressWarnings("unchecked")
@@ -71,5 +71,23 @@ public class PhraseCompatibilityTest {
             assertFalse("debió deshabilitar: " + Arrays.toString(c), result.compatible());
             assertTrue(result.reason() != null && !result.reason().isEmpty());
         }
+    }
+
+    @Test
+    public void unVerboSinConjugacionDeshabilitaLasPlantillasQueConjugan() {
+        String json = LsaAssets.read("lexico_senas.json").replace(", \"conjugacion\": {\"pasado\": "
+                + "[\"compré\", \"compró\"], \"presente\": [\"compro\", \"compra\"], "
+                + "\"futuro\": [\"compraré\", \"comprará\"]}", "");
+        Lexicon sinComprar = Lexicon.parse(json);
+        assertNull(sinComprar.entry(58).conjugation());
+
+        PhraseCompatibility result = PhraseCompatibility.check(
+                MODEL, CATALOG, deployedCatalog(), sinComprar, deployedTemplates());
+        assertFalse(result.compatible());
+        assertTrue(result.reason(), result.reason().contains("Comprar"));
+
+        PhraseCompatibility sinConjugar = PhraseCompatibility.check(
+                MODEL, CATALOG, deployedCatalog(), sinComprar, templates("3", "expresion"));
+        assertTrue(sinConjugar.reason(), sinConjugar.compatible());
     }
 }

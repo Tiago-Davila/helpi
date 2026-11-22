@@ -20,11 +20,12 @@ public class TemplateSetTest {
     @Test
     public void lasPlantillasDesplegadasSonValidasYConservanElOrden() {
         TemplateSet set = TemplateSet.parse(LsaAssets.read("plantillas_frases.json"));
-        assertEquals("2", set.lexiconVersion());
-        assertEquals(20, set.templates().size());
+        assertEquals("3", set.lexiconVersion());
+        assertEquals(VerbTense.PASADO, set.defaultTense());
+        assertEquals(63, set.templates().size());
         assertEquals("expresion", set.templates().get(0).id());
-        assertEquals("persona-verbo-objeto", set.templates().get(2).id());
-        assertEquals("deletreo", set.templates().get(19).id());
+        assertEquals("verbo", set.templates().get(2).id());
+        assertEquals("deletreo", set.templates().get(62).id());
     }
 
     @Test
@@ -58,6 +59,10 @@ public class TemplateSetTest {
             {Arrays.asList("animal"), "{0}."},
             {Arrays.asList("glosa:"), "{0}."},
             {Arrays.<String>asList(), "."},
+            {Arrays.asList("objeto"), "{0.conj}."},
+            {Arrays.asList("glosa:Comprar"), "{0.conj}."},
+            {Arrays.asList("persona", "verbo"), "{1.conj:2}."},
+            {Arrays.asList("verbo"), "Quiero {0}."},
         };
         for (Object[] c : cases) {
             try {
@@ -72,6 +77,22 @@ public class TemplateSetTest {
     }
 
     @Test
+    public void conjugaSoloSiLaSalidaLoPide() {
+        assertTrue(template(Arrays.asList("verbo"), "{0.conj}.").conjugates());
+        assertTrue(template(Arrays.asList("persona", "verbo"), "{0} {1.conj:0}.").conjugates());
+        assertFalse(template(Arrays.asList("verbo"), "{0}.").conjugates());
+    }
+
+    @Test
+    public void elTiempoPorDefectoEsPasadoSiNoSeDeclara() {
+        String one = "{\"id\":\"a\",\"patron\":[\"expresion\"],\"salida\":\"{0}.\"}";
+        String head = "{\"version\":\"1\",\"lexicoVersion\":\"1\",";
+        assertEquals(VerbTense.PASADO, TemplateSet.parse(head + "\"plantillas\":[" + one + "]}").defaultTense());
+        assertEquals(VerbTense.FUTURO, TemplateSet.parse(
+                head + "\"tiempoPorDefecto\":\"futuro\",\"plantillas\":[" + one + "]}").defaultTense());
+    }
+
+    @Test
     public void rechazaConjuntosMalformados() {
         String head = "{\"version\":\"1\",\"lexicoVersion\":\"1\",\"plantillas\":";
         String one = "{\"id\":\"a\",\"patron\":[\"expresion\"],\"salida\":\"{0}.\"}";
@@ -80,6 +101,8 @@ public class TemplateSetTest {
             head + "[]}",
             head + "[" + one + "," + one + "]}",
             "{\"version\":\"1\",\"plantillas\":[" + one + "]}",
+            "{\"version\":\"1\",\"lexicoVersion\":\"1\",\"tiempoPorDefecto\":\"siempre\",\"plantillas\":["
+                + one + "]}",
         };
         for (String json : invalid) {
             try {

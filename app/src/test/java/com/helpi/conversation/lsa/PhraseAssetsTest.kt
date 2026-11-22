@@ -48,7 +48,7 @@ class PhraseAssetsTest {
         assertTrue(loaded is PhraseAssets.Ready)
         val builder = loaded.builder(0.7f)
         assertTrue(builder.isEnabled)
-        assertEquals("La mujer sorda.", builder.build(mujerSordo()).text())
+        assertEquals("La mujer es sorda.", builder.build(mujerSordo()).text())
     }
 
     @Test
