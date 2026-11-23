@@ -1,17 +1,33 @@
 #!/usr/bin/env bash
-# Baja los SDK de Robolectric con reintentos: su descarga propia no reintenta ante un HTTP 429.
+# Baja los SDK de Robolectric: su descarga propia falla si Maven Central responde HTTP 429.
 set -euo pipefail
 
 repository="$HOME/.m2/repository"
-central='https://repo1.maven.org/maven2'
+# El espejo de Google cubre el 429: Central puede pedir una espera más larga que el job.
+sources=(
+  'https://repo1.maven.org/maven2'
+  'https://maven-central.storage-download.googleapis.com/maven2'
+)
+
+# Prueba cada fuente en orden hasta que una entregue el archivo.
+download() {
+  local path="$1" target="$2" source
+  for source in "${sources[@]}"; do
+    if curl --fail --silent --show-error --location --retry 3 --retry-max-time 60 \
+      --output "$target" "$source/$path"; then
+      return 0
+    fi
+    echo "No disponible en $source: $path" >&2
+  done
+  return 1
+}
 
 # Deja el archivo en el repositorio local y exige el SHA-512 fijado, también si vino del caché.
 fetch() {
   local path="$1" sha512="$2" target="$repository/$1"
   if ! echo "$sha512  $target" | sha512sum --check --status 2>/dev/null; then
     mkdir -p "$(dirname "$target")"
-    curl --fail --silent --show-error --location --retry 6 --retry-all-errors \
-      --retry-max-time 600 --output "$target" "$central/$path"
+    download "$path" "$target"
     echo "$sha512  $target" | sha512sum --check --status
   fi
   printf '%s' "$sha512" > "$target.sha512"
