@@ -780,11 +780,6 @@ private fun PanelDeCaptura(
             )
         }
 
-        LenguaActiva(
-            state.signLanguage,
-            Modifier.align(Alignment.BottomStart).windowInsetsPadding(seguro).padding(10.dp)
-        )
-
         if (camaraViva) {
             Column(
                 Modifier
@@ -826,39 +821,46 @@ private fun PanelDeCaptura(
             }
         }
 
-        Row(
+        // La lengua va encima del orbe, en la misma columna: ancladas por separado
+        // a la esquina se tapaban.
+        Column(
             Modifier
                 .align(Alignment.BottomStart)
                 .windowInsetsPadding(seguro)
                 .fillMaxWidth()
                 .padding(start = 10.dp, end = 68.dp, bottom = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            val eva = estadoDeEva(state)
-            EvaOrb(
-                eva,
-                Modifier.size(54.dp).semantics {
-                    contentDescription = when (eva) {
-                        EvaEstado.ESCUCHANDO -> "Helpi está escuchando"
-                        EvaEstado.HABLANDO -> "Helpi está hablando"
-                        EvaEstado.PENSANDO -> "Helpi está reconociendo la seña"
-                        EvaEstado.REPOSO -> "Helpi en pausa"
+            LenguaActiva(state.signLanguage)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                val eva = estadoDeEva(state)
+                EvaOrb(
+                    eva,
+                    Modifier.size(54.dp).testTag("evaOrb").semantics {
+                        contentDescription = when (eva) {
+                            EvaEstado.ESCUCHANDO -> "Helpi está escuchando"
+                            EvaEstado.HABLANDO -> "Helpi está hablando"
+                            EvaEstado.PENSANDO -> "Helpi está reconociendo la seña"
+                            EvaEstado.REPOSO -> "Helpi en pausa"
+                        }
                     }
-                }
-            )
-            if (camaraViva) {
-                instruccionDeEncuadre(state)?.let {
-                    Text(
-                        it,
-                        style = HelpiType.BodyS,
-                        color = Color.White,
-                        modifier = Modifier
-                            .background(HelpiColors.VeloCamara, HelpiShapes.Chip)
-                            .border(1.dp, HelpiColors.VidrioBorde, HelpiShapes.Chip)
-                            .padding(horizontal = 12.dp, vertical = 8.dp)
-                            .semantics { liveRegion = LiveRegionMode.Polite }
-                    )
+                )
+                if (camaraViva) {
+                    instruccionDeEncuadre(state)?.let {
+                        Text(
+                            it,
+                            style = HelpiType.BodyS,
+                            color = Color.White,
+                            modifier = Modifier
+                                .background(HelpiColors.VeloCamara, HelpiShapes.Chip)
+                                .border(1.dp, HelpiColors.VidrioBorde, HelpiShapes.Chip)
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                                .semantics { liveRegion = LiveRegionMode.Polite }
+                        )
+                    }
                 }
             }
         }
@@ -978,10 +980,10 @@ private fun LenguaActiva(lengua: SignLanguage, modifier: Modifier = Modifier) {
         style = HelpiType.LabelBoton,
         color = Color.White,
         modifier = modifier
+            .testTag("activeSignLanguage")
             .background(HelpiColors.VeloCamara, HelpiShapes.Chip)
             .border(1.dp, HelpiColors.VidrioBorde, HelpiShapes.Chip)
             .padding(horizontal = 12.dp, vertical = 6.dp)
-            .testTag("activeSignLanguage")
             // TalkBack lee el nombre completo de la lengua, no la sigla.
             .clearAndSetSemantics {
                 contentDescription = "Lengua de señas activa: ${info.nombre}" +

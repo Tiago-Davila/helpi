@@ -9,16 +9,19 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.unit.dp
 import com.helpi.conversation.lsa.SignLanguage
 import com.helpi.conversation.session.SessionCoordinator
 import com.helpi.conversation.session.SessionState
 import com.helpi.conversation.ui.theme.HelpiTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -118,6 +121,22 @@ class SelectorDeLenguaTest {
             .assertContentDescriptionEquals(
                 "Lengua de señas activa: LSE · España. Las frases son experimentales."
             )
+    }
+
+    @Test
+    fun laLenguaActivaQuedaArribaDelOrbeSinTaparlo() {
+        listOf(SignLanguage.LSA, SignLanguage.LSE).forEach { lengua ->
+            state.value = state.value.copy(signLanguage = lengua)
+            if (lengua == SignLanguage.LSA) render(active = true)
+            compose.waitForIdle()
+            val etiqueta = compose.onNodeWithTag("activeSignLanguage").getUnclippedBoundsInRoot()
+            val orbe = compose.onNodeWithTag("evaOrb").getUnclippedBoundsInRoot()
+            assertTrue(
+                "$lengua: etiqueta $etiqueta, orbe $orbe",
+                etiqueta.bottom <= orbe.top && etiqueta.top >= 0.dp
+            )
+            assertEquals(orbe.left, etiqueta.left)
+        }
     }
 
     private fun textoContiene(texto: String) = SemanticsMatcher("texto contiene «$texto»") { node ->
