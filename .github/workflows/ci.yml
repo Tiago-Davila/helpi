@@ -66,6 +66,18 @@ jobs:
           packages: platform-tools platforms;android-35 build-tools;35.0.0
           log-accepted-android-sdk-licenses: false
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+      - id: robolectric
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.m2/repository/org/robolectric
+          key: robolectric-${{ hashFiles('scripts/ci/robolectric.sh') }}
+      - run: bash scripts/ci/robolectric.sh
+      - name: Preserve Robolectric SDKs even when tests fail
+        if: steps.robolectric.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.m2/repository/org/robolectric
+          key: ${{ steps.robolectric.outputs.cache-primary-key }}
       - run: ./gradlew :domain:jacocoTestReport :app:jacocoProduccionDebugReport :app:jacocoEvaluacionDebugReport :evaluacion:testDebugUnitTest --stacktrace
       - run: |
           python3 scripts/ci/verify.py coverage
