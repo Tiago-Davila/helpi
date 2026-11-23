@@ -86,19 +86,16 @@ class SelectorDeLenguaTest {
                 .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton))
         }
         compose.onNodeWithText("LSE · España", useUnmergedTree = true).assertExists()
-        compose.onNodeWithText("ASL · Estados Unidos", useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("LSA · Argentina", useUnmergedTree = true).assertExists()
     }
 
     @Test
-    fun laAtribucionDeLasTresLenguasFiguraEnCuenta() {
+    fun laAtribucionDeCadaLenguaFiguraEnCuenta() {
         render()
         abrirCuenta()
         compose.onNodeWithTag("credito_lsa").performScrollTo()
             .assert(textoContiene("LSA64: Ronchetti et al."))
             .assert(textoContiene("CC BY-NC-SA 4.0"))
-        compose.onNodeWithTag("credito_asl").performScrollTo()
-            .assert(textoContiene("PopSign"))
-            .assert(textoContiene("CC BY 4.0"))
         compose.onNodeWithTag("credito_lse").performScrollTo()
             .assert(textoContiene("SWL-LSE"))
             .assert(textoContiene("CC BY 4.0"))
@@ -106,10 +103,17 @@ class SelectorDeLenguaTest {
 
     @Test
     fun unaLenguaSinModeloLoAvisa() {
-        render()
-        abrirCuenta()
-        compose.onNodeWithTag("lengua_asl").performScrollTo().performClick()
-        compose.onNodeWithText("todavía no trae el modelo de ASL", substring = true)
+        compose.setContent {
+            HelpiTheme {
+                PantallaCuenta(
+                    state.value.copy(signLanguage = SignLanguage.LSE),
+                    Participantes(interlocutor = "Lucía"),
+                    ConversationActions(),
+                    creditos = creditosDeLenguas { null }
+                )
+            }
+        }
+        compose.onNodeWithText("todavía no trae el modelo de LSE", substring = true)
             .performScrollTo()
     }
 

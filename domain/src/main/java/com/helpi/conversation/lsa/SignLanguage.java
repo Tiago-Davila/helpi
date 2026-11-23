@@ -4,8 +4,6 @@ package com.helpi.conversation.lsa;
 public enum SignLanguage {
     /** LSA: umbral conservador de Eva desde LSA64. */
     LSA("lsa", 0.90f),
-    /** ASL: todavía sin modelo; mismo criterio conservador que LSA. */
-    ASL("asl", 0.90f),
     /**
      * LSE: eva-lse300-v1 recomienda 0,47 (90 % de exactitud en lo aceptado en
      * validación); se usa el mínimo que admite la app.
