@@ -45,24 +45,62 @@ public class TemplateRendererTest {
             {"objeto,cualidad", CUALIDAD, new int[] {COLORES, ROSA}, "Los colores rosas."},
             {"verbo,lugar", VERBO_LUGAR, new int[] {ATERRIZAR, ARGENTINA}, "Aterrizar en Argentina."},
             {"verbo,lugar", VERBO_LUGAR, new int[] {ATERRIZAR, PAIS}, "Aterrizar en el país."},
-            {"persona,verbo,objeto", "{0.art} {0}: {1} {2.art} {2}.",
-                new int[] {MUJER, COMPRAR, LECHE}, "La mujer: comprar la leche."},
-            {"persona,verbo", "{0.art} {0}: {1}.", new int[] {HOMBRE, BANARSE}, "El hombre: bañarse."},
+            {"persona,verbo,objeto", "{0.art} {0} {1.conj:0} {2.art} {2}.",
+                new int[] {MUJER, COMPRAR, LECHE}, "La mujer compró la leche."},
+            {"persona,verbo", "{0.art} {0} {1.conj:0}.", new int[] {HOMBRE, BANARSE}, "El hombre se bañó."},
+            {"verbo", "{0.conj}.", new int[] {BANARSE}, "Me bañé."},
+            {"verbo,objeto", "{0}.", new int[] {COMPRAR, LECHE}, "Comprar."},
+            // contracción de «a el» y «de el»
+            {"verbo,persona", "{0.conj} a {1.art} {1}.", new int[] {COMPRAR, HOMBRE}, "Compré al hombre."},
+            {"objeto,persona", "{0.art} {0} de {1.art} {1}.", new int[] {LECHE, HOMBRE}, "La leche del hombre."},
+            {"verbo,persona", "{0.conj} a {1.art} {1}.", new int[] {COMPRAR, MUJER}, "Compré a la mujer."},
             {"glosa:Donde", "¿{0}?", new int[] {DONDE}, "¿Dónde?"},
             {"expresion", "{0}.", new int[] {GRACIAS}, "Gracias."},
         };
         for (Object[] row : table) {
             PhraseTemplate template = new PhraseTemplate(
                     "t", Arrays.asList(((String) row[0]).split(",")), (String) row[1]);
-            assertEquals(row[3], TemplateRenderer.render(template, entries((int[]) row[2])));
+            assertEquals(row[3], TemplateRenderer.render(template, entries((int[]) row[2]), VerbTense.PASADO));
         }
+    }
+
+    @Test
+    public void conjugaEnElTiempoYLaPersonaPedidos() {
+        PhraseTemplate yo = new PhraseTemplate("t", Arrays.asList("verbo", "objeto"), "{0.conj} {1.art} {1}.");
+        PhraseTemplate ella = new PhraseTemplate(
+                "t", Arrays.asList("persona", "verbo", "objeto"), "{0.art} {0} {1.conj:0} {2.art} {2}.");
+        Object[][] table = {
+            {yo, new int[] {COMPRAR, LECHE}, VerbTense.PASADO, "Compré la leche."},
+            {yo, new int[] {COMPRAR, LECHE}, VerbTense.PRESENTE, "Compro la leche."},
+            {yo, new int[] {COMPRAR, LECHE}, VerbTense.FUTURO, "Compraré la leche."},
+            {ella, new int[] {MUJER, COMPRAR, LECHE}, VerbTense.PRESENTE, "La mujer compra la leche."},
+            {ella, new int[] {MUJER, COMPRAR, LECHE}, VerbTense.FUTURO, "La mujer comprará la leche."},
+        };
+        for (Object[] row : table) {
+            assertEquals(row[3], TemplateRenderer.render(
+                    (PhraseTemplate) row[0], entries((int[]) row[1]), (VerbTense) row[2]));
+        }
+    }
+
+    @Test
+    public void elYoSenaladoConjugaEnPrimeraPersonaYLosDemasEnTercera() {
+        PhraseTemplate template = new PhraseTemplate(
+                "t", Arrays.asList("persona", "verbo", "objeto"), "{0.art} {0} {1.conj:0} {2.art} {2}.");
+        List<LexicalEntry> yo = Arrays.asList(SyntheticSigns.entry(SyntheticSigns.YO),
+                LEXICON.entry(COMPRAR), LEXICON.entry(LECHE));
+        List<LexicalEntry> usted = Arrays.asList(SyntheticSigns.entry(SyntheticSigns.USTED),
+                LEXICON.entry(COMPRAR), LEXICON.entry(LECHE));
+        assertEquals("Yo compré la leche.", TemplateRenderer.render(template, yo, VerbTense.PASADO));
+        assertEquals("Yo compraré la leche.",
+                TemplateRenderer.render(template, yo, VerbTense.FUTURO));
+        assertEquals("Usted compró la leche.", TemplateRenderer.render(template, usted, VerbTense.PASADO));
     }
 
     @Test
     public void rechazaUnaCantidadDeSenasDistintaAlPatron() {
         PhraseTemplate template = new PhraseTemplate("t", Arrays.asList("objeto", "cualidad"), CUALIDAD);
         try {
-            TemplateRenderer.render(template, entries(new int[] {AGUA}));
+            TemplateRenderer.render(template, entries(new int[] {AGUA}), VerbTense.PASADO);
             fail("debió rechazar");
         } catch (IllegalArgumentException expected) {
             // el matcher siempre entrega tantas señas como ranuras
@@ -81,10 +119,10 @@ public class TemplateRendererTest {
         PhraseTemplate conCuerpo = new PhraseTemplate(
                 "c", Arrays.asList("cuerpo", "sintoma"), "{1.yo} {0.art} {0}.");
 
-        assertEquals("Me duele.", TemplateRenderer.render(sola, Arrays.asList(dolor)));
-        assertEquals("Mareo.", TemplateRenderer.render(sola, Arrays.asList(mareo)));
+        assertEquals("Me duele.", TemplateRenderer.render(sola, Arrays.asList(dolor), VerbTense.PASADO));
+        assertEquals("Mareo.", TemplateRenderer.render(sola, Arrays.asList(mareo), VerbTense.PASADO));
         assertEquals("Me duele el estómago.",
-                TemplateRenderer.render(conCuerpo, Arrays.asList(estomago, dolor)));
+                TemplateRenderer.render(conCuerpo, Arrays.asList(estomago, dolor), VerbTense.PASADO));
     }
 
     @Test

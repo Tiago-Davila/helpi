@@ -6,16 +6,16 @@ import java.util.regex.Matcher;
 
 /**
  * Completa la salida de una plantilla con las señas que la ocupan. Solo
- * resuelve gramática (artículo, concordancia, mayúscula): el contenido
- * viene siempre de las señas.
+ * resuelve gramática (artículo, concordancia, conjugación, contracción,
+ * mayúscula): el contenido viene siempre de las señas.
  */
 public final class TemplateRenderer {
 
     private TemplateRenderer() {
     }
 
-    /** Devuelve el tramo en español para las señas que matchearon la plantilla. */
-    public static String render(PhraseTemplate template, List<LexicalEntry> slots) {
+    /** Devuelve el tramo en español para las señas que matchearon la plantilla, con verbos en el tiempo dado. */
+    public static String render(PhraseTemplate template, List<LexicalEntry> slots, VerbTense tense) {
         if (slots.size() != template.size()) {
             throw new IllegalArgumentException(
                     "plantilla " + template.id() + " espera " + template.size() + " señas");
@@ -23,14 +23,14 @@ public final class TemplateRenderer {
         Matcher m = PhraseTemplate.PLACEHOLDER.matcher(template.output());
         StringBuffer out = new StringBuffer();
         while (m.find()) {
-            m.appendReplacement(out, Matcher.quoteReplacement(resolve(m, slots)));
+            m.appendReplacement(out, Matcher.quoteReplacement(resolve(m, slots, tense)));
         }
         m.appendTail(out);
-        return capitalize(out.toString().replaceAll(" {2,}", " ").trim());
+        return capitalize(contract(out.toString().replaceAll(" {2,}", " ").trim()));
     }
 
     // Un marcador vacío (artículo de un nombre propio) deja espacios que se colapsan después.
-    private static String resolve(Matcher m, List<LexicalEntry> slots) {
+    private static String resolve(Matcher m, List<LexicalEntry> slots, VerbTense tense) {
         LexicalEntry entry = slots.get(Integer.parseInt(m.group(1)));
         if (m.group(2) == null) {
             return entry.form();
@@ -38,10 +38,32 @@ public final class TemplateRenderer {
         if ("yo".equals(m.group(2))) {
             return firstPerson(entry);
         }
+        if (m.group(2).startsWith("conj")) {
+            return conjugate(entry, tense, m.group(4) != null
+                    && !speaksForSelf(slots.get(Integer.parseInt(m.group(4)))));
+        }
         if (m.group(3) == null) {
             return article(entry);
         }
         return agree(entry, slots.get(Integer.parseInt(m.group(3))));
+    }
+
+    /** Verbo en el tiempo de la oración; la compatibilidad ya exigió que tenga conjugación. */
+    static String conjugate(LexicalEntry verb, VerbTense tense, boolean thirdPerson) {
+        if (verb.conjugation() == null) {
+            throw new IllegalStateException("verbo sin conjugación: " + verb.gloss());
+        }
+        return verb.conjugation().form(tense, thirdPerson);
+    }
+
+    // El pronombre YO señalado es quien seña: su verbo va en primera persona, no en tercera.
+    private static boolean speaksForSelf(LexicalEntry subject) {
+        return subject.index() == SyntheticSigns.YO;
+    }
+
+    // «a el» y «de el» se contraen siempre: los nombres propios no llevan artículo en el léxico.
+    private static String contract(String text) {
+        return text.replaceAll("\\ba el\\b", "al").replaceAll("\\bde el\\b", "del");
     }
 
     /** Artículo definido del sustantivo; vacío si la palabra no tiene género, como «Argentina». */

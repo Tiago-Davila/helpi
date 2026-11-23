@@ -75,4 +75,71 @@ public class SignAcceptancePolicyTest {
         SignAcceptancePolicy p = new SignAcceptancePolicy(0.9f, true, 3);
         assertTrue(p.evaluate(new float[] {Float.NaN, 0.5f, 0.5f}).predictions.isEmpty());
     }
+
+    @Test
+    public void elPesoDesempataUnEmpateCercano() {
+        SignAcceptancePolicy p = new SignAcceptancePolicy(0.5f, true, 3);
+        float[] scores = {0.02f, 0.50f, 0.48f};
+        assertEquals(1, p.evaluate(scores).classIndex);
+        SignDecision d = p.evaluate(scores, new float[] {1f, 0.5f, 1.6f});
+        assertTrue(d.accepted);
+        assertEquals(2, d.classIndex);
+        assertEquals(0.48f, d.rawConfidence, 1e-6f);
+        assertTrue(d.confidence > d.rawConfidence);
+    }
+
+    @Test
+    public void contextoNoRescataUnaCrudaBajoElPiso() {
+        SignAcceptancePolicy p = new SignAcceptancePolicy(0.7f, true, 3);
+        float[] scores = {0.45f, 0.05f, 0.5f};
+        SignDecision d = p.evaluate(scores, new float[] {2f, 1f, 0.05f});
+        assertEquals(0, d.classIndex);
+        assertTrue(d.confidence >= 0.7f);
+        assertFalse(d.accepted);
+        assertEquals(AcceptanceReason.BELOW_RAW_FLOOR, d.reason);
+        assertEquals(0.45f, d.rawConfidence, 1e-6f);
+    }
+
+    @Test
+    public void pesosNeutrosDanLaMismaDecision() {
+        SignAcceptancePolicy p = new SignAcceptancePolicy(0.5f, false, 4);
+        float[] scores = {2f, 1.5f, -1f, 0.3f};
+        SignDecision a = p.evaluate(scores);
+        SignDecision b = p.evaluate(scores, new float[] {1f, 1f, 1f, 1f});
+        assertEquals(a.accepted, b.accepted);
+        assertEquals(a.classIndex, b.classIndex);
+        assertEquals(a.confidence, b.confidence, 1e-6f);
+        assertEquals(a.rawConfidence, b.rawConfidence, 1e-6f);
+        assertEquals(a.reason, b.reason);
+        assertEquals(a.predictions.size(), b.predictions.size());
+        for (int i = 0; i < a.predictions.size(); i++) {
+            assertEquals(a.predictions.get(i).classIndex, b.predictions.get(i).classIndex);
+            assertEquals(a.predictions.get(i).confidence, b.predictions.get(i).confidence, 1e-6f);
+        }
+    }
+
+    @Test
+    public void pesosInvalidosDanSalidaInvalida() {
+        SignAcceptancePolicy p = new SignAcceptancePolicy(0.5f, true, 3);
+        float[] scores = {0.1f, 0.8f, 0.1f};
+        assertEquals(AcceptanceReason.INVALID_OUTPUT, p.evaluate(scores, new float[] {1f, 1f}).reason);
+        assertEquals(AcceptanceReason.INVALID_OUTPUT, p.evaluate(scores, new float[] {1f, 0f, 1f}).reason);
+        assertEquals(AcceptanceReason.INVALID_OUTPUT, p.evaluate(scores, new float[] {1f, Float.NaN, 1f}).reason);
+        assertEquals(0f, p.evaluate(scores, new float[] {1f, 0f, 1f}).rawConfidence, 0f);
+    }
+
+    @Test
+    public void pesosNulosSeComportanComoSinContexto() {
+        SignAcceptancePolicy p = new SignAcceptancePolicy(0.5f, true, 3);
+        float[] scores = {0.1f, 0.8f, 0.1f};
+        assertEquals(p.evaluate(scores).confidence, p.evaluate(scores, null).confidence, 0f);
+    }
+
+    @Test
+    public void rawConfidenceEsLaCrudaDeLaClaseElegida() {
+        SignAcceptancePolicy p = new SignAcceptancePolicy(0.9f, true, 3);
+        SignDecision d = p.evaluate(new float[] {0.02f, 0.95f, 0.03f});
+        assertEquals(0.95f, d.rawConfidence, 1e-6f);
+        assertEquals(d.confidence, d.rawConfidence, 1e-6f);
+    }
 }

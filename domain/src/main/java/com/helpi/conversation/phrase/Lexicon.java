@@ -96,9 +96,23 @@ public final class Lexicon {
         if (firstPerson != null && firstPerson.trim().isEmpty()) {
             throw new IllegalArgumentException("formaYo vacía en el índice " + index);
         }
+        Conjugation conjugation = null;
+        if (o.has("conjugacion")) {
+            if (category != SignCategory.VERBO) {
+                throw new IllegalArgumentException("conjugación en una seña que no es verbo, índice " + index);
+            }
+            conjugation = Conjugation.parse(o.getJSONObject("conjugacion"), index);
+        }
+        VerbTense tense = null;
+        if (o.has("tiempoVerbal")) {
+            if (category != SignCategory.TIEMPO) {
+                throw new IllegalArgumentException("tiempo verbal en una seña que no es de tiempo, índice " + index);
+            }
+            tense = VerbTense.fromJson(o.getString("tiempoVerbal"));
+        }
         return new LexicalEntry(index, o.getString("glosa"), category, form, gender,
                 o.optBoolean("plural", false), optString(o, "femenino"), optString(o, "articulo"),
-                firstPerson);
+                firstPerson, conjugation, tense);
     }
 
     private static String optString(JSONObject o, String key) {

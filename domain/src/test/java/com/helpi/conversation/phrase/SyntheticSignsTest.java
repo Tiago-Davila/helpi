@@ -56,7 +56,7 @@ public class SyntheticSignsTest {
         PhraseResult result = builder.build(Arrays.asList(
                 new RecognizedSign(SyntheticSigns.YO, "YO", 1f),
                 new RecognizedSign(60, "Correr", 0.95f)));
-        assertEquals("Yo: correr.", result.text());
+        assertEquals("Yo corrí.", result.text());
         assertEquals("YO CORRER", String.join(" ", result.glosses()));
         assertEquals(Collections.singletonList("persona-verbo"), result.appliedTemplates());
     }

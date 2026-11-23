@@ -17,17 +17,26 @@ public final class LexicalEntry {
     private final String feminineForm;
     private final String article;
     private final String firstPersonForm;
+    private final Conjugation conjugation;
+    private final VerbTense tense;
 
-    /** Crea una entrada sin forma en primera persona; género, femenino y artículo pueden faltar. */
+    /** Crea una entrada sin datos verbales; género, forma femenina y artículo pueden faltar (null). */
     public LexicalEntry(int index, String gloss, SignCategory category, String form,
             Gender gender, boolean plural, String feminineForm, String article) {
-        this(index, gloss, category, form, gender, plural, feminineForm, article, null);
+        this(index, gloss, category, form, gender, plural, feminineForm, article, null, null, null);
     }
 
-    /** Crea una entrada completa; cualquier dato opcional puede faltar (null). */
+    /** Crea una entrada con forma en primera persona y sin conjugación; los opcionales pueden faltar. */
     public LexicalEntry(int index, String gloss, SignCategory category, String form,
             Gender gender, boolean plural, String feminineForm, String article,
             String firstPersonForm) {
+        this(index, gloss, category, form, gender, plural, feminineForm, article, firstPersonForm, null, null);
+    }
+
+    /** Crea una entrada completa; la conjugación es de verbos y el tiempo verbal, de señas de tiempo. */
+    public LexicalEntry(int index, String gloss, SignCategory category, String form,
+            Gender gender, boolean plural, String feminineForm, String article,
+            String firstPersonForm, Conjugation conjugation, VerbTense tense) {
         this.firstPersonForm = firstPersonForm;
         this.index = index;
         this.gloss = Objects.requireNonNull(gloss);
@@ -37,6 +46,8 @@ public final class LexicalEntry {
         this.plural = plural;
         this.feminineForm = feminineForm;
         this.article = article;
+        this.conjugation = conjugation;
+        this.tense = tense;
     }
 
     /** Índice de clase del modelo al que corresponde la entrada. */
@@ -82,5 +93,15 @@ public final class LexicalEntry {
     /** Forma conjugada para quien seña, como «me duele»; null si la seña no la tiene. */
     public String firstPersonForm() {
         return firstPersonForm;
+    }
+
+    /** Formas conjugadas de un verbo; null si el léxico no las declara. */
+    public Conjugation conjugation() {
+        return conjugation;
+    }
+
+    /** Tiempo verbal que impone una seña de tiempo a la oración; null si no impone ninguno. */
+    public VerbTense tense() {
+        return tense;
     }
 }

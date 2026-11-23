@@ -12,6 +12,9 @@ import java.util.List;
  */
 public final class SignAcceptancePolicy {
 
+    /** Cuánto puede quedar la probabilidad cruda por debajo del umbral antes de que el contexto deje de alcanzar. */
+    public static final float RAW_FLOOR_MARGIN = 0.15f;
+
     private final float threshold;
     private final boolean outputsProbabilities;
     private final int expectedClasses;
@@ -29,8 +32,16 @@ public final class SignAcceptancePolicy {
         this.expectedClasses = expectedClasses;
     }
 
-    /** Evalúa las puntuaciones y devuelve el resultado de aceptación. */
+    /** Evalúa las puntuaciones sin contexto previo. */
     public SignDecision evaluate(float[] scores) {
+        return evaluate(scores, null);
+    }
+
+    /**
+     * Evalúa ponderando por el contexto previo: exige p' (con contexto) sobre el umbral y
+     * p cruda sobre umbral menos RAW_FLOOR_MARGIN; el contexto desempata, no inventa.
+     */
+    public SignDecision evaluate(float[] scores, float[] contextWeights) {
         if (scores == null || scores.length != expectedClasses) {
             return invalidDecision();
         }
@@ -39,8 +50,19 @@ public final class SignAcceptancePolicy {
                 return invalidDecision();
             }
         }
+        if (contextWeights != null) {
+            if (contextWeights.length != scores.length) {
+                return invalidDecision();
+            }
+            for (float w : contextWeights) {
+                if (Float.isNaN(w) || w <= 0f) {
+                    return invalidDecision();
+                }
+            }
+        }
 
-        float[] probs = outputsProbabilities ? scores : softmax(scores);
+        float[] raw = outputsProbabilities ? scores : softmax(scores);
+        float[] probs = contextWeights == null ? raw : applyContext(raw, contextWeights);
         List<Prediction> predictions = topPredictions(probs, 3);
         Prediction best = predictions.get(0);
         float confidence = best.confidence;
@@ -48,17 +70,38 @@ public final class SignAcceptancePolicy {
             // el manifiesto declaró probabilidades pero no lo son
             return invalidDecision();
         }
+        float rawConfidence = raw[best.classIndex];
         if (confidence < threshold) {
             // vocabulario cerrado: fuera de las 64 se resuelve como
             // no-reconocida, nunca se fuerza a la clase más cercana
-            return new SignDecision(
-                    false, best.classIndex, confidence, AcceptanceReason.BELOW_THRESHOLD, predictions);
+            return new SignDecision(false, best.classIndex, confidence, rawConfidence,
+                    AcceptanceReason.BELOW_THRESHOLD, predictions);
         }
-        return new SignDecision(true, best.classIndex, confidence, AcceptanceReason.ACCEPTED, predictions);
+        if (rawConfidence < threshold - RAW_FLOOR_MARGIN) {
+            return new SignDecision(false, best.classIndex, confidence, rawConfidence,
+                    AcceptanceReason.BELOW_RAW_FLOOR, predictions);
+        }
+        return new SignDecision(true, best.classIndex, confidence, rawConfidence,
+                AcceptanceReason.ACCEPTED, predictions);
+    }
+
+    // Multiplica cada probabilidad por su peso y renormaliza para que sumen 1.
+    private static float[] applyContext(float[] probs, float[] weights) {
+        double sum = 0;
+        double[] scaled = new double[probs.length];
+        for (int i = 0; i < probs.length; i++) {
+            scaled[i] = (double) probs[i] * weights[i];
+            sum += scaled[i];
+        }
+        float[] out = new float[probs.length];
+        for (int i = 0; i < probs.length; i++) {
+            out[i] = sum > 0 ? (float) (scaled[i] / sum) : 0f;
+        }
+        return out;
     }
 
     private static SignDecision invalidDecision() {
-        return new SignDecision(false, -1, 0f, AcceptanceReason.INVALID_OUTPUT, Collections.emptyList());
+        return new SignDecision(false, -1, 0f, 0f, AcceptanceReason.INVALID_OUTPUT, Collections.emptyList());
     }
 
     private static List<Prediction> topPredictions(float[] probabilities, int limit) {

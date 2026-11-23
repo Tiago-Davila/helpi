@@ -6,7 +6,7 @@ import java.util.List;
 
 /**
  * Junta las señas de una oración en curso y decide cuándo termina: la oración
- * se cierra tras una pausa sin señas nuevas. Los instantes son los del reloj de
+ * se cierra tras una pausa sin señas nuevas, más larga si el último intento falló. Los instantes son los del reloj de
  * la cámara, el mismo que marca el inicio y el fin de cada segmento.
  *
  * No es thread-safe: debe usarse solo desde el executor serial del
@@ -15,35 +15,41 @@ import java.util.List;
 public final class SentenceAssembler {
 
     private final long pauseMs;
+    private final long pauseAfterFailureMs;
     private final List<RecognizedSign> signs = new ArrayList<>();
-    private long lastSignEndMs = -1L;
+    private long lastEventMs = -1L;
+    private long currentPauseMs;
 
-    /** Crea el armador con la pausa que cierra una oración. */
-    public SentenceAssembler(long pauseMs) {
+    /** Crea el armador con la pausa tras una seña y la más larga tras una falla. */
+    public SentenceAssembler(long pauseMs, long pauseAfterFailureMs) {
         if (pauseMs <= 0L) {
             throw new IllegalArgumentException("la pausa debe ser positiva: " + pauseMs);
         }
+        if (pauseAfterFailureMs <= 0L) {
+            throw new IllegalArgumentException(
+                "la pausa tras una falla debe ser positiva: " + pauseAfterFailureMs);
+        }
         this.pauseMs = pauseMs;
+        this.pauseAfterFailureMs = pauseAfterFailureMs;
+        this.currentPauseMs = pauseMs;
     }
 
-    /** Suma una seña aceptada a la oración, con el instante en que terminó su segmento. */
+    /** Suma una seña aceptada y vuelve a la pausa normal desde el fin de su segmento. */
     public void add(RecognizedSign sign, long segmentEndMs) {
         signs.add(sign);
-        lastSignEndMs = Math.max(lastSignEndMs, segmentEndMs);
+        lastEventMs = Math.max(lastEventMs, segmentEndMs);
+        currentPauseMs = pauseMs;
     }
 
-    /**
-     * Suma un intento que no se entendió. Va con confianza cero para que el
-     * armado lo muestre como hueco: la adivinanza nunca llega a la frase, aunque
-     * el rechazo haya sido por margen y no por umbral.
-     */
-    public void addGap(int classIndex, long segmentEndMs) {
-        add(new RecognizedSign(classIndex, "", 0f), segmentEndMs);
+    /** Registra un intento fallido: no suma señas, solo da más tiempo para repetir. */
+    public void noteFailure(long segmentEndMs) {
+        lastEventMs = Math.max(lastEventMs, segmentEndMs);
+        currentPauseMs = pauseAfterFailureMs;
     }
 
-    /** Indica si ya pasó la pausa desde la última seña y hay algo que cerrar. */
+    /** Indica si ya pasó la pausa vigente desde el último evento y hay algo que cerrar. */
     public boolean pauseElapsed(long nowMs) {
-        return !signs.isEmpty() && nowMs - lastSignEndMs >= pauseMs;
+        return !signs.isEmpty() && nowMs - lastEventMs >= currentPauseMs;
     }
 
     /** Indica si todavía no hay ninguna seña en la oración. */
@@ -66,6 +72,7 @@ public final class SentenceAssembler {
     /** Descarta la oración en curso sin entregarla. */
     public void reset() {
         signs.clear();
-        lastSignEndMs = -1L;
+        lastEventMs = -1L;
+        currentPauseMs = pauseMs;
     }
 }

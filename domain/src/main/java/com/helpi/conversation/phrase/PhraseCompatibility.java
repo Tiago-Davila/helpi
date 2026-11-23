@@ -51,6 +51,10 @@ public final class PhraseCompatibility {
         if (missingLiteral != null) {
             return incompatible(missingLiteral);
         }
+        String missingConjugation = missingConjugation(lexicon, templates);
+        if (missingConjugation != null) {
+            return incompatible(missingConjugation);
+        }
         return COMPATIBLE;
     }
 
@@ -81,6 +85,27 @@ public final class PhraseCompatibility {
                 if (literal != null && !glosses.contains(literal)) {
                     return "plantilla " + template.id() + " usa la glosa inexistente " + literal;
                 }
+            }
+        }
+        return null;
+    }
+
+    // Si alguna plantilla conjuga, un verbo sin formas rompería la frase al aplicarla.
+    private static String missingConjugation(Lexicon lexicon, TemplateSet templates) {
+        String conjugating = null;
+        for (PhraseTemplate template : templates.templates()) {
+            if (template.conjugates()) {
+                conjugating = template.id();
+                break;
+            }
+        }
+        if (conjugating == null) {
+            return null;
+        }
+        for (int i = 0; i < lexicon.size(); i++) {
+            LexicalEntry entry = lexicon.entry(i);
+            if (entry.category() == SignCategory.VERBO && entry.conjugation() == null) {
+                return "plantilla " + conjugating + " conjuga y el verbo " + entry.gloss() + " no tiene conjugación";
             }
         }
         return null;

@@ -17,27 +17,31 @@ public final class PhraseBuilder {
 
     private final Lexicon lexicon;
     private final TemplateMatcher matcher;
+    private final VerbTense defaultTense;
     private final float threshold;
     private final String disabledReason;
 
-    private PhraseBuilder(Lexicon lexicon, TemplateMatcher matcher, float threshold, String disabledReason) {
+    private PhraseBuilder(Lexicon lexicon, TemplateMatcher matcher, VerbTense defaultTense,
+            float threshold, String disabledReason) {
         if (threshold <= 0f || threshold >= 1f) {
             throw new IllegalArgumentException("umbral fuera de (0,1): " + threshold);
         }
         this.lexicon = lexicon;
         this.matcher = matcher;
+        this.defaultTense = defaultTense;
         this.threshold = threshold;
         this.disabledReason = disabledReason;
     }
 
     /** Armado habilitado; quien lo crea ya verificó la compatibilidad de las piezas. */
     public static PhraseBuilder enabled(Lexicon lexicon, TemplateSet templates, float threshold) {
-        return new PhraseBuilder(lexicon, new TemplateMatcher(templates), threshold, null);
+        return new PhraseBuilder(lexicon, new TemplateMatcher(templates), templates.defaultTense(),
+                threshold, null);
     }
 
     /** Armado deshabilitado: solo muestra glosas sueltas y conserva el motivo. */
     public static PhraseBuilder disabled(String reason, float threshold) {
-        return new PhraseBuilder(null, null, threshold, reason);
+        return new PhraseBuilder(null, null, null, threshold, reason);
     }
 
     /** Indica si las plantillas pueden aplicarse. */
@@ -62,11 +66,13 @@ public final class PhraseBuilder {
         }
         List<String> pieces = new ArrayList<>();
         List<String> applied = new ArrayList<>();
-        for (TemplateMatcher.Segment segment : matcher.segment(joinSpelling(entries))) {
+        List<LexicalEntry> ordered = timeFirst(joinSpelling(entries));
+        VerbTense tense = tenseOf(ordered);
+        for (TemplateMatcher.Segment segment : matcher.segment(ordered)) {
             if (segment.template() == null) {
                 pieces.add(notation(segment.signs().get(0).gloss()));
             } else {
-                pieces.add(TemplateRenderer.render(segment.template(), segment.signs()));
+                pieces.add(TemplateRenderer.render(segment.template(), segment.signs(), tense));
                 applied.add(segment.template().id());
             }
         }
@@ -93,6 +99,31 @@ public final class PhraseBuilder {
             entries.add(entry);
         }
         return entries;
+    }
+
+    /**
+     * Lleva las señas de tiempo al principio, conservando el orden del resto:
+     * COMPRAR LECHE AYER se arma como «Ayer compré la leche». En LSA el tiempo
+     * puede ir al final; en español escrito encabeza la oración.
+     */
+    static List<LexicalEntry> timeFirst(List<LexicalEntry> entries) {
+        List<LexicalEntry> ordered = new ArrayList<>(entries.size());
+        List<LexicalEntry> rest = new ArrayList<>(entries.size());
+        for (LexicalEntry entry : entries) {
+            (entry.category() == SignCategory.TIEMPO ? ordered : rest).add(entry);
+        }
+        ordered.addAll(rest);
+        return ordered;
+    }
+
+    // La primera seña de tiempo que declara uno fija el de toda la oración.
+    private VerbTense tenseOf(List<LexicalEntry> entries) {
+        for (LexicalEntry entry : entries) {
+            if (entry.tense() != null) {
+                return entry.tense();
+            }
+        }
+        return defaultTense;
     }
 
     /**

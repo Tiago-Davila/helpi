@@ -55,6 +55,24 @@ public class LexiconTest {
     }
 
     @Test
+    public void losVerbosTraenConjugacionYLasSenasDeTiempoSuTiempoVerbal() {
+        Lexicon lexicon = deployed();
+        for (int i = 0; i < lexicon.size(); i++) {
+            LexicalEntry e = lexicon.entry(i);
+            assertEquals("conjugación: " + e.gloss(), e.category() == SignCategory.VERBO, e.conjugation() != null);
+            assertEquals("tiempo verbal: " + e.gloss(), e.category() == SignCategory.TIEMPO, e.tense() != null);
+        }
+        Conjugation dar = lexicon.entry(62).conjugation();
+        assertEquals("di", dar.form(VerbTense.PASADO, false));
+        assertEquals("dio", dar.form(VerbTense.PASADO, true));
+        assertEquals("doy", dar.form(VerbTense.PRESENTE, false));
+        assertEquals("dará", dar.form(VerbTense.FUTURO, true));
+        assertEquals(VerbTense.PRESENTE, lexicon.entry(64).tense());
+        assertEquals(VerbTense.PASADO, lexicon.entry(65).tense());
+        assertEquals(VerbTense.FUTURO, lexicon.entry(66).tense());
+    }
+
+    @Test
     public void leeLaFormaEnPrimeraPersonaYLasCategoriasMedicas() {
         String json = "{\"version\":\"1\",\"modelVersion\":\"m\",\"catalogVersion\":\"c\",\"entradas\":["
                 + "{\"indice\":0,\"glosa\":\"Dolor\",\"categoria\":\"sintoma\",\"forma\":\"dolor\","
@@ -79,6 +97,16 @@ public class LexiconTest {
             head + "[{\"indice\":0,\"glosa\":\"A\",\"categoria\":\"animal\",\"forma\":\"a\"}]}",
             head + "[{\"indice\":0,\"glosa\":\"A\",\"categoria\":\"objeto\",\"forma\":\"a\",\"genero\":\"x\"}]}",
             head + "[{\"indice\":0,\"glosa\":\"A\",\"categoria\":\"verbo\",\"forma\":\" \"}]}",
+            // conjugación incompleta, fuera de un verbo o tiempo verbal fuera de una seña de tiempo
+            head + "[{\"indice\":0,\"glosa\":\"A\",\"categoria\":\"verbo\",\"forma\":\"a\","
+                + "\"conjugacion\":{\"pasado\":[\"x\",\"y\"]}}]}",
+            head + "[{\"indice\":0,\"glosa\":\"A\",\"categoria\":\"cualidad\",\"forma\":\"a\","
+                + "\"conjugacion\":{\"pasado\":[\"x\",\"y\"],\"presente\":[\"x\",\"y\"],"
+                + "\"futuro\":[\"x\",\"y\"]}}]}",
+            head + "[{\"indice\":0,\"glosa\":\"A\",\"categoria\":\"verbo\",\"forma\":\"a\","
+                + "\"tiempoVerbal\":\"pasado\"}]}",
+            head + "[{\"indice\":0,\"glosa\":\"A\",\"categoria\":\"tiempo\",\"forma\":\"a\","
+                + "\"tiempoVerbal\":\"siempre\"}]}",
             head + "[{\"indice\":0,\"glosa\":\"A\",\"categoria\":\"verbo\",\"forma\":\"a\",\"formaYo\":\" \"}]}",
         };
         for (String json : invalid) {
