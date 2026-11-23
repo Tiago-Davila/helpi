@@ -45,17 +45,6 @@ internal fun descripcion(lengua: SignLanguage): DescripcionDeLengua = when (leng
             "CC BY-NC-SA 4.0"
         )
     )
-    SignLanguage.ASL -> DescripcionDeLengua(
-        sigla = "ASL",
-        pais = "Estados Unidos",
-        vocabulario = "250 señas aisladas del vocabulario de un juego infantil (PopSign).",
-        limitaciones = "Es vocabulario de un juego, grabado con celular: no fue pensado para " +
-            "una conversación ni para la atención en salud.",
-        datasetSinModelo = CreditoDeDataset(
-            "Google Isolated Sign Language Recognition (PopSign ASL).",
-            "CC BY 4.0"
-        )
-    )
     SignLanguage.LSE -> DescripcionDeLengua(
         sigla = "LSE",
         pais = "España",
@@ -71,7 +60,7 @@ internal fun descripcion(lengua: SignLanguage): DescripcionDeLengua = when (leng
 }
 
 /**
- * Créditos de las tres lenguas. El texto sale del manifiesto de cada modelo;
+ * Créditos de las lenguas. El texto sale del manifiesto de cada modelo;
  * una lengua sin modelo instalado conserva su atribución igual, porque la
  * interfaz la nombra entre las opciones.
  */

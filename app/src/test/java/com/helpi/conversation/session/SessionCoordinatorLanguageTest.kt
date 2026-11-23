@@ -41,10 +41,12 @@ class SessionCoordinatorLanguageTest {
     private lateinit var coordinator: SessionCoordinator
     private val created = CopyOnWriteArrayList<FakeClassifier>()
     private val invalid = mutableSetOf<SignLanguage>()
+    private val missing = mutableSetOf<SignLanguage>()
 
     private fun load(language: SignLanguage): ModelBundleResult {
         if (language in invalid) return ModelBundleResult.Invalid("artefactos de prueba inválidos")
         return ModelBundle.load(language) { path ->
+            if (language in missing) return@load null
             File("src/main/assets/$path").takeIf { it.exists() }?.readBytes()
         }
     }
@@ -135,11 +137,12 @@ class SessionCoordinatorLanguageTest {
 
     @Test
     fun languageWithoutModelIsReportedAsMissing() {
+        missing += SignLanguage.LSE
         startWithVision()
-        coordinator.setSignLanguage(SignLanguage.ASL)
-        val state = awaitState { it.signLanguage == SignLanguage.ASL }
+        coordinator.setSignLanguage(SignLanguage.LSE)
+        val state = awaitState { it.signLanguage == SignLanguage.LSE }
         assertFalse(state.capabilities.vision)
-        assertEquals("falta asl/manifest.json", state.capabilities.visionDetail)
+        assertEquals("falta lse/manifest.json", state.capabilities.visionDetail)
     }
 
     @Test
@@ -151,6 +154,13 @@ class SessionCoordinatorLanguageTest {
         assertEquals(0.50f, awaitState { it.signLanguage == SignLanguage.LSE }.confidenceThreshold)
         coordinator.setSignLanguage(SignLanguage.LSA)
         assertEquals(0.75f, awaitState { it.signLanguage == SignLanguage.LSA }.confidenceThreshold)
+    }
+
+    @Test
+    fun aStoredLanguageThatNoLongerExistsFallsBackToLsa() {
+        context.getSharedPreferences("lengua_senas", Context.MODE_PRIVATE)
+            .edit().putString("lengua", "asl").commit()
+        assertEquals(SignLanguage.LSA, SignLanguageStore(context).load())
     }
 
     @Test

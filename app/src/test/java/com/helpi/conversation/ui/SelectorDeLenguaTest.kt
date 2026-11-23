@@ -9,16 +9,19 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.unit.dp
 import com.helpi.conversation.lsa.SignLanguage
 import com.helpi.conversation.session.SessionCoordinator
 import com.helpi.conversation.session.SessionState
 import com.helpi.conversation.ui.theme.HelpiTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -83,19 +86,16 @@ class SelectorDeLenguaTest {
                 .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton))
         }
         compose.onNodeWithText("LSE · España", useUnmergedTree = true).assertExists()
-        compose.onNodeWithText("ASL · Estados Unidos", useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("LSA · Argentina", useUnmergedTree = true).assertExists()
     }
 
     @Test
-    fun laAtribucionDeLasTresLenguasFiguraEnCuenta() {
+    fun laAtribucionDeCadaLenguaFiguraEnCuenta() {
         render()
         abrirCuenta()
         compose.onNodeWithTag("credito_lsa").performScrollTo()
             .assert(textoContiene("LSA64: Ronchetti et al."))
             .assert(textoContiene("CC BY-NC-SA 4.0"))
-        compose.onNodeWithTag("credito_asl").performScrollTo()
-            .assert(textoContiene("PopSign"))
-            .assert(textoContiene("CC BY 4.0"))
         compose.onNodeWithTag("credito_lse").performScrollTo()
             .assert(textoContiene("SWL-LSE"))
             .assert(textoContiene("CC BY 4.0"))
@@ -103,10 +103,17 @@ class SelectorDeLenguaTest {
 
     @Test
     fun unaLenguaSinModeloLoAvisa() {
-        render()
-        abrirCuenta()
-        compose.onNodeWithTag("lengua_asl").performScrollTo().performClick()
-        compose.onNodeWithText("todavía no trae el modelo de ASL", substring = true)
+        compose.setContent {
+            HelpiTheme {
+                PantallaCuenta(
+                    state.value.copy(signLanguage = SignLanguage.LSE),
+                    Participantes(interlocutor = "Lucía"),
+                    ConversationActions(),
+                    creditos = creditosDeLenguas { null }
+                )
+            }
+        }
+        compose.onNodeWithText("todavía no trae el modelo de LSE", substring = true)
             .performScrollTo()
     }
 
@@ -118,6 +125,22 @@ class SelectorDeLenguaTest {
             .assertContentDescriptionEquals(
                 "Lengua de señas activa: LSE · España. Las frases son experimentales."
             )
+    }
+
+    @Test
+    fun laLenguaActivaQuedaArribaDelOrbeSinTaparlo() {
+        listOf(SignLanguage.LSA, SignLanguage.LSE).forEach { lengua ->
+            state.value = state.value.copy(signLanguage = lengua)
+            if (lengua == SignLanguage.LSA) render(active = true)
+            compose.waitForIdle()
+            val etiqueta = compose.onNodeWithTag("activeSignLanguage").getUnclippedBoundsInRoot()
+            val orbe = compose.onNodeWithTag("evaOrb").getUnclippedBoundsInRoot()
+            assertTrue(
+                "$lengua: etiqueta $etiqueta, orbe $orbe",
+                etiqueta.bottom <= orbe.top && etiqueta.top >= 0.dp
+            )
+            assertEquals(orbe.left, etiqueta.left)
+        }
     }
 
     private fun textoContiene(texto: String) = SemanticsMatcher("texto contiene «$texto»") { node ->

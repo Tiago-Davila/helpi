@@ -13,7 +13,7 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28], manifest = Config.NONE)
 class ModelBundleTest {
-    /** Lenguas cuyos artefactos están en assets; ASL todavía no tiene modelo. */
+    /** Lenguas cuyos artefactos están en assets. */
     private val shipped = listOf(SignLanguage.LSA, SignLanguage.LSE)
 
     private fun assets(vararg languages: SignLanguage): MutableMap<String, ByteArray> =
@@ -56,10 +56,10 @@ class ModelBundleTest {
 
     @Test
     fun languageWithoutArtifactsIsMissing() {
-        val assets = assets(*shipped.toTypedArray())
+        val assets = assets(SignLanguage.LSA)
         assertEquals(
-            ModelBundleResult.Missing("asl/manifest.json"),
-            ModelBundle.load(SignLanguage.ASL) { assets[it] }
+            ModelBundleResult.Missing("lse/manifest.json"),
+            ModelBundle.load(SignLanguage.LSE) { assets[it] }
         )
     }
 

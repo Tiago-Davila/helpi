@@ -73,11 +73,10 @@ internal fun PantallaCuenta(
     state: SessionCoordinator.UiState,
     participantes: Participantes,
     actions: ConversationActions,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    creditos: List<CreditoDeLengua> = creditosInstalados()
 ) {
     var editando by remember { mutableStateOf(false) }
-    val context = LocalContext.current
-    val creditos = remember { creditosDeLenguas(context) }
     val activa = descripcion(state.signLanguage)
 
     BoxWithConstraints(modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
@@ -162,6 +161,13 @@ private fun CreditoDeModelo(credito: CreditoDeLengua) {
         color = HelpiColors.LedMuted,
         modifier = Modifier.testTag("credito_${credito.lengua.code()}")
     )
+}
+
+/** Créditos según los manifiestos que trae esta versión de la app. */
+@Composable
+private fun creditosInstalados(): List<CreditoDeLengua> {
+    val context = LocalContext.current
+    return remember { creditosDeLenguas(context) }
 }
 
 /**
