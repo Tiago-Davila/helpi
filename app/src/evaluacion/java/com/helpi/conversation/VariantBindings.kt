@@ -28,8 +28,10 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helpi.conversation.lsa.sequence.RecognitionMode
 import com.helpi.conversation.observation.RecognitionObserver
+import com.helpi.conversation.session.DeliveryMode
 import com.helpi.conversation.session.SessionCoordinator
 import com.helpi.conversation.session.SessionState
+import com.helpi.conversation.session.SessionUiState
 import com.helpi.conversation.session.VisualChannelState
 import com.helpi.conversation.ui.FijarOrientacion
 import com.helpi.conversation.ui.Orientacion
@@ -54,7 +56,7 @@ object VariantBindings {
     val recognitionObserver: RecognitionObserver = registroObserver
 
     /** El chat publica igual que en producción; solo el protocolo pasa a `OBSERVER_ONLY`. */
-    val deliveryMode = SessionCoordinator.DeliveryMode.CONVERSATION
+    val deliveryMode = DeliveryMode.CONVERSATION
 
     @Composable
     fun applicationContent(modifier: Modifier, content: @Composable () -> Unit) {
@@ -216,8 +218,8 @@ object VariantBindings {
 @Composable
 internal fun EntregaSoloAlObservador(coordinator: SessionCoordinator) {
     DisposableEffect(coordinator) {
-        coordinator.setDeliveryMode(SessionCoordinator.DeliveryMode.OBSERVER_ONLY)
-        onDispose { coordinator.setDeliveryMode(SessionCoordinator.DeliveryMode.CONVERSATION) }
+        coordinator.setDeliveryMode(DeliveryMode.OBSERVER_ONLY)
+        onDispose { coordinator.setDeliveryMode(DeliveryMode.CONVERSATION) }
     }
 }
 
@@ -247,7 +249,7 @@ private fun ContenidoConInsignia(modifier: Modifier, contenido: @Composable () -
     }
 }
 
-private fun protocoloCamaraState(state: SessionCoordinator.UiState): ProtocoloCamaraUiState {
+private fun protocoloCamaraState(state: SessionUiState): ProtocoloCamaraUiState {
     val listo = state.session in setOf(SessionState.ACTIVA, SessionState.ACTIVA_LIMITADA) &&
         state.capabilities.vision &&
         state.cameraEnabled &&

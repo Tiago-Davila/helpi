@@ -5,20 +5,8 @@
     <ID>ComplexCondition:LandmarkOverlay.kt$canvasWidth &lt;= 0f || canvasHeight &lt;= 0f || imageWidth &lt;= 0 || imageHeight &lt;= 0</ID>
     <ID>ComplexCondition:LandmarkOverlay.kt$x.isFinite() &amp;&amp; y.isFinite() &amp;&amp; x in 0f..1f &amp;&amp; y in 0f..1f</ID>
     <ID>ComplexCondition:ObservationFactory.kt$ObservationFactory$x &lt; edgeMargin || x &gt; 1f - edgeMargin || y &lt; edgeMargin || y &gt; 1f - edgeMargin</ID>
-    <ID>ComplexCondition:SessionCoordinator.kt$SessionCoordinator$!isActive() || !cameraEnabled || !capabilities.phraseVision || recognitionMode != RecognitionMode.PHRASE_EXPERIMENTAL</ID>
-    <ID>ComplexCondition:SessionCoordinator.kt$SessionCoordinator$!isActive() || !cameraEnabled || revision != visionRevision || recognitionMode != RecognitionMode.PHRASE_EXPERIMENTAL</ID>
-    <ID>CyclomaticComplexMethod:ConversationScreen.kt$private fun instruccionDeEncuadre(state: SessionCoordinator.UiState): String?</ID>
     <ID>CyclomaticComplexMethod:SequenceModelBundle.kt$SequenceModelBundle.Companion$fun load(context: Context): SequenceModelBundleResult</ID>
-    <ID>CyclomaticComplexMethod:SessionCoordinator.kt$SessionCoordinator$fun finishPhraseCapture()</ID>
-    <ID>CyclomaticComplexMethod:SessionCoordinator.kt$SessionCoordinator$fun prepare(autoStart: Boolean = false)</ID>
-    <ID>CyclomaticComplexMethod:SessionCoordinator.kt$SessionCoordinator$private fun classifySegment(startMs: Long, endMs: Long)</ID>
-    <ID>CyclomaticComplexMethod:SessionCoordinator.kt$SessionCoordinator$private fun processLandmarks(frame: LandmarkFrame)</ID>
-    <ID>LargeClass:SessionCoordinator.kt$SessionCoordinator</ID>
     <ID>LongMethod:FrontCameraSource.kt$FrontCameraSource$fun start(lifecycleOwner: LifecycleOwner, surfaceProvider: Preview.SurfaceProvider?)</ID>
-    <ID>LongMethod:SessionCoordinator.kt$SessionCoordinator$fun finishPhraseCapture()</ID>
-    <ID>LongMethod:SessionCoordinator.kt$SessionCoordinator$fun prepare(autoStart: Boolean = false)</ID>
-    <ID>LongMethod:SessionCoordinator.kt$SessionCoordinator$private fun classifySegment(startMs: Long, endMs: Long)</ID>
-    <ID>LongMethod:SessionCoordinator.kt$SessionCoordinator$private fun processLandmarks(frame: LandmarkFrame)</ID>
     <ID>LoopWithTooManyJumpStatements:LandmarkOverlay.kt$for</ID>
     <ID>MagicNumber:AccountScreen.kt$100</ID>
     <ID>MagicNumber:AccountScreen.kt$30</ID>
@@ -124,8 +112,6 @@
     <ID>MagicNumber:SequenceKeypointContract.kt$SequenceKeypointContract$3</ID>
     <ID>MagicNumber:SequenceTranslator.kt$SequenceTranslator$256</ID>
     <ID>MagicNumber:SequenceTranslator.kt$SequenceTranslator$3</ID>
-    <ID>MagicNumber:SessionCoordinator.kt$SessionCoordinator$100</ID>
-    <ID>MagicNumber:SessionCoordinator.kt$SessionCoordinator$200</ID>
     <ID>MagicNumber:SignClassifier.kt$SignClassifier$4</ID>
     <ID>MagicNumber:Type.kt$500</ID>
     <ID>MatchingDeclarationName:Color.kt$HelpiColors</ID>
@@ -136,13 +122,11 @@
     <ID>ReturnCount:OfflineSpeechOutput.kt$OfflineSpeechOutput$fun speak(messageId: Long, text: String): Boolean</ID>
     <ID>ReturnCount:SequenceAcceptancePolicy.kt$SequenceAcceptancePolicy$fun evaluate(candidate: SequenceTranslationCandidate): SequenceAcceptanceDecision</ID>
     <ID>ReturnCount:SequenceModelBundle.kt$SequenceModelBundle.Companion$fun load(context: Context): SequenceModelBundleResult</ID>
-    <ID>ReturnCount:SessionCoordinator.kt$SessionCoordinator$private fun classifySegment(startMs: Long, endMs: Long)</ID>
     <ID>ReturnCount:VoskModelStore.kt$VoskModelStore$fun install(context: Context): Result</ID>
     <ID>SwallowedException:VoskModelStore.kt$VoskModelStore$e: IOException</ID>
     <ID>TooGenericExceptionCaught:FrontCameraSource.kt$FrontCameraSource$e: Exception</ID>
     <ID>TooGenericExceptionCaught:ModelBundle.kt$ModelBundle.Companion$e: Exception</ID>
     <ID>TooGenericExceptionCaught:SequenceModelBundle.kt$SequenceModelBundle.Companion$e: Exception</ID>
-    <ID>TooGenericExceptionCaught:SessionCoordinator.kt$SessionCoordinator$e: Exception</ID>
     <ID>TooManyFunctions:ConversationScreen.kt$com.helpi.conversation.ui.ConversationScreen.kt</ID>
     <ID>TooManyFunctions:ConversationViewModel.kt$ConversationViewModel : AndroidViewModel</ID>
     <ID>TooManyFunctions:SequenceTranslator.kt$SequenceTranslator : Closeable</ID>

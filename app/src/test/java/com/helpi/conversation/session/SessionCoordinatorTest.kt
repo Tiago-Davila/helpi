@@ -52,9 +52,7 @@ class SessionCoordinatorTest {
         coordinator.shutdown()
     }
 
-    private fun awaitState(
-        predicate: (SessionCoordinator.UiState) -> Boolean
-    ): SessionCoordinator.UiState =
+    private fun awaitState(predicate: (SessionUiState) -> Boolean): SessionUiState =
         runBlocking { withTimeout(5000) { coordinator.uiState.first(predicate) } }
 
     @Test
@@ -139,7 +137,7 @@ class SessionCoordinatorTest {
     }
 
     /** El executor es serial: cuando aparece este umbral, todo lo anterior ya corrió. */
-    private fun barrier(threshold: Float): SessionCoordinator.UiState {
+    private fun barrier(threshold: Float): SessionUiState {
         coordinator.setConfidenceThreshold(threshold)
         return awaitState { it.confidenceThreshold == threshold }
     }
@@ -156,11 +154,11 @@ class SessionCoordinatorTest {
         assertEquals(TurnState.PARTIAL, building.state())
         assertEquals("sin voz mientras se arma", VoiceState.NONE, building.voiceState())
 
-        coordinator.advanceVisionClock(2_500L + SessionCoordinator.SENTENCE_PAUSE_MS - 1)
+        coordinator.advanceVisionClock(2_500L + SentenceChannel.PAUSE_MS - 1)
         val beforePause = barrier(0.91f).turns.single()
         assertEquals("todavía no pasó la pausa", TurnState.PARTIAL, beforePause.state())
 
-        coordinator.advanceVisionClock(2_500L + SessionCoordinator.SENTENCE_PAUSE_MS)
+        coordinator.advanceVisionClock(2_500L + SentenceChannel.PAUSE_MS)
         val closed = awaitState { it.turns.singleOrNull()?.state() == TurnState.FINAL }
             .turns.single()
         assertEquals("La mujer es sorda.", closed.text())
@@ -172,7 +170,7 @@ class SessionCoordinatorTest {
     fun aSignAfterThePauseStartsANewPhrase() {
         startSentenceSession()
         coordinator.recognizeForSentence(RecognizedSign(8, "Mujer", 0.95f), 1_000L, 1_500L)
-        coordinator.advanceVisionClock(1_500L + SessionCoordinator.SENTENCE_PAUSE_MS)
+        coordinator.advanceVisionClock(1_500L + SentenceChannel.PAUSE_MS)
         coordinator.recognizeForSentence(RecognizedSign(41, "Sordo", 0.95f), 9_000L, 9_500L)
 
         val turns = awaitState { it.turns.size == 2 }.turns
@@ -278,19 +276,19 @@ class SessionCoordinatorTest {
     @Test
     fun headLandmarksKeepOnlyNoseAndMouth() {
         val pose = FloatArray(99) { it.toFloat() }
-        val head = SessionCoordinator.headLandmarks(pose)!!
+        val head = CapturedFrame.headLandmarks(pose)!!
         // pose 0 (nariz), 9 y 10 (comisuras de la boca)
         assertEquals(listOf(0f, 1f, 2f, 27f, 28f, 29f, 30f, 31f, 32f), head.toList())
-        assertNull(SessionCoordinator.headLandmarks(null))
+        assertNull(CapturedFrame.headLandmarks(null))
     }
 
     @Test
     fun confirmationRuleDependsOnLanguageAndPointing() {
         val correr = RecognizedSign(60, "Correr", 0.95f)
         val yo = pointed(Pointing.Type.YO)!!
-        assertFalse(SessionCoordinator.needsConfirmation(SignLanguage.LSA, listOf(correr)))
-        assertTrue(SessionCoordinator.needsConfirmation(SignLanguage.LSA, listOf(yo, correr)))
-        assertTrue(SessionCoordinator.needsConfirmation(SignLanguage.LSE, listOf(correr)))
+        assertFalse(SentenceRules.needsConfirmation(SignLanguage.LSA, listOf(correr)))
+        assertTrue(SentenceRules.needsConfirmation(SignLanguage.LSA, listOf(yo, correr)))
+        assertTrue(SentenceRules.needsConfirmation(SignLanguage.LSE, listOf(correr)))
     }
 
     @Test
@@ -298,9 +296,9 @@ class SessionCoordinatorTest {
         val correr = RecognizedSign(60, "Correr", 0.95f)
         val usted = Pointing(Pointing.Type.USTED, 400L)
 
-        assertEquals(correr, SessionCoordinator.segmentSign(correr, usted))
+        assertEquals(correr, SentenceRules.segmentSign(correr, usted))
 
-        val pronoun = SessionCoordinator.segmentSign(null, usted)!!
+        val pronoun = SentenceRules.segmentSign(null, usted)!!
         assertEquals(SyntheticSigns.USTED, pronoun.classIndex())
         assertEquals("USTED", pronoun.gloss())
         assertEquals(SyntheticSigns.YO, pointed(Pointing.Type.YO)?.classIndex())
@@ -314,7 +312,7 @@ class SessionCoordinatorTest {
     }
 
     private fun pointed(type: Pointing.Type): RecognizedSign? =
-        SessionCoordinator.segmentSign(null, Pointing(type, 400L))
+        SentenceRules.segmentSign(null, Pointing(type, 400L))
 
     @Test
     fun aPointedPronounJoinsTheSentence() {
@@ -340,7 +338,7 @@ class SessionCoordinatorTest {
         // rechazada aunque la confianza fuera alta: nunca entra a la oración
         coordinator.recognizeForSentence(null, 2_000L, 2_500L)
         coordinator.recognizeForSentence(RecognizedSign(41, "Sordo", 0.95f), 3_000L, 3_500L)
-        coordinator.advanceVisionClock(3_500L + SessionCoordinator.SENTENCE_PAUSE_MS)
+        coordinator.advanceVisionClock(3_500L + SentenceChannel.PAUSE_MS)
 
         val closed = awaitState { it.turns.singleOrNull()?.state() == TurnState.FINAL }
             .turns.single()
@@ -349,7 +347,7 @@ class SessionCoordinatorTest {
         // Robolectric no tiene TTS: se verifica que la voz se ofrecería (sin hueco)
         val result =
             PhraseResult(closed.text(), listOf("MUJER", "SORDO"), listOf("persona-cualidad"))
-        assertEquals("La mujer es sorda.", SessionCoordinator.sentenceVoice(result))
+        assertEquals("La mujer es sorda.", SentenceRules.sentenceVoice(result))
     }
 
     @Test
@@ -358,16 +356,16 @@ class SessionCoordinatorTest {
         coordinator.recognizeForSentence(RecognizedSign(8, "Mujer", 0.95f), 1_000L, 1_500L)
         coordinator.recognizeForSentence(null, 2_000L, 2_500L)
 
-        coordinator.advanceVisionClock(2_500L + SessionCoordinator.SENTENCE_PAUSE_MS)
+        coordinator.advanceVisionClock(2_500L + SentenceChannel.PAUSE_MS)
         val afterNormalPause = barrier(0.91f).turns.single()
         assertEquals("la falla extiende la pausa", TurnState.PARTIAL, afterNormalPause.state())
 
         coordinator.advanceVisionClock(
-            2_500L + SessionCoordinator.SENTENCE_PAUSE_AFTER_FAILURE_MS - 1
+            2_500L + SentenceChannel.PAUSE_AFTER_FAILURE_MS - 1
         )
         assertEquals(TurnState.PARTIAL, barrier(0.92f).turns.single().state())
 
-        coordinator.advanceVisionClock(2_500L + SessionCoordinator.SENTENCE_PAUSE_AFTER_FAILURE_MS)
+        coordinator.advanceVisionClock(2_500L + SentenceChannel.PAUSE_AFTER_FAILURE_MS)
         val closed = awaitState { it.turns.singleOrNull()?.state() == TurnState.FINAL }
             .turns.single()
         assertEquals("MUJER", closed.glosses())
@@ -407,10 +405,10 @@ class SessionCoordinatorTest {
             listOf("MUJER", "SORDO"),
             listOf("persona-cualidad")
         )
-        assertEquals("La mujer sorda.", SessionCoordinator.sentenceVoice(full))
+        assertEquals("La mujer sorda.", SentenceRules.sentenceVoice(full))
 
         val withGap = PhraseResult("MUJER ¿?", listOf("MUJER", "¿?"), emptyList())
-        assertNull(SessionCoordinator.sentenceVoice(withGap))
+        assertNull(SentenceRules.sentenceVoice(withGap))
     }
 
     @Test
@@ -435,7 +433,7 @@ class SessionCoordinatorTest {
         coordinator = SessionCoordinator(
             RuntimeEnvironment.getApplication(),
             observer,
-            SessionCoordinator.DeliveryMode.OBSERVER_ONLY
+            DeliveryMode.OBSERVER_ONLY
         )
 
         coordinator.reportSegmentStarted(123L)
@@ -466,11 +464,11 @@ class SessionCoordinatorTest {
     @Test
     fun protocolSilencesTheChatAndLeavingItPublishesAgain() {
         startSentenceSession()
-        coordinator.setDeliveryMode(SessionCoordinator.DeliveryMode.OBSERVER_ONLY)
+        coordinator.setDeliveryMode(DeliveryMode.OBSERVER_ONLY)
         coordinator.recognizeForSentence(RecognizedSign(8, "Mujer", 0.95f), 1_000L, 1_500L)
         assertTrue("el protocolo no escribe en el chat", barrier(0.91f).turns.isEmpty())
 
-        coordinator.setDeliveryMode(SessionCoordinator.DeliveryMode.CONVERSATION)
+        coordinator.setDeliveryMode(DeliveryMode.CONVERSATION)
         coordinator.recognizeForSentence(RecognizedSign(8, "Mujer", 0.95f), 2_000L, 2_500L)
         val turn = awaitState { it.turns.size == 1 }.turns.single()
         assertEquals("MUJER", turn.text())
@@ -480,7 +478,7 @@ class SessionCoordinatorTest {
     fun enteringTheProtocolClosesTheOpenSentence() {
         startSentenceSession()
         coordinator.recognizeForSentence(RecognizedSign(8, "Mujer", 0.95f), 1_000L, 1_500L)
-        coordinator.setDeliveryMode(SessionCoordinator.DeliveryMode.OBSERVER_ONLY)
+        coordinator.setDeliveryMode(DeliveryMode.OBSERVER_ONLY)
 
         val turn = awaitState { it.turns.singleOrNull()?.state() == TurnState.FINAL }
             .turns.single()
@@ -490,10 +488,10 @@ class SessionCoordinatorTest {
     @Test
     fun closingTheSessionDoesNotLoseTheDeliveryModeChange() {
         startSentenceSession()
-        coordinator.setDeliveryMode(SessionCoordinator.DeliveryMode.OBSERVER_ONLY)
+        coordinator.setDeliveryMode(DeliveryMode.OBSERVER_ONLY)
         coordinator.closeSession()
         // Se pide antes de que el cierre corra: pertenece a la generación anterior.
-        coordinator.setDeliveryMode(SessionCoordinator.DeliveryMode.CONVERSATION)
+        coordinator.setDeliveryMode(DeliveryMode.CONVERSATION)
         awaitState { it.session == SessionState.CERRADA }
 
         startSentenceSession()

@@ -54,8 +54,9 @@ import com.helpi.conversation.lsa.SignLanguage
 import com.helpi.conversation.lsa.sequence.PhraseCaptureState
 import com.helpi.conversation.lsa.sequence.RecognitionMode
 import com.helpi.conversation.session.AudioChannelState
-import com.helpi.conversation.session.SessionCoordinator
+import com.helpi.conversation.session.RecognitionFeedback
 import com.helpi.conversation.session.SessionState
+import com.helpi.conversation.session.SessionUiState
 import com.helpi.conversation.session.VisualChannelState
 import com.helpi.conversation.ui.components.EvaEstado
 import com.helpi.conversation.ui.components.EvaOrb
@@ -142,7 +143,7 @@ fun ConversationScreen(
 
 @Composable
 internal fun ConversationContent(
-    state: SessionCoordinator.UiState,
+    state: SessionUiState,
     actions: ConversationActions,
     participantes: Participantes = Participantes(),
     cameraPreview: @Composable () -> Unit = {},
@@ -170,7 +171,7 @@ internal fun ConversationContent(
  */
 @Composable
 private fun Inicio(
-    state: SessionCoordinator.UiState,
+    state: SessionUiState,
     actions: ConversationActions,
     participantes: Participantes
 ) {
@@ -232,11 +233,7 @@ private fun Inicio(
 // de abajo son proporciones de diseño del espacio disponible, no números mágicos.
 @Suppress("LongMethod", "MagicNumber")
 @Composable
-private fun Bienvenida(
-    state: SessionCoordinator.UiState,
-    onIniciar: () -> Unit,
-    onReanudar: () -> Unit
-) {
+private fun Bienvenida(state: SessionUiState, onIniciar: () -> Unit, onReanudar: () -> Unit) {
     val pausada = state.session == SessionState.PAUSADA
     val preparando = state.session == SessionState.PREPARANDO ||
         state.session == SessionState.LISTA ||
@@ -359,7 +356,7 @@ private fun Bienvenida(
 @Suppress("LongMethod")
 @Composable
 private fun SalaDeConversacion(
-    state: SessionCoordinator.UiState,
+    state: SessionUiState,
     actions: ConversationActions,
     participantes: Participantes,
     cameraPreview: @Composable () -> Unit
@@ -667,7 +664,7 @@ private fun AccionDeEncabezado(
 @Suppress("CyclomaticComplexMethod", "LongMethod", "LongParameterList")
 @Composable
 private fun PanelDeCaptura(
-    state: SessionCoordinator.UiState,
+    state: SessionUiState,
     actions: ConversationActions,
     teclado: Boolean,
     onTeclado: () -> Unit,
@@ -1014,7 +1011,7 @@ private fun EstadoDeDistancia(state: SigningDistanceGuide.State) {
 }
 
 @Composable
-private fun PrediccionesDeEva(feedback: SessionCoordinator.RecognitionFeedback) {
+private fun PrediccionesDeEva(feedback: RecognitionFeedback) {
     Column(
         Modifier
             .background(HelpiColors.VeloCamara, HelpiShapes.Panel)
@@ -1059,7 +1056,7 @@ private fun PrediccionesDeEva(feedback: SessionCoordinator.RecognitionFeedback) 
     }
 }
 
-private fun estadoDeEva(state: SessionCoordinator.UiState) = when {
+private fun estadoDeEva(state: SessionUiState) = when {
     state.audio == AudioChannelState.TTS_HABLANDO -> EvaEstado.HABLANDO
     state.visual == VisualChannelState.REARMANDO && state.cameraEnabled -> EvaEstado.PENSANDO
     state.microphoneEnabled &&
@@ -1124,7 +1121,7 @@ private fun BotonDeVidrio(
 
 @Composable
 private fun ListaDeMensajes(
-    state: SessionCoordinator.UiState,
+    state: SessionUiState,
     actions: ConversationActions,
     participantes: Participantes,
     modifier: Modifier = Modifier
@@ -1187,7 +1184,7 @@ private fun ListaDeMensajes(
 private fun repetirDe(
     turno: Turn,
     propio: Boolean,
-    state: SessionCoordinator.UiState,
+    state: SessionUiState,
     actions: ConversationActions
 ): (() -> Unit)? = if (!propio && state.capabilities.tts && !turno.markedIncorrect()) {
     { actions.repeat(turno.id()) }
@@ -1258,7 +1255,7 @@ private fun Redactor(onEnviar: (String) -> Unit, compacto: Boolean = false) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun HojaDeAjustes(
-    state: SessionCoordinator.UiState,
+    state: SessionUiState,
     actions: ConversationActions,
     onDismiss: () -> Unit
 ) {
@@ -1315,7 +1312,7 @@ private fun HojaDeAjustes(
 
 /** Datos locales para saber si falla cámara, MediaPipe, segmentación o modelo. */
 @Composable
-private fun DiagnosticoVisual(state: SessionCoordinator.UiState) {
+private fun DiagnosticoVisual(state: SessionUiState) {
     val metrics = state.visionMetrics
     fun fps(value: Float): String = "${value.roundToInt()} fps"
     fun detected(count: Long): String = if (metrics.landmarkFrames == 0L) {
@@ -1370,10 +1367,7 @@ private fun DiagnosticoVisual(state: SessionCoordinator.UiState) {
 private val ANCHO_MINIMO_CHIPS_EN_FILA = 320.dp
 
 @Composable
-private fun SelectorDeModo(
-    state: SessionCoordinator.UiState,
-    onRecognitionMode: (RecognitionMode) -> Unit
-) {
+private fun SelectorDeModo(state: SessionUiState, onRecognitionMode: (RecognitionMode) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             "Modo de reconocimiento",
@@ -1425,29 +1419,29 @@ private fun SelectorDeModo(
     }
 }
 
-private fun instruccionDeEncuadre(state: SessionCoordinator.UiState): String? =
-    when (state.framing) {
-        FramingEvaluator.Issue.SIN_PERSONA -> "Mostrá los hombros y las manos."
-        FramingEvaluator.Issue.SIN_HOMBROS -> "Alejá un poco el teléfono para mostrar los hombros."
-        FramingEvaluator.Issue.MANOS_AL_BORDE -> "Mantené las manos dentro del cuadro."
-        FramingEvaluator.Issue.MANO_PERDIDA -> "Volvé a mostrar las dos manos."
-        FramingEvaluator.Issue.OK -> if (state.recognitionMode ==
-            RecognitionMode.PHRASE_EXPERIMENTAL
-        ) {
-            when (state.phraseCapture) {
-                PhraseCaptureState.READY -> "Presioná «Comenzar frase» cuando estés listo."
-                PhraseCaptureState.CAPTURING -> "Hacé la frase y presioná «Terminar frase»."
-                PhraseCaptureState.PROCESSING -> "Procesando la frase…"
-                PhraseCaptureState.CANDIDATE -> "Revisá la frase sugerida."
-                PhraseCaptureState.UNAVAILABLE -> "El modo frase no está disponible."
-            }
-        } else {
-            when (state.visual) {
-                VisualChannelState.ARMADO -> "Mostrá una seña."
-                VisualChannelState.ESPERANDO_REPOSO -> "Dejá las manos quietas un momento."
-                VisualChannelState.CAPTURANDO_SENA -> "Reconociendo tu seña…"
-                VisualChannelState.REARMANDO -> "Procesando la seña…"
-                else -> null
-            }
-        }
+private fun instruccionDeEncuadre(state: SessionUiState): String? = when (state.framing) {
+    FramingEvaluator.Issue.SIN_PERSONA -> "Mostrá los hombros y las manos."
+    FramingEvaluator.Issue.SIN_HOMBROS -> "Alejá un poco el teléfono para mostrar los hombros."
+    FramingEvaluator.Issue.MANOS_AL_BORDE -> "Mantené las manos dentro del cuadro."
+    FramingEvaluator.Issue.MANO_PERDIDA -> "Volvé a mostrar las dos manos."
+    FramingEvaluator.Issue.OK -> when (state.recognitionMode) {
+        RecognitionMode.PHRASE_EXPERIMENTAL -> instruccionDeFrase(state.phraseCapture)
+        RecognitionMode.SINGLE_SIGN -> instruccionDeSena(state.visual)
     }
+}
+
+private fun instruccionDeFrase(captura: PhraseCaptureState): String = when (captura) {
+    PhraseCaptureState.READY -> "Presioná «Comenzar frase» cuando estés listo."
+    PhraseCaptureState.CAPTURING -> "Hacé la frase y presioná «Terminar frase»."
+    PhraseCaptureState.PROCESSING -> "Procesando la frase…"
+    PhraseCaptureState.CANDIDATE -> "Revisá la frase sugerida."
+    PhraseCaptureState.UNAVAILABLE -> "El modo frase no está disponible."
+}
+
+private fun instruccionDeSena(visual: VisualChannelState): String? = when (visual) {
+    VisualChannelState.ARMADO -> "Mostrá una seña."
+    VisualChannelState.ESPERANDO_REPOSO -> "Dejá las manos quietas un momento."
+    VisualChannelState.CAPTURANDO_SENA -> "Reconociendo tu seña…"
+    VisualChannelState.REARMANDO -> "Procesando la seña…"
+    else -> null
+}

@@ -57,4 +57,22 @@ data class VisionMetrics(
     val segmentsAborted: Long = 0,
     val classifierRuns: Long = 0,
     val lastClassifierLatencyMs: Long = 0
-)
+) {
+    /** Incorpora la telemetría de CameraX. */
+    fun withCamera(metrics: CameraCaptureMetrics) = copy(
+        targetFps = metrics.targetFps,
+        cameraFps = metrics.analyzerFps,
+        analyzedFrames = metrics.analyzedFrames,
+        rateLimitedFrames = metrics.rateLimitedFrames
+    )
+
+    /** Incorpora la telemetría del extractor MediaPipe. */
+    fun withLandmarks(metrics: LandmarkExtractionMetrics) = copy(
+        mediaPipeFps = metrics.resultFps,
+        landmarkFrames = metrics.resultFrames,
+        poseFrames = metrics.poseFrames,
+        leftHandFrames = metrics.leftHandFrames,
+        rightHandFrames = metrics.rightHandFrames,
+        lastMediaPipeLatencyMs = metrics.lastLatencyMs
+    )
+}

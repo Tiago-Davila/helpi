@@ -1,486 +1,149 @@
 package com.helpi.conversation.session
 
-import android.Manifest
 import android.content.Context
-import android.content.pm.PackageManager
-import androidx.core.content.ContextCompat
-import com.helpi.conversation.audio.AudioArbiter
-import com.helpi.conversation.audio.AudioArbiterListener
-import com.helpi.conversation.audio.AudioArbiterState
-import com.helpi.conversation.audio.OfflineSpeechOutput
-import com.helpi.conversation.audio.VoskModelStore
-import com.helpi.conversation.audio.VoskSpeechSource
-import com.helpi.conversation.chat.Conversation
 import com.helpi.conversation.chat.Speaker
-import com.helpi.conversation.chat.Turn
-import com.helpi.conversation.chat.TurnState
 import com.helpi.conversation.chat.VoiceState
-import com.helpi.conversation.keypoints.KeypointContract
 import com.helpi.conversation.lsa.ModelBundle
 import com.helpi.conversation.lsa.ModelBundleResult
 import com.helpi.conversation.lsa.PhraseAssets
-import com.helpi.conversation.lsa.SignAcceptancePolicy
 import com.helpi.conversation.lsa.SignClassifier
 import com.helpi.conversation.lsa.SignDecision
 import com.helpi.conversation.lsa.SignLanguage
 import com.helpi.conversation.lsa.SignLanguageStore
 import com.helpi.conversation.lsa.VisualClassifier
-import com.helpi.conversation.lsa.sequence.PhraseCaptureState
 import com.helpi.conversation.lsa.sequence.RecognitionMode
-import com.helpi.conversation.lsa.sequence.SequenceAcceptancePolicy
-import com.helpi.conversation.lsa.sequence.SequenceAppendResult
-import com.helpi.conversation.lsa.sequence.SequenceCaptureBuffer
-import com.helpi.conversation.lsa.sequence.SequenceModelBundle
-import com.helpi.conversation.lsa.sequence.SequenceModelBundleResult
-import com.helpi.conversation.lsa.sequence.SequenceTranslationCandidate
-import com.helpi.conversation.lsa.sequence.SequenceTranslator
 import com.helpi.conversation.observation.NoResultCause
 import com.helpi.conversation.observation.RecognitionObserver
 import com.helpi.conversation.phrase.PhraseBuilder
-import com.helpi.conversation.phrase.PhraseResult
 import com.helpi.conversation.phrase.RecognizedSign
-import com.helpi.conversation.phrase.SentenceAssembler
-import com.helpi.conversation.phrase.SyntheticSigns
 import com.helpi.conversation.vision.CameraCaptureMetrics
 import com.helpi.conversation.vision.FramingEvaluator
 import com.helpi.conversation.vision.LandmarkExtractionMetrics
 import com.helpi.conversation.vision.LandmarkFrame
-import com.helpi.conversation.vision.ObservationFactory
-import com.helpi.conversation.vision.Pointing
-import com.helpi.conversation.vision.PointingConfig
-import com.helpi.conversation.vision.PointingDetector
 import com.helpi.conversation.vision.SamplingProfile
-import com.helpi.conversation.vision.SegmentEvent
-import com.helpi.conversation.vision.SegmenterConfig
-import com.helpi.conversation.vision.SignSegmenter
-import com.helpi.conversation.vision.SigningDistanceGuide
 import com.helpi.conversation.vision.VisionMetrics
-import java.util.ArrayDeque
-import java.util.concurrent.Executors
-import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.ScheduledFuture
-import java.util.concurrent.TimeUnit
-import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Único coordinador de la sesión: recibe eventos de ambos canales, mantiene
- * los estados y autoriza publicación y TTS. Todo el estado muta en un
- * executor serial (único escritor).
+ * el ciclo de vida y publica el estado. Cada canal vive en su propia clase;
+ * todo el estado muta en [SessionLoop], un executor serial (único escritor).
  *
  * La conversación vive exclusivamente en memoria y se descarta al cerrar.
  */
 class SessionCoordinator(
-    private val context: Context,
-    private val recognitionObserver: RecognitionObserver = RecognitionObserver.NO_OP,
+    context: Context,
+    recognitionObserver: RecognitionObserver = RecognitionObserver.NO_OP,
     initialDeliveryMode: DeliveryMode = DeliveryMode.CONVERSATION,
     private val languageStore: SignLanguageStore = SignLanguageStore(context),
-    private val loadBundle: (SignLanguage) -> ModelBundleResult = { ModelBundle.load(context, it) },
-    private val createClassifier: (ModelBundle) -> VisualClassifier = ::SignClassifier
+    loadBundle: (SignLanguage) -> ModelBundleResult = { ModelBundle.load(context, it) },
+    createClassifier: (ModelBundle) -> VisualClassifier = ::SignClassifier
 ) {
+    private val loop = SessionLoop()
+    private val data = SessionData(languageStore.load())
 
-    enum class DeliveryMode {
-        CONVERSATION,
-        OBSERVER_ONLY
-    }
+    private val speechInput = SpeechInputChannel(context, loop, data, ::publish)
+    private val voice = VoiceChannel(context, loop, data, speechInput, ::publish)
+    private val delivery = SentenceDelivery(data, voice)
+    private val sentence = SentenceChannel(data, delivery)
 
-    data class Capabilities(
-        val keyboard: Boolean = true,
-        val vision: Boolean = false,
-        val visionDetail: String = "",
-        val phraseVision: Boolean = false,
-        val phraseVisionDetail: String = "",
-        val stt: Boolean = false,
-        val sttDetail: String = "",
-        val tts: Boolean = false,
-        val ttsDetail: String = ""
-    )
+    private val outlet = RecognitionOutlet(recognitionObserver, initialDeliveryMode)
+    private val model = VisualModel(context, data, delivery, loadBundle, createClassifier)
+    private val recognition = SignRecognition(loop, data, model, outlet, sentence, ::publish)
+    private val signs = SignCapture(loop, data, outlet, sentence, recognition)
+    private val phrase = PhraseChannel(context, loop, data, ::publish)
+    private val visual = VisualChannel(data, signs, phrase, ::publish)
 
-    data class RecognitionFeedback(
-        val confidence: Float,
-        val threshold: Float,
-        val accepted: Boolean,
-        val gloss: String? = null,
-        val predictions: List<RecognitionPrediction> = emptyList()
-    )
-
-    data class RecognitionPrediction(val label: String, val confidence: Float)
-
-    data class UiState(
-        val session: SessionState = SessionState.INICIO,
-        val visual: VisualChannelState = VisualChannelState.NO_DISPONIBLE,
-        val audio: AudioChannelState = AudioChannelState.NO_DISPONIBLE,
-        val framing: FramingEvaluator.Issue = FramingEvaluator.Issue.SIN_PERSONA,
-        val signingDistance: SigningDistanceGuide.State = SigningDistanceGuide.State.UNKNOWN,
-        val turns: List<Turn> = emptyList(),
-        val capabilities: Capabilities = Capabilities(),
-        val confidenceThreshold: Float = DEFAULT_THRESHOLD,
-        val signLanguage: SignLanguage = SignLanguage.LSA,
-        val lastRecognition: RecognitionFeedback? = null,
-        val visionMetrics: VisionMetrics = VisionMetrics(),
-        val samplingProfile: SamplingProfile = SamplingProfile.IDLE,
-        val recognitionMode: RecognitionMode = RecognitionMode.SINGLE_SIGN,
-        val phraseCapture: PhraseCaptureState = PhraseCaptureState.UNAVAILABLE,
-        val phraseCandidate: SequenceTranslationCandidate? = null,
-        val sentenceCandidate: SentenceCandidate? = null,
-        val notice: String? = null,
-        val microphoneEnabled: Boolean = true,
-        val cameraEnabled: Boolean = true
-    )
-
-    private val executor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
-    private val classifierExecutor = Executors.newSingleThreadExecutor()
-    private val sequenceClassifierExecutor = Executors.newSingleThreadExecutor()
-
-    private var stateMachine = SessionStateMachine()
-    private val conversation = Conversation()
-    private var segmenter = SignSegmenter(SegmenterConfig.defaults())
-    private val pointingDetector = PointingDetector(PointingConfig.defaults())
-    private val framingEvaluator = FramingEvaluator()
-    private val signingDistanceGuide = SigningDistanceGuide()
-    private val observationFactory = ObservationFactory()
-    private val phraseBuffer = SequenceCaptureBuffer()
-    private val sentence = SentenceAssembler(SENTENCE_PAUSE_MS, SENTENCE_PAUSE_AFTER_FAILURE_MS)
-
-    /** Burbuja de la oración en curso; -1 si todavía no hubo ningún intento. */
-    private var sentenceTurnId: Long = -1
-
-    /**
-     * Cuadro del segmento en curso: 168 coords crudas más el tamaño de la
-     * imagen analizada, que el contrato v3 necesita para pasar a píxeles.
-     * [head] guarda aparte nariz y boca (pose 0, 9 y 10) para las zonas del
-     * cuerpo del detector de señalamiento; nunca entra al modelo.
-     */
-    private class CapturedFrame(
-        val timestampMs: Long,
-        val vector: FloatArray,
-        val imageWidth: Int,
-        val imageHeight: Int,
-        val head: FloatArray?
-    )
-
-    /**
-     * Oración del modo seña armada pero no publicada: espera que la persona
-     * sorda la confirme, la edite o la descarte.
-     */
-    data class SentenceCandidate(val turnId: Long, val text: String, val glosses: String)
-
-    /** Oraciones por confirmar, en el orden en que se cerraron; se muestra la primera. */
-    private val pendingSentences = ArrayDeque<SentenceCandidate>()
-
-    /** Buffer de cuadros del segmento en curso. */
-    private val frameBuffer = ArrayDeque<CapturedFrame>()
-    private val preRollBuffer = ArrayDeque<CapturedFrame>()
-
-    private var classifier: VisualClassifier? = null
-    private var acceptancePolicy: SignAcceptancePolicy? = null
-    private var bundle: ModelBundle? = null
-    private var phraseAssets: PhraseAssets = PhraseAssets.Disabled(PHRASES_WITHOUT_MODEL)
-    private var speech: VoskSpeechSource? = null
-    private var speechOutput: OfflineSpeechOutput? = null
-    private var classifying = false
-
-    /** A quién llega lo reconocido: a la conversación o solo al observador (protocolo). */
-    private var deliveryMode = initialDeliveryMode
-    private var sequenceTranslator: SequenceTranslator? = null
-    private var sequenceBundle: SequenceModelBundle? = null
-    private val sequenceAcceptancePolicy = SequenceAcceptancePolicy()
-    private var sequenceClassifying = false
     private var ticker: ScheduledFuture<*>? = null
-    private var signLanguage = languageStore.load()
-
-    /** Umbral de cada lengua: el de una no se aplica al modelo de otra. */
-    private val thresholds =
-        SignLanguage.values().associateWith { it.defaultConfidenceThreshold() }.toMutableMap()
-    private var confidenceThreshold = thresholds.getValue(signLanguage)
-    private var lastRecognition: RecognitionFeedback? = null
-    private var visionMetrics = VisionMetrics()
-    private var samplingProfile = SamplingProfile.IDLE
-    private var recognitionMode = RecognitionMode.SINGLE_SIGN
-    private var phraseCaptureState = PhraseCaptureState.UNAVAILABLE
-    private var phraseCandidate: SequenceTranslationCandidate? = null
-    private var phraseCandidateStartMs: Long = -1L
-    private var lastVisionTimestampMs: Long = 0L
-    private var microphoneEnabled = true
-    private var cameraEnabled = true
-    private var visionRevision = 0
-
-    /** Generación de sesión: los callbacks tardíos de otra generación se descartan. */
-    @Volatile
-    private var generation = 0
-
-    private var partialTurnId: Long = -1
     private var pausedAtMs: Long = 0
-    private var visualState = VisualChannelState.NO_DISPONIBLE
-    private var audioState = AudioChannelState.NO_DISPONIBLE
-    private var framing = FramingEvaluator.Issue.SIN_PERSONA
-    private var signingDistance = SigningDistanceGuide.State.UNKNOWN
-    private var capabilities = Capabilities()
-    private var notice: String? = null
 
     private val _uiState = MutableStateFlow(
-        UiState(confidenceThreshold = confidenceThreshold, signLanguage = signLanguage)
+        SessionUiState(
+            confidenceThreshold = data.thresholds.current,
+            signLanguage = data.signLanguage
+        )
     )
-    val uiState: StateFlow<UiState> = _uiState.asStateFlow()
+    val uiState: StateFlow<SessionUiState> = _uiState.asStateFlow()
 
-    private val arbiter: AudioArbiter by lazy {
-        AudioArbiter(object : AudioArbiterListener {
-            override fun requestCloseSttGate() {
-                val gen = generation
-                audioState = AudioChannelState.CERRANDO_ENTRADA_STT
-                speech?.closeGate()
-                // confirmación explícita: la compuerta quedó cerrada
-                submit(gen) {
-                    if (!isActive() ||
-                        arbiter.state() != AudioArbiterState.WAITING_GATE
-                    ) {
-                        return@submit
-                    }
-                    audioState = AudioChannelState.TTS_HABLANDO
-                    arbiter.sttGateClosed(now())
-                    publish()
-                }
-            }
-
-            override fun openSttGate() {
-                if (microphoneEnabled && isActive()) speech?.openGate()
-                audioState = if (capabilities.stt && microphoneEnabled && isActive()) {
-                    AudioChannelState.STT_ESCUCHANDO
-                } else {
-                    AudioChannelState.STT_LISTO
-                }
-            }
-
-            override fun speak(messageId: Long, text: String) {
-                audioState = AudioChannelState.TTS_HABLANDO
-                speechOutput?.speak(messageId, text)
-            }
-
-            override fun expired(messageId: Long) {
-                if (hasTurn(messageId)) {
-                    conversation.updateVoice(messageId, VoiceState.NOT_SPOKEN)
-                }
-            }
-        })
+    init {
+        speechInput.onSpeechActivity = voice::hearingSpeechActive
     }
 
     // ------------------------------------------------------------------
     // ciclo de vida
     // ------------------------------------------------------------------
 
-    fun prepare(autoStart: Boolean = false) = submit(generation) {
-        if (stateMachine.current() == SessionState.CERRADA) {
-            stateMachine = SessionStateMachine()
-            visualState = VisualChannelState.NO_DISPONIBLE
-            audioState = AudioChannelState.NO_DISPONIBLE
-            capabilities = Capabilities()
-            lastRecognition = null
-            recognitionMode = RecognitionMode.SINGLE_SIGN
-            phraseCaptureState = PhraseCaptureState.UNAVAILABLE
-            phraseCandidate = null
-            phraseCandidateStartMs = -1L
-            lastVisionTimestampMs = 0L
-            notice = null
-            microphoneEnabled = true
-            cameraEnabled = true
+    fun prepare(autoStart: Boolean = false) = loop.submit {
+        if (data.stateMachine.current() == SessionState.CERRADA) {
+            data.resetAfterClose()
+            phrase.clearCandidate(available = false)
         }
-        visionMetrics = VisionMetrics()
-        samplingProfile = SamplingProfile.IDLE
-        if (!stateMachine.canTransition(SessionState.PREPARANDO)) return@submit
-        stateMachine.transition(SessionState.PREPARANDO)
+        data.visionMetrics = VisionMetrics()
+        data.samplingProfile = SamplingProfile.IDLE
+        if (!data.stateMachine.canTransition(SessionState.PREPARANDO)) return@submit
+        data.stateMachine.transition(SessionState.PREPARANDO)
         publish()
 
-        val visionCap = loadVisionChannel()
-
-        // Canal experimental de frases: su ausencia nunca inhabilita a Eva.
-        val phraseCap = if (!hasPermission(Manifest.permission.CAMERA)) {
-            false to "permiso de cámara denegado"
-        } else {
-            when (val result = SequenceModelBundle.load(context)) {
-                is SequenceModelBundleResult.Ready -> {
-                    try {
-                        sequenceBundle = result.bundle
-                        sequenceTranslator = SequenceTranslator(result.bundle)
-                        phraseCaptureState = PhraseCaptureState.READY
-                        true to ""
-                    } catch (e: Exception) {
-                        sequenceTranslator = null
-                        sequenceBundle = null
-                        phraseCaptureState = PhraseCaptureState.UNAVAILABLE
-                        false to "paquete de frases incompatible: ${e.message}"
-                    }
-                }
-                is SequenceModelBundleResult.Missing -> {
-                    phraseCaptureState = PhraseCaptureState.UNAVAILABLE
-                    false to "modo frase pendiente: falta ${result.asset}"
-                }
-                is SequenceModelBundleResult.Invalid -> {
-                    phraseCaptureState = PhraseCaptureState.UNAVAILABLE
-                    false to result.cause
-                }
-            }
-        }
-
-        // Canal A: Vosk
-        val sttCap = if (!hasPermission(Manifest.permission.RECORD_AUDIO)) {
-            false to "permiso de micrófono denegado"
-        } else {
-            when (val result = VoskModelStore.install(context)) {
-                is VoskModelStore.Result.Ready -> {
-                    try {
-                        val gen = generation
-                        speech = VoskSpeechSource(
-                            modelDir = result.modelDir,
-                            onPartial = { text -> submit(gen) { onSttPartial(text) } },
-                            onFinal = { text -> submit(gen) { onSttFinal(text) } },
-                            onSpeechActivity = { active ->
-                                submit(gen) {
-                                    if (!isActive() || !microphoneEnabled) return@submit
-                                    arbiter.hearingSpeechActive(active, now())
-                                    if (active) audioState = AudioChannelState.STT_TRANSCRIBIENDO
-                                }
-                            },
-                            onError = { msg ->
-                                submit(gen) {
-                                    notice = msg
-                                    publish()
-                                }
-                            }
-                        )
-                        true to ""
-                    } catch (e: Exception) {
-                        false to "Vosk no inicializó: ${e.message}"
-                    }
-                }
-                is VoskModelStore.Result.Missing -> false to result.detail
-                is VoskModelStore.Result.Failed -> false to result.detail
-            }
-        }
-
-        // Salida de voz
-        val gen = generation
-        speechOutput = OfflineSpeechOutput(
-            context,
-            onReady = { desc ->
-                submit(gen) {
-                    capabilities = capabilities.copy(
-                        tts = desc != null,
-                        ttsDetail =
-                        desc ?: "sin voz española offline: la persona oyente no recibirá audio"
-                    )
-                    if (desc != null &&
-                        stateMachine.current() == SessionState.ACTIVA_LIMITADA &&
-                        targetActiveState() == SessionState.ACTIVA
-                    ) {
-                        stateMachine.transition(SessionState.ACTIVA)
-                    }
-                    publish()
-                }
-            },
-            onSpoken = { id ->
-                submit(gen) {
-                    if (hasTurn(id)) conversation.updateVoice(id, VoiceState.SPOKEN)
-                    audioState = AudioChannelState.GUARDA_ACUSTICA
-                    arbiter.ttsFinished(id, now())
-                    publish()
-                }
-            },
-            onFailed = { id ->
-                submit(gen) {
-                    if (hasTurn(id)) conversation.updateVoice(id, VoiceState.NOT_SPOKEN)
-                    arbiter.ttsFailed(id, now())
-                    publish()
-                }
-            }
+        val visionChannel = model.load()
+        val phraseChannel = phrase.prepare()
+        val sttChannel = speechInput.prepare()
+        voice.prepare()
+        data.capabilities = data.capabilities.copy(
+            vision = visionChannel.available,
+            visionDetail = visionChannel.detail,
+            phraseVision = phraseChannel.available,
+            phraseVisionDetail = phraseChannel.detail,
+            stt = sttChannel.available,
+            sttDetail = sttChannel.detail
         )
-
-        capabilities = capabilities.copy(
-            vision = visionCap.first,
-            visionDetail = visionCap.second,
-            phraseVision = phraseCap.first,
-            phraseVisionDetail = phraseCap.second,
-            stt = sttCap.first,
-            sttDetail = sttCap.second
-        )
-        audioState =
-            if (sttCap.first) AudioChannelState.STT_LISTO else AudioChannelState.NO_DISPONIBLE
+        data.audioState = if (sttChannel.available) {
+            AudioChannelState.STT_LISTO
+        } else {
+            AudioChannelState.NO_DISPONIBLE
+        }
 
         // El teclado siempre es un canal disponible, aun si se deniegan los
         // sensores. La sesión no queda bloqueada por una capacidad opcional.
-        stateMachine.transition(SessionState.LISTA)
+        data.stateMachine.transition(SessionState.LISTA)
         publish()
         if (autoStart) startConversation()
     }
 
-    fun startConversation() = submit(generation) {
-        if (!stateMachine.canTransition(targetActiveState())) return@submit
-        stateMachine.transition(targetActiveState())
-        if (capabilities.stt) {
-            speech?.start()
-            audioState = AudioChannelState.STT_ESCUCHANDO
+    fun startConversation() = loop.submit {
+        if (!data.stateMachine.canTransition(data.targetActiveState)) return@submit
+        data.stateMachine.transition(data.targetActiveState)
+        if (data.capabilities.stt) {
+            speechInput.start()
+            data.audioState = AudioChannelState.STT_ESCUCHANDO
         }
-        visualState = if (activeVisionAvailable()) {
-            VisualChannelState.BUSCANDO_ENCUADRE
-        } else {
-            VisualChannelState.NO_DISPONIBLE
-        }
+        data.restartVisualState(data.activeVisionAvailable)
         // reloj del árbitro (vencimientos, guarda, watchdog)
-        val gen = generation
         ticker?.cancel(false)
-        ticker = executor.scheduleWithFixedDelay(
-            {
-                if (gen ==
-                    generation
-                ) {
-                    submit(gen) {
-                        if (isActive()) {
-                            arbiter.tick(now())
-                            publish()
-                        }
-                    }
-                }
-            },
-            200,
-            200,
-            TimeUnit.MILLISECONDS
-        )
+        ticker = loop.every(TICK_MS) {
+            if (data.isActive) {
+                voice.tick()
+                publish()
+            }
+        }
         publish()
     }
 
     /** Segundo plano / bloqueo: pausa sensores y descarta lo pendiente. */
-    fun pause() = submit(generation) {
-        if (!stateMachine.canTransition(SessionState.PAUSADA)) return@submit
-        pausedAtMs = now()
-        stateMachine.transition(SessionState.PAUSADA)
-        speechOutput?.stop()
-        speech?.stop()
-        closeSentence()
-        conversation.ordered().filter { it.voiceState() == VoiceState.PENDING }.forEach {
-            conversation.updateVoice(it.id(), VoiceState.NOT_SPOKEN)
-        }
-        arbiter.reset()
-        visionRevision++
-        segmenter = SignSegmenter(SegmenterConfig.defaults())
-        frameBuffer.clear()
-        preRollBuffer.clear()
-        phraseBuffer.cancel()
-        samplingProfile = SamplingProfile.IDLE
-        phraseCandidate = null
-        phraseCandidateStartMs = -1L
-        phraseCaptureState = if (capabilities.phraseVision) {
-            PhraseCaptureState.READY
-        } else {
-            PhraseCaptureState.UNAVAILABLE
-        }
-        observationFactory.reset()
-        signingDistanceGuide.reset()
-        signingDistance = SigningDistanceGuide.State.UNKNOWN
-        if (partialTurnId >= 0) {
-            conversation.markIncomplete(partialTurnId)
-            partialTurnId = -1
-        }
+    fun pause() = loop.submit {
+        if (!data.stateMachine.canTransition(SessionState.PAUSADA)) return@submit
+        pausedAtMs = loop.now()
+        data.stateMachine.transition(SessionState.PAUSADA)
+        voice.stopSpeaking()
+        speechInput.stop()
+        sentence.close()
+        voice.discardPending()
+        visual.discardCapture()
+        phrase.discard(data.capabilities.phraseVision)
+        data.samplingProfile = SamplingProfile.IDLE
+        speechInput.interruptPartial()
         publish()
     }
 
@@ -489,83 +152,61 @@ class SessionCoordinator(
      * superó la vigencia, la sesión se invalida y el historial se descarta;
      * se verifica el vencimiento aunque Android haya suspendido los timers.
      */
-    fun resume() = submit(generation) {
-        if (stateMachine.current() != SessionState.PAUSADA) return@submit
-        if (now() - pausedAtMs > PAUSE_TTL_MS) {
-            notice = "La pausa superó los 2 minutos: la conversación se descartó."
+    fun resume() = loop.submit {
+        if (data.stateMachine.current() != SessionState.PAUSADA) return@submit
+        if (loop.now() - pausedAtMs > PAUSE_TTL_MS) {
+            data.notice = "La pausa superó los 2 minutos: la conversación se descartó."
             doClose()
             return@submit
         }
         // se re-verifica el estado de los canales antes de volver a mostrar
-        stateMachine.transition(SessionState.PREPARANDO)
-        stateMachine.transition(SessionState.LISTA)
-        stateMachine.transition(targetActiveState())
-        if (capabilities.stt && microphoneEnabled) {
-            speech?.start()
-            audioState = AudioChannelState.STT_ESCUCHANDO
+        data.stateMachine.transition(SessionState.PREPARANDO)
+        data.stateMachine.transition(SessionState.LISTA)
+        data.stateMachine.transition(data.targetActiveState)
+        if (data.capabilities.stt && data.microphoneEnabled) {
+            speechInput.start()
+            data.audioState = AudioChannelState.STT_ESCUCHANDO
         }
-        if (activeVisionAvailable() && cameraEnabled) {
-            visualState = VisualChannelState.BUSCANDO_ENCUADRE
+        if (data.activeVisionAvailable && data.cameraEnabled) {
+            data.visualState = VisualChannelState.BUSCANDO_ENCUADRE
         }
         publish()
     }
 
     /** Cierre explícito: descarta el historial y libera recursos. */
-    fun closeSession() = submit(generation) { doClose() }
+    fun closeSession() = loop.submit { doClose() }
 
     private fun doClose() {
-        generation++
-        if (stateMachine.canTransition(SessionState.CERRANDO)) {
-            stateMachine.transition(SessionState.CERRANDO)
+        loop.startNewGeneration()
+        if (data.stateMachine.canTransition(SessionState.CERRANDO)) {
+            data.stateMachine.transition(SessionState.CERRANDO)
         }
-        speechOutput?.close()
-        speechOutput = null
+        voice.close()
         ticker?.cancel(false)
         ticker = null
-        speech?.close()
-        speech = null
-        arbiter.reset()
-        releaseVisionChannel()
-        sequenceTranslator?.let { closing ->
-            sequenceClassifierExecutor.execute { closing.close() }
-        }
-        sequenceTranslator = null
-        sequenceBundle = null
-        sequenceClassifying = false
-        partialTurnId = -1
+        speechInput.close()
+        recognition.release()
+        phrase.close()
         sentence.reset()
-        sentenceTurnId = -1
-        visionRevision++
-        segmenter = SignSegmenter(SegmenterConfig.defaults())
-        observationFactory.reset()
-        signingDistanceGuide.reset()
-        signingDistance = SigningDistanceGuide.State.UNKNOWN
-        lastRecognition = null
-        visionMetrics = VisionMetrics()
-        samplingProfile = SamplingProfile.IDLE
-        recognitionMode = RecognitionMode.SINGLE_SIGN
-        phraseBuffer.cancel()
-        phraseCaptureState = PhraseCaptureState.UNAVAILABLE
-        phraseCandidate = null
-        phraseCandidateStartMs = -1L
-        lastVisionTimestampMs = 0L
-        pendingSentences.clear()
-        conversation.clear()
-        frameBuffer.clear()
-        preRollBuffer.clear()
-        if (stateMachine.canTransition(SessionState.CERRADA)) {
-            stateMachine.transition(SessionState.CERRADA)
+        visual.discardCapture()
+        data.lastRecognition = null
+        data.visionMetrics = VisionMetrics()
+        data.samplingProfile = SamplingProfile.IDLE
+        data.recognitionMode = RecognitionMode.SINGLE_SIGN
+        data.lastVisionTimestampMs = 0L
+        delivery.clear()
+        data.conversation.clear()
+        if (data.stateMachine.canTransition(SessionState.CERRADA)) {
+            data.stateMachine.transition(SessionState.CERRADA)
         }
         publish()
     }
 
-    fun shutdown() {
-        executor.execute {
-            doClose()
-            classifierExecutor.shutdown()
-            sequenceClassifierExecutor.shutdown()
-            executor.shutdown()
-        }
+    fun shutdown() = loop.enqueue {
+        doClose()
+        model.shutdown()
+        phrase.shutdown()
+        loop.shutdown()
     }
 
     // ------------------------------------------------------------------
@@ -573,328 +214,33 @@ class SessionCoordinator(
     // ------------------------------------------------------------------
 
     /** Entrada desde HolisticExtractor (worker de MediaPipe): solo publica. */
-    fun onLandmarks(frame: LandmarkFrame) {
-        val gen = generation
-        submit(gen) { processLandmarks(frame) }
-    }
+    fun onLandmarks(frame: LandmarkFrame) = loop.submit { visual.process(frame) }
 
     /** Telemetría agregada de CameraX: no conserva cuadros ni video. */
-    fun onCameraMetrics(metrics: CameraCaptureMetrics) {
-        val gen = generation
-        submit(gen) {
-            visionMetrics = visionMetrics.copy(
-                targetFps = metrics.targetFps,
-                cameraFps = metrics.analyzerFps,
-                analyzedFrames = metrics.analyzedFrames,
-                rateLimitedFrames = metrics.rateLimitedFrames
-            )
-            publish()
-        }
-    }
-
-    /** Telemetría agregada del extractor: permite separar cámara de MediaPipe. */
-    fun onLandmarkMetrics(metrics: LandmarkExtractionMetrics) {
-        val gen = generation
-        submit(gen) {
-            visionMetrics = visionMetrics.copy(
-                mediaPipeFps = metrics.resultFps,
-                landmarkFrames = metrics.resultFrames,
-                poseFrames = metrics.poseFrames,
-                leftHandFrames = metrics.leftHandFrames,
-                rightHandFrames = metrics.rightHandFrames,
-                lastMediaPipeLatencyMs = metrics.lastLatencyMs
-            )
-            publish()
-        }
-    }
-
-    private fun processLandmarks(frame: LandmarkFrame) {
-        val visualAvailable = when (recognitionMode) {
-            RecognitionMode.SINGLE_SIGN -> capabilities.vision
-            RecognitionMode.PHRASE_EXPERIMENTAL -> capabilities.phraseVision
-        }
-        if (!visualAvailable || !cameraEnabled || !isActive()) return
-
-        lastVisionTimestampMs = frame.timestampMs
-
-        val obs = observationFactory.observe(frame)
-        framing = framingEvaluator.evaluate(obs)
-        signingDistance =
-            signingDistanceGuide.evaluate(frame.pose, frame.imageWidth, frame.imageHeight)
-
-        if (recognitionMode == RecognitionMode.PHRASE_EXPERIMENTAL) {
-            processPhraseLandmarks(frame)
-            updateSamplingProfile()
-            publish()
-            return
-        }
-
-        val vector = KeypointContract.flattenFrame(frame.leftHand, frame.rightHand, frame.pose)
-
-        // pre-roll: cuadros previos al inicio detectado
-        val captured = CapturedFrame(
-            frame.timestampMs,
-            vector,
-            frame.imageWidth,
-            frame.imageHeight,
-            headLandmarks(frame.pose)
-        )
-        preRollBuffer.addLast(captured)
-        while (preRollBuffer.size > PRE_ROLL_FRAMES) preRollBuffer.removeFirst()
-
-        if (segmenter.isCapturing()) {
-            frameBuffer.addLast(captured)
-        }
-
-        val event = segmenter.process(obs)
-        when (event.type) {
-            SegmentEvent.Type.ARMED -> visualState = VisualChannelState.ARMADO
-            SegmentEvent.Type.STARTED -> {
-                reportSegmentStarted(event.segmentStartMs)
-                visionMetrics =
-                    visionMetrics.copy(segmentsStarted = visionMetrics.segmentsStarted + 1)
-                visualState = VisualChannelState.CAPTURANDO_SENA
-                frameBuffer.clear()
-                for (previous in preRollBuffer) {
-                    if (previous.timestampMs >= event.segmentStartMs) frameBuffer.addLast(previous)
-                }
-            }
-            SegmentEvent.Type.ENDED -> {
-                visionMetrics =
-                    visionMetrics.copy(segmentsCompleted = visionMetrics.segmentsCompleted + 1)
-                visualState = VisualChannelState.REARMANDO
-                classifySegment(event.segmentStartMs, event.segmentEndMs)
-            }
-            SegmentEvent.Type.ABORTED -> {
-                when (event.abortReason) {
-                    SegmentEvent.AbortReason.TOO_SHORT -> reportNoResult(
-                        NoResultCause.SEGMENTO_CORTO
-                    )
-                    SegmentEvent.AbortReason.TOO_LONG -> reportNoResult(
-                        NoResultCause.SEGMENTO_LARGO
-                    )
-                    SegmentEvent.AbortReason.TRACKING_LOST ->
-                        reportNoResult(NoResultCause.SEGUIMIENTO_PERDIDO)
-
-                    SegmentEvent.AbortReason.NONE -> Unit
-                }
-                visionMetrics =
-                    visionMetrics.copy(segmentsAborted = visionMetrics.segmentsAborted + 1)
-                visualState = VisualChannelState.REARMANDO
-                frameBuffer.clear()
-                if (event.abortReason == SegmentEvent.AbortReason.TRACKING_LOST &&
-                    deliveryMode == DeliveryMode.CONVERSATION
-                ) {
-                    visualState = VisualChannelState.CALIDAD_INSUFICIENTE
-                    conversation.systemNote(
-                        "No vi bien tus manos. Dejá las manos quietas un momento y volvé a intentar.",
-                        now()
-                    )
-                }
-            }
-            SegmentEvent.Type.NONE -> {
-                if (visualState == VisualChannelState.BUSCANDO_ENCUADRE &&
-                    framing == FramingEvaluator.Issue.OK
-                ) {
-                    visualState = VisualChannelState.ESPERANDO_REPOSO
-                }
-            }
-        }
-        if (!classifying && !segmenter.isCapturing()) closeSentenceAfterPause(frame.timestampMs)
-        updateSamplingProfile()
+    fun onCameraMetrics(metrics: CameraCaptureMetrics) = loop.submit {
+        data.visionMetrics = data.visionMetrics.withCamera(metrics)
         publish()
     }
 
-    private fun processPhraseLandmarks(frame: LandmarkFrame) {
-        if (phraseCaptureState != PhraseCaptureState.CAPTURING) {
-            if (visualState == VisualChannelState.BUSCANDO_ENCUADRE &&
-                framing == FramingEvaluator.Issue.OK
-            ) {
-                visualState = VisualChannelState.ESPERANDO_REPOSO
-            }
-            return
-        }
-
-        when (phraseBuffer.append(frame.timestampMs, frame.leftHand, frame.rightHand)) {
-            SequenceAppendResult.ACCEPTED -> {
-                visualState = VisualChannelState.CAPTURANDO_SENA
-            }
-            SequenceAppendResult.TOO_LONG -> {
-                phraseBuffer.cancel()
-                phraseCaptureState = PhraseCaptureState.READY
-                visualState = VisualChannelState.REARMANDO
-                notice = "La captura superó los 12 segundos. Empezá la frase de nuevo."
-            }
-            SequenceAppendResult.NOT_CAPTURING -> {
-                phraseCaptureState = PhraseCaptureState.READY
-            }
-        }
+    /** Telemetría agregada del extractor: permite separar cámara de MediaPipe. */
+    fun onLandmarkMetrics(metrics: LandmarkExtractionMetrics) = loop.submit {
+        data.visionMetrics = data.visionMetrics.withLandmarks(metrics)
+        publish()
     }
 
-    private fun classifySegment(startMs: Long, endMs: Long) {
-        val cls = classifier
-        val policy = acceptancePolicy
-        val catalog = bundle?.catalog
-        if (cls == null || policy == null || catalog == null) {
-            reportNoResult(NoResultCause.ERROR_MODELO)
-            return
-        }
-
-        if (classifying) {
-            // sin cola ilimitada: el intento no se traduce tardíamente sin aviso
-            if (deliveryMode == DeliveryMode.CONVERSATION) {
-                conversation.systemNote("Ese intento no se procesó: había otro en curso.", now())
-            }
-            frameBuffer.clear()
-            return
-        }
-        val segment = frameBuffer.filter { it.timestampMs in startMs..endMs }
-        frameBuffer.clear()
-        if (segment.isEmpty()) {
-            reportNoResult(NoResultCause.SEGMENTO_CORTO)
-            return
-        }
-        // El contrato v3 usa un único tamaño de imagen por segmento. Con la
-        // orientación fija no cambia; si cambiara (rotación a mitad de seña),
-        // el intento se descarta en vez de mezclar geometrías.
-        val imageWidth = segment.first().imageWidth
-        val imageHeight = segment.first().imageHeight
-        if (segment.any { it.imageWidth != imageWidth || it.imageHeight != imageHeight }) {
-            reportNoResult(NoResultCause.ORIENTACION_CAMBIO)
-            if (deliveryMode == DeliveryMode.CONVERSATION) {
-                conversation.systemNote(
-                    "Ese intento no se procesó: cambió la orientación de la cámara.",
-                    now()
-                )
-            }
-            return
-        }
-        val frames = segment.map { it.vector }
-        val timestamps = LongArray(segment.size) { segment[it].timestampMs }
-        val heads = segment.map { it.head }
-        // Sin hombros el contrato v3 no tiene escala: se avisa en lugar de
-        // reportarlo como una falla del modelo.
-        if (frames.none { KeypointContract.hasShoulders(it) }) {
-            reportNoResult(NoResultCause.SIN_HOMBROS)
-            if (deliveryMode == DeliveryMode.CONVERSATION) {
-                conversation.systemNote(
-                    "No vi tus hombros. Encuadrate con el torso visible y volvé a intentar.",
-                    now()
-                )
-            }
-            return
-        }
-
-        val turn = if (deliveryMode == DeliveryMode.CONVERSATION) {
-            sentenceTurn(startMs)
-        } else {
-            null
-        }
-        val gen = generation
-        val thresholdUsed = confidenceThreshold
-        val revision = visionRevision
-        // El contexto se toma acá, en el executor serial: `classifying` impide que
-        // otra seña entre a la oración mientras esta se clasifica.
-        val contextWeights = phraseAssets.contextWeights(sentence.signs())
-        classifying = true
-        classifierExecutor.execute {
-            val startedAt = now()
-            val result = runCatching {
-                val tensor = KeypointContract.buildInputTensor(frames, imageWidth, imageHeight)
-                policy.evaluate(cls.classify(tensor), contextWeights)
-            }
-            // Después de la inferencia y sobre los mismos cuadros, sin tocar el tensor.
-            val pointing = runCatching {
-                pointingDetector.detect(frames, heads, timestamps, imageWidth, imageHeight)
-            }.getOrDefault(Pointing.NONE)
-            submit(gen) {
-                classifying = false
-                visionMetrics = visionMetrics.copy(
-                    classifierRuns = visionMetrics.classifierRuns + 1,
-                    lastClassifierLatencyMs = (now() - startedAt).coerceAtLeast(0L)
-                )
-                if (!isActive() || !cameraEnabled || revision != visionRevision) {
-                    turn?.let { abandonAttempt(it.id()) }
-                    publish()
-                    return@submit
-                }
-                result.fold(
-                    onSuccess = { decision ->
-                        val acceptedGloss = if (decision.accepted) {
-                            catalog.gloss(decision.classIndex)
-                        } else {
-                            null
-                        }
-                        val predictions = decision.predictions.mapNotNull { prediction ->
-                            val label = catalog.gloss(prediction.classIndex)
-                                ?: return@mapNotNull null
-                            RecognitionPrediction(label, prediction.confidence)
-                        }
-                        lastRecognition = RecognitionFeedback(
-                            confidence = decision.confidence,
-                            threshold = thresholdUsed,
-                            accepted = decision.accepted,
-                            gloss = acceptedGloss,
-                            predictions = predictions
-                        )
-                        dispatchDecision(decision, thresholdUsed, endMs) {
-                            val accepted = if (decision.accepted && acceptedGloss != null) {
-                                RecognizedSign(
-                                    decision.classIndex,
-                                    acceptedGloss,
-                                    decision.confidence
-                                )
-                            } else {
-                                null
-                            }
-                            val sign = segmentSign(accepted, pointing)
-                            if (sign != null) {
-                                addToSentence(sign, endMs)
-                            } else {
-                                addToSentence(null, endMs)
-                                turn?.let {
-                                    val confidencePercent = (decision.confidence * 100).roundToInt()
-                                    val thresholdPercent = (thresholdUsed * 100).roundToInt()
-                                    val message =
-                                        "No reconocí la seña. Volvé a intentarlo. " +
-                                            "Confianza $confidencePercent %, umbral $thresholdPercent %."
-                                    conversation.systemNote(
-                                        message,
-                                        now()
-                                    )
-                                }
-                            }
-                        }
-                    },
-                    onFailure = {
-                        reportNoResult(NoResultCause.ERROR_MODELO)
-                        turn?.let { abandonAttempt(it.id()) }
-                        notice =
-                            "No se pudo ejecutar el modelo LSA: ${it.message ?: "error desconocido"}"
-                    }
-                )
-                publish()
-            }
-        }
-    }
-
-    internal fun reportSegmentStarted(startMs: Long) {
-        recognitionObserver.onSegmentStarted(startMs)
-    }
-
-    internal fun reportNoResult(cause: NoResultCause) {
-        recognitionObserver.onNoResult(cause)
-    }
-
-    internal fun dispatchDecision(
-        decision: SignDecision,
-        thresholdUsed: Float,
-        segmentEndMs: Long,
-        conversationDelivery: () -> Unit
-    ) {
-        recognitionObserver.onDecision(decision, thresholdUsed, segmentEndMs)
-        if (deliveryMode == DeliveryMode.OBSERVER_ONLY) return
-        conversationDelivery()
+    /** Un fallo real de CameraX/MediaPipe inhabilita el canal con causa. */
+    fun reportVisionUnavailable(detail: String) = loop.submit {
+        sentence.close()
+        data.capabilities = data.capabilities.copy(
+            vision = false,
+            visionDetail = detail,
+            phraseVision = false,
+            phraseVisionDetail = detail
+        )
+        phrase.markUnavailable()
+        data.visualState = VisualChannelState.NO_DISPONIBLE
+        data.notice = detail
+        publish()
     }
 
     /**
@@ -906,224 +252,32 @@ class SessionCoordinator(
      * No depende de la generación: el cierre de una sesión no puede hacer que
      * el cambio se pierda y la conversación quede muda.
      */
-    fun setDeliveryMode(mode: DeliveryMode) = enqueue {
-        if (mode == deliveryMode) return@enqueue
-        closeSentence()
-        deliveryMode = mode
-        visionRevision++
-        segmenter = SignSegmenter(SegmenterConfig.defaults())
-        frameBuffer.clear()
-        preRollBuffer.clear()
-        observationFactory.reset()
-        lastRecognition = null
+    fun setDeliveryMode(mode: DeliveryMode) = loop.enqueue {
+        if (mode == outlet.mode) return@enqueue
+        sentence.close()
+        outlet.mode = mode
+        visual.discardSegment()
+        data.lastRecognition = null
         publish()
     }
 
     /** Cambia de motor sin mezclar buffers ni contratos de entrada. */
-    fun setRecognitionMode(mode: RecognitionMode) = submit(generation) {
-        if (mode == recognitionMode) return@submit
-        if (mode == RecognitionMode.PHRASE_EXPERIMENTAL && !capabilities.phraseVision) {
-            notice = capabilities.phraseVisionDetail.ifBlank {
+    fun setRecognitionMode(mode: RecognitionMode) = loop.submit {
+        if (mode == data.recognitionMode) return@submit
+        if (mode == RecognitionMode.PHRASE_EXPERIMENTAL && !data.capabilities.phraseVision) {
+            data.notice = data.capabilities.phraseVisionDetail.ifBlank {
                 "El modo frase todavía no está disponible."
             }
             publish()
             return@submit
         }
-        closeSentence()
-        visionRevision++
-        phraseBuffer.cancel()
-        phraseCandidate = null
-        phraseCandidateStartMs = -1L
-        lastRecognition = null
-        phraseCaptureState = if (mode == RecognitionMode.PHRASE_EXPERIMENTAL) {
-            PhraseCaptureState.READY
-        } else {
-            PhraseCaptureState.UNAVAILABLE
-        }
-        frameBuffer.clear()
-        preRollBuffer.clear()
-        segmenter = SignSegmenter(SegmenterConfig.defaults())
-        observationFactory.reset()
-        signingDistanceGuide.reset()
-        signingDistance = SigningDistanceGuide.State.UNKNOWN
-        recognitionMode = mode
-        samplingProfile = SamplingProfile.IDLE
-        visualState = if (cameraEnabled) {
-            VisualChannelState.BUSCANDO_ENCUADRE
-        } else {
-            VisualChannelState.NO_DISPONIBLE
-        }
-        publish()
-    }
-
-    /** Inicia una captura de frase; nunca se activa automáticamente. */
-    fun startPhraseCapture() = submit(generation) {
-        if (!isActive() ||
-            !cameraEnabled ||
-            !capabilities.phraseVision ||
-            recognitionMode != RecognitionMode.PHRASE_EXPERIMENTAL
-        ) {
-            return@submit
-        }
-        if (phraseCaptureState != PhraseCaptureState.READY) return@submit
-        val start = lastVisionTimestampMs.takeIf { it > 0L } ?: now()
-        phraseCandidate = null
-        phraseCandidateStartMs = -1L
-        phraseBuffer.start(start)
-        phraseCaptureState = PhraseCaptureState.CAPTURING
-        samplingProfile = SamplingProfile.ACTIVE
-        visualState = VisualChannelState.CAPTURANDO_SENA
-        notice = null
-        publish()
-    }
-
-    /** Termina la captura y deja el texto como candidato, sin publicarlo. */
-    fun finishPhraseCapture() = submit(generation) {
-        if (phraseCaptureState != PhraseCaptureState.CAPTURING) return@submit
-        val capture = phraseBuffer.stop(lastVisionTimestampMs.takeIf { it > 0L } ?: now())
-        samplingProfile = SamplingProfile.IDLE
-        if (capture == null || capture.frames.size < MIN_PHRASE_FRAMES) {
-            phraseCaptureState = PhraseCaptureState.READY
-            visualState = VisualChannelState.REARMANDO
-            notice = "La frase fue demasiado corta. Volvé a intentarlo."
-            publish()
-            return@submit
-        }
-        if (capture.validFrameRatio < MIN_PHRASE_VALID_RATIO) {
-            phraseCaptureState = PhraseCaptureState.READY
-            visualState = VisualChannelState.CALIDAD_INSUFICIENTE
-            notice = "No vi suficientes manos durante la frase. Volvé a intentarlo."
-            publish()
-            return@submit
-        }
-        val translator = sequenceTranslator
-        if (translator == null || sequenceClassifying) {
-            phraseCaptureState = PhraseCaptureState.READY
-            notice = "La frase anterior todavía se está procesando."
-            publish()
-            return@submit
-        }
-
-        val tensor = runCatching { capture.buildInputTensor() }.getOrElse { error ->
-            phraseCaptureState = PhraseCaptureState.READY
-            notice = "No se pudo preparar la frase: ${error.message ?: "entrada inválida"}"
-            publish()
-            return@submit
-        }
-        val gen = generation
-        val revision = visionRevision
-        sequenceClassifying = true
-        phraseCaptureState = PhraseCaptureState.PROCESSING
-        visualState = VisualChannelState.REARMANDO
-        publish()
-        sequenceClassifierExecutor.execute {
-            val result = runCatching { translator.translate(tensor) }
-            submit(gen) {
-                sequenceClassifying = false
-                if (!isActive() ||
-                    !cameraEnabled ||
-                    revision != visionRevision ||
-                    recognitionMode != RecognitionMode.PHRASE_EXPERIMENTAL
-                ) {
-                    return@submit
-                }
-                result.fold(
-                    onSuccess = { candidate ->
-                        val decision = sequenceAcceptancePolicy.evaluate(candidate)
-                        if (!decision.accepted) {
-                            phraseCaptureState = PhraseCaptureState.READY
-                            notice = decision.reason
-                        } else {
-                            phraseCandidate = candidate
-                            phraseCandidateStartMs = capture.startTimestampMs
-                            phraseCaptureState = PhraseCaptureState.CANDIDATE
-                        }
-                    },
-                    onFailure = { error ->
-                        phraseCaptureState = PhraseCaptureState.READY
-                        notice = "No se pudo ejecutar el modelo de frases: " +
-                            (error.message ?: "error desconocido")
-                    }
-                )
-                publish()
-            }
-        }
-    }
-
-    fun cancelPhraseCapture() = submit(generation) {
-        visionRevision++
-        phraseBuffer.cancel()
-        phraseCandidate = null
-        phraseCandidateStartMs = -1L
-        samplingProfile = SamplingProfile.IDLE
-        phraseCaptureState = if (capabilities.phraseVision) {
-            PhraseCaptureState.READY
-        } else {
-            PhraseCaptureState.UNAVAILABLE
-        }
-        visualState = if (cameraEnabled) {
-            VisualChannelState.BUSCANDO_ENCUADRE
-        } else {
-            VisualChannelState.NO_DISPONIBLE
-        }
-        publish()
-    }
-
-    /** Publica y ofrece a voz un candidato ya confirmado por la persona. */
-    fun confirmPhraseCandidate(editedText: String? = null) = submit(generation) {
-        val candidate = phraseCandidate ?: return@submit
-        val text = editedText?.trim() ?: candidate.text
-        if (text.isBlank()) {
-            notice = "El texto de la frase no puede estar vacío."
-            publish()
-            return@submit
-        }
-        val turn = conversation.open(
-            Speaker.DEAF,
-            phraseCandidateStartMs.takeIf { it >= 0L } ?: now()
-        )
-        conversation.publishTyped(turn.id(), text)
-        if (capabilities.tts) {
-            arbiter.enqueue(turn.id(), text, now())
-        } else {
-            conversation.updateVoice(turn.id(), VoiceState.NOT_SPOKEN)
-            notice = "La frase se mostró, pero no hay una voz española sin conexión instalada."
-        }
-        phraseCandidate = null
-        phraseCandidateStartMs = -1L
-        phraseCaptureState = if (capabilities.phraseVision) {
-            PhraseCaptureState.READY
-        } else {
-            PhraseCaptureState.UNAVAILABLE
-        }
-        publish()
-    }
-
-    fun rejectPhraseCandidate() = submit(generation) {
-        phraseCandidate = null
-        phraseCandidateStartMs = -1L
-        phraseCaptureState = if (capabilities.phraseVision) {
-            PhraseCaptureState.READY
-        } else {
-            PhraseCaptureState.UNAVAILABLE
-        }
-        notice = "Frase descartada."
-        publish()
-    }
-
-    /** "No quise decir eso". */
-    fun markIncorrect(turnId: Long) = submit(generation) {
-        val cancelled = arbiter.cancel(turnId)
-        if (cancelled) {
-            conversation.updateVoice(turnId, VoiceState.CANCELLED)
-            conversation.get(turnId) // el turno queda, marcado abajo
-        }
-        conversation.markIncorrect(turnId, now())
-        if (!cancelled) {
-            // ya se pronunció: aviso determinístico por la misma cola
-            val note = conversation.ordered().last()
-            arbiter.enqueue(note.id(), "La traducción anterior fue marcada como incorrecta", now())
-        }
+        sentence.close()
+        visual.discardCapture()
+        phrase.discard(available = mode == RecognitionMode.PHRASE_EXPERIMENTAL)
+        data.lastRecognition = null
+        data.recognitionMode = mode
+        data.samplingProfile = SamplingProfile.IDLE
+        data.restartVisualState(data.cameraEnabled)
         publish()
     }
 
@@ -1133,68 +287,167 @@ class SessionCoordinator(
      * nuevo. Si el modelo de la lengua elegida falla, el canal visual queda
      * inhabilitado con el motivo: nunca se vuelve a otra lengua en silencio.
      */
-    fun setSignLanguage(language: SignLanguage) = submit(generation) {
-        if (language == signLanguage) return@submit
+    fun setSignLanguage(language: SignLanguage) = loop.submit {
+        if (language == data.signLanguage) return@submit
         languageStore.save(language)
         // La frase en curso se cierra con el catálogo de la lengua anterior.
-        closeSentence()
-        signLanguage = language
-        confidenceThreshold = thresholds.getValue(language)
-        visionRevision++
-        frameBuffer.clear()
-        preRollBuffer.clear()
-        segmenter = SignSegmenter(SegmenterConfig.defaults())
-        observationFactory.reset()
-        lastRecognition = null
-        if (sessionPrepared()) {
-            releaseVisionChannel()
-            val (available, detail) = loadVisionChannel()
-            capabilities = capabilities.copy(vision = available, visionDetail = detail)
-            if (isActive()) {
-                visualState = if (activeVisionAvailable() && cameraEnabled) {
-                    VisualChannelState.BUSCANDO_ENCUADRE
-                } else {
-                    VisualChannelState.NO_DISPONIBLE
-                }
-                val target = targetActiveState()
-                if (stateMachine.current() != target && stateMachine.canTransition(target)) {
-                    stateMachine.transition(target)
-                }
-            }
-        }
+        sentence.close()
+        data.signLanguage = language
+        data.thresholds.use(language)
+        visual.discardSegment()
+        data.lastRecognition = null
+        if (data.isPrepared) reloadModel()
         publish()
+    }
+
+    /** Cambia el modelo cargado por el de la lengua vigente. */
+    private fun reloadModel() {
+        recognition.release()
+        val channel = model.load()
+        data.capabilities =
+            data.capabilities.copy(vision = channel.available, visionDetail = channel.detail)
+        if (!data.isActive) return
+        data.restartVisualState(data.activeVisionAvailable && data.cameraEnabled)
+        val target = data.targetActiveState
+        if (data.stateMachine.current() != target && data.stateMachine.canTransition(target)) {
+            data.stateMachine.transition(target)
+        }
     }
 
     /** Ajusta la compuerta de la lengua actual sin cambiar ni volver a cargar el modelo. */
-    fun setConfidenceThreshold(value: Float) = submit(generation) {
-        confidenceThreshold = value.coerceIn(MIN_THRESHOLD, MAX_THRESHOLD)
-        thresholds[signLanguage] = confidenceThreshold
-        bundle?.let { loaded ->
-            acceptancePolicy = SignAcceptancePolicy(
-                confidenceThreshold,
-                loaded.manifest.outputsProbabilities,
-                loaded.manifest.numClasses
+    fun setConfidenceThreshold(value: Float) = loop.submit {
+        data.thresholds.set(data.signLanguage, value)
+        model.applyThreshold()
+        publish()
+    }
+
+    fun toggleCamera() = loop.submit {
+        if (!data.isActive || !data.activeVisionAvailable) return@submit
+        sentence.close()
+        data.cameraEnabled = !data.cameraEnabled
+        visual.discardCapture()
+        phrase.discard(available = data.capabilities.phraseVision && phrase.isSelected())
+        data.lastRecognition = null
+        data.framing = FramingEvaluator.Issue.SIN_PERSONA
+        data.restartVisualState(data.cameraEnabled)
+        publish()
+    }
+
+    // ------------------------------------------------------------------
+    // modo frase
+    // ------------------------------------------------------------------
+
+    /** Inicia una captura de frase; nunca se activa automáticamente. */
+    fun startPhraseCapture() = loop.submit { phrase.start() }
+
+    /** Termina la captura y deja el texto como candidato, sin publicarlo. */
+    fun finishPhraseCapture() = loop.submit { phrase.finish() }
+
+    fun cancelPhraseCapture() = loop.submit {
+        data.visionRevision++
+        phrase.discard(data.capabilities.phraseVision)
+        data.samplingProfile = SamplingProfile.IDLE
+        data.restartVisualState(data.cameraEnabled)
+        publish()
+    }
+
+    /** Publica y ofrece a voz un candidato ya confirmado por la persona. */
+    fun confirmPhraseCandidate(editedText: String? = null) = loop.submit {
+        val candidate = phrase.candidate ?: return@submit
+        val text = editedText?.trim() ?: candidate.text
+        if (text.isBlank()) {
+            data.notice = "El texto de la frase no puede estar vacío."
+        } else {
+            publishTyped(
+                text,
+                startMs = phrase.candidateStart(),
+                noticeWithoutVoice =
+                "La frase se mostró, pero no hay una voz española sin conexión instalada."
             )
+            phrase.clearCandidate(data.capabilities.phraseVision)
         }
         publish()
     }
 
-    fun toggleMicrophone() = submit(generation) {
-        if (!isActive() || !capabilities.stt) return@submit
-        microphoneEnabled = !microphoneEnabled
-        if (microphoneEnabled) {
-            speech?.start()
-            if (arbiter.state() != AudioArbiterState.IDLE) speech?.closeGate()
-        } else {
-            speech?.stop()
-            if (partialTurnId >= 0) {
-                conversation.markIncomplete(partialTurnId)
-                partialTurnId = -1
-            }
-            arbiter.hearingSpeechActive(false, now())
+    fun rejectPhraseCandidate() = loop.submit {
+        phrase.clearCandidate(data.capabilities.phraseVision)
+        data.notice = "Frase descartada."
+        publish()
+    }
+
+    // ------------------------------------------------------------------
+    // conversación
+    // ------------------------------------------------------------------
+
+    /** "No quise decir eso". */
+    fun markIncorrect(turnId: Long) = loop.submit {
+        val cancelled = voice.cancel(turnId)
+        if (cancelled) data.conversation.updateVoice(turnId, VoiceState.CANCELLED)
+        data.conversation.markIncorrect(turnId, loop.now())
+        if (!cancelled) {
+            // ya se pronunció: aviso determinístico por la misma cola
+            val note = data.conversation.ordered().last()
+            voice.enqueue(note.id(), "La traducción anterior fue marcada como incorrecta")
         }
-        if (arbiter.state() == AudioArbiterState.IDLE) {
-            audioState = if (microphoneEnabled) {
+        publish()
+    }
+
+    /** Texto escrito por la persona sorda: se publica y se pronuncia por TTS. */
+    fun submitTyped(text: String) = loop.submit {
+        val normalized = text.trim()
+        if (!data.isActive || normalized.isEmpty()) return@submit
+        publishTyped(
+            normalized,
+            startMs = loop.now(),
+            noticeWithoutVoice =
+            "El texto se mostró, pero no hay una voz española sin conexión instalada."
+        )
+        publish()
+    }
+
+    /** Publica un texto de la persona sorda, lo ofrece a voz y avisa si no hay voz. */
+    private fun publishTyped(text: String, startMs: Long, noticeWithoutVoice: String) {
+        val turn = data.conversation.open(Speaker.DEAF, startMs)
+        data.conversation.publishTyped(turn.id(), text)
+        if (!voice.offer(turn.id(), text)) data.notice = noticeWithoutVoice
+    }
+
+    /** Publica la oración en espera, con el texto editado si la persona lo cambió. */
+    fun confirmSentenceCandidate(editedText: String?) = loop.submit {
+        delivery.confirm(editedText)
+        publish()
+    }
+
+    /** Descarta la oración en espera: no se publica ni se vocaliza. */
+    fun rejectSentenceCandidate() = loop.submit {
+        delivery.reject()
+        publish()
+    }
+
+    /** Repite por voz un turno final de la persona sorda. */
+    fun repeatTurn(turnId: Long) = loop.submit {
+        if (!data.isActive || !data.capabilities.tts || !data.hasTurn(turnId)) return@submit
+        val turn = data.conversation.get(turnId)
+        val speakable = turn.speaker() == Speaker.DEAF && turn.text().isNotBlank()
+        if (!speakable || PhraseBuilder.GAP in turn.glosses()) return@submit
+        data.conversation.updateVoice(turnId, VoiceState.PENDING)
+        voice.enqueue(turnId, turn.text().removePrefix("Seña reconocida: "))
+        publish()
+    }
+
+    fun toggleMicrophone() = loop.submit {
+        if (!data.isActive || !data.capabilities.stt) return@submit
+        data.microphoneEnabled = !data.microphoneEnabled
+        if (data.microphoneEnabled) {
+            speechInput.start()
+            if (!voice.isIdle) speechInput.setGate(open = false)
+        } else {
+            speechInput.stop()
+            speechInput.interruptPartial()
+            voice.hearingSpeechActive(false)
+        }
+        if (voice.isIdle) {
+            data.audioState = if (data.microphoneEnabled) {
                 AudioChannelState.STT_ESCUCHANDO
             } else {
                 AudioChannelState.STT_LISTO
@@ -1203,435 +456,90 @@ class SessionCoordinator(
         publish()
     }
 
-    fun toggleCamera() = submit(generation) {
-        if (!isActive() || !activeVisionAvailable()) return@submit
-        closeSentence()
-        cameraEnabled = !cameraEnabled
-        visionRevision++
-        frameBuffer.clear()
-        preRollBuffer.clear()
-        phraseBuffer.cancel()
-        phraseCandidate = null
-        phraseCandidateStartMs = -1L
-        lastRecognition = null
-        observationFactory.reset()
-        signingDistanceGuide.reset()
-        signingDistance = SigningDistanceGuide.State.UNKNOWN
-        segmenter = SignSegmenter(SegmenterConfig.defaults())
-        phraseCaptureState = if (cameraEnabled &&
-            capabilities.phraseVision &&
-            recognitionMode == RecognitionMode.PHRASE_EXPERIMENTAL
-        ) {
-            PhraseCaptureState.READY
-        } else if (capabilities.phraseVision &&
-            recognitionMode == RecognitionMode.PHRASE_EXPERIMENTAL
-        ) {
-            PhraseCaptureState.READY
-        } else {
-            PhraseCaptureState.UNAVAILABLE
-        }
-        framing = FramingEvaluator.Issue.SIN_PERSONA
-        visualState = if (cameraEnabled) {
-            VisualChannelState.BUSCANDO_ENCUADRE
-        } else {
-            VisualChannelState.NO_DISPONIBLE
-        }
+    fun dismissNotice() = loop.submit {
+        data.notice = null
         publish()
     }
 
-    fun dismissNotice() = submit(generation) {
-        notice = null
-        publish()
-    }
-
-    /** Texto escrito por la persona sorda: se publica y se pronuncia por TTS. */
-    fun submitTyped(text: String) = submit(generation) {
-        val normalized = text.trim()
-        if (!isActive() || normalized.isEmpty()) return@submit
-        val turn = conversation.open(Speaker.DEAF, now())
-        conversation.publishTyped(turn.id(), normalized)
-        if (capabilities.tts) {
-            arbiter.enqueue(turn.id(), normalized, now())
-        } else {
-            conversation.updateVoice(turn.id(), VoiceState.NOT_SPOKEN)
-            notice = "El texto se mostró, pero no hay una voz española sin conexión instalada."
-        }
-        publish()
-    }
+    // ------------------------------------------------------------------
+    // accesos para tests, sin modelo ni cámara
+    // ------------------------------------------------------------------
 
     /**
      * Publica una oración ya cerrada como frase con sus glosas debajo. La voz
      * dice la frase recién ahora; si alguna seña quedó como hueco, no se
      * pronuncia nada para no decir en voz alta una oración incompleta.
      */
-    fun publishSentence(signs: List<RecognizedSign>, startMs: Long) = submit(generation) {
-        if (!isActive() || deliveryMode == DeliveryMode.OBSERVER_ONLY || signs.isEmpty()) {
-            return@submit
-        }
-        deliverSentence(conversation.open(Speaker.DEAF, startMs).id(), signs)
+    fun publishSentence(signs: List<RecognizedSign>, startMs: Long) = loop.submit {
+        if (!data.isActive || !outlet.reachesConversation || signs.isEmpty()) return@submit
+        delivery.deliver(data.conversation.open(Speaker.DEAF, startMs).id(), signs)
         publish()
     }
 
+    internal fun reportSegmentStarted(startMs: Long) = outlet.segmentStarted(startMs)
+
+    internal fun reportNoResult(cause: NoResultCause) = outlet.noResult(cause)
+
+    internal fun dispatchDecision(
+        decision: SignDecision,
+        thresholdUsed: Float,
+        segmentEndMs: Long,
+        conversationDelivery: () -> Unit
+    ) = outlet.decision(decision, thresholdUsed, segmentEndMs, conversationDelivery)
+
     /** Suma un intento a la oración en curso; para probar el armado sin modelo ni cámara. */
     internal fun recognizeForSentence(sign: RecognizedSign?, startMs: Long, endMs: Long) =
-        submit(generation) {
-            if (!isActive() || deliveryMode == DeliveryMode.OBSERVER_ONLY) return@submit
-            sentenceTurn(startMs)
-            addToSentence(sign, endMs)
+        loop.submit {
+            if (!data.isActive || !outlet.reachesConversation) return@submit
+            sentence.turn(startMs)
+            sentence.add(sign, endMs)
             publish()
         }
 
     /** Avanza el reloj de la cámara sin cuadros; para probar el cierre por pausa. */
-    internal fun advanceVisionClock(timestampMs: Long) = submit(generation) {
-        closeSentenceAfterPause(timestampMs)
-        publish()
-    }
-
-    /** Turno de la oración en curso, o una reserva nueva si es el primer intento. */
-    private fun sentenceTurn(startMs: Long): Turn {
-        if (sentenceTurnId >= 0 && hasTurn(sentenceTurnId)) return conversation.get(sentenceTurnId)
-        return conversation.open(Speaker.DEAF, startMs).also { sentenceTurnId = it.id() }
-    }
-
-    /** Suma una seña (si es null solo extiende la pausa) y muestra las glosas aceptadas, sin voz. */
-    private fun addToSentence(sign: RecognizedSign?, segmentEndMs: Long) {
-        if (sentenceTurnId < 0 || !hasTurn(sentenceTurnId)) return
-        if (sign == null) {
-            sentence.noteFailure(segmentEndMs)
-            // sin señas aceptadas no queda burbuja vacía colgando
-            if (sentence.isEmpty()) {
-                abandonAttempt(sentenceTurnId)
-                return
-            }
-        } else {
-            sentence.add(sign, segmentEndMs)
-        }
-        val glosses = phraseAssets.builder(confidenceThreshold).build(sentence.signs()).glosses()
-        conversation.updatePartial(sentenceTurnId, glosses.joinToString(" "))
-    }
-
-    /** Un intento que no llegó a decisión solo se descarta si la oración seguía vacía. */
-    private fun abandonAttempt(turnId: Long) {
-        if (!hasTurn(turnId) || conversation.get(turnId).state() != TurnState.PENDING) return
-        conversation.markRejected(turnId)
-        if (turnId == sentenceTurnId) sentenceTurnId = -1
-    }
-
-    /** Cierra la oración si pasó la pausa sin señas nuevas. */
-    private fun closeSentenceAfterPause(nowMs: Long) {
-        if (sentence.pauseElapsed(nowMs)) closeSentence()
-    }
-
-    /** Publica la oración en curso como frase; la reserva vacía queda para su intento. */
-    private fun closeSentence() {
-        val turnId = sentenceTurnId
-        if (sentence.isEmpty() || turnId < 0 || !hasTurn(turnId)) {
-            sentence.reset()
-            sentenceTurnId = -1
-            return
-        }
-        sentenceTurnId = -1
-        deliverSentence(turnId, sentence.close())
-    }
-
-    /** Arma la frase, la publica con sus glosas y la ofrece a voz si no tiene huecos. */
-    private fun deliverSentence(turnId: Long, signs: List<RecognizedSign>) {
-        val result = phraseAssets.builder(confidenceThreshold).build(signs)
-        val glosses = result.glosses().joinToString(" ")
-        if (needsConfirmation(signLanguage, signs)) {
-            // La frase tiene interpretación: no llega al oyente sin que la persona la confirme.
-            pendingSentences.addLast(SentenceCandidate(turnId, result.text(), glosses))
-            return
-        }
-        publishAndSpeak(turnId, result.text(), glosses)
-    }
-
-    /** Publica la oración con sus glosas y la ofrece a voz si no tiene huecos. */
-    private fun publishAndSpeak(turnId: Long, text: String, glosses: String) {
-        conversation.publishSentence(turnId, text, glosses)
-        val spoken = text.takeIf { PhraseBuilder.GAP !in glosses.split(" ") }
-        if (capabilities.tts && spoken != null) {
-            arbiter.enqueue(turnId, spoken, now())
-        } else {
-            conversation.updateVoice(turnId, VoiceState.NOT_SPOKEN)
-        }
-    }
-
-    /** Publica la oración en espera, con el texto editado si la persona lo cambió. */
-    fun confirmSentenceCandidate(editedText: String?) = submit(generation) {
-        val candidate = pendingSentences.pollFirst() ?: return@submit
-        val text = editedText?.trim()?.takeIf { it.isNotEmpty() } ?: candidate.text
-        if (hasTurn(candidate.turnId)) {
-            publishAndSpeak(candidate.turnId, text, candidate.glosses)
-        }
-        publish()
-    }
-
-    /** Descarta la oración en espera: no se publica ni se vocaliza. */
-    fun rejectSentenceCandidate() = submit(generation) {
-        val candidate = pendingSentences.pollFirst() ?: return@submit
-        if (hasTurn(candidate.turnId)) conversation.markRejected(candidate.turnId)
-        notice = "Frase descartada."
+    internal fun advanceVisionClock(timestampMs: Long) = loop.submit {
+        sentence.closeAfterPause(timestampMs)
         publish()
     }
 
     /** Reemplaza léxico y plantillas, para probar el armado sin cargar el modelo. */
-    internal fun usePhraseAssets(assets: PhraseAssets) = submit(generation) {
-        phraseAssets = assets
+    internal fun usePhraseAssets(assets: PhraseAssets) = loop.submit {
+        delivery.phraseAssets = assets
     }
 
-    /** Repite por voz un turno final de la persona sorda. */
-    fun repeatTurn(turnId: Long) = submit(generation) {
-        if (!isActive() || !capabilities.tts) return@submit
-        val turn = runCatching { conversation.get(turnId) }.getOrNull() ?: return@submit
-        if (turn.speaker() != Speaker.DEAF || turn.text().isBlank()) return@submit
-        if (PhraseBuilder.GAP in turn.glosses()) return@submit
-        val spoken = turn.text().removePrefix("Seña reconocida: ")
-        conversation.updateVoice(turnId, VoiceState.PENDING)
-        arbiter.enqueue(turnId, spoken, now())
-        publish()
-    }
-
-    /** Un fallo real de CameraX/MediaPipe inhabilita el canal con causa. */
-    fun reportVisionUnavailable(detail: String) = submit(generation) {
-        closeSentence()
-        capabilities = capabilities.copy(
-            vision = false,
-            visionDetail = detail,
-            phraseVision = false,
-            phraseVisionDetail = detail
-        )
-        phraseCaptureState = PhraseCaptureState.UNAVAILABLE
-        visualState = VisualChannelState.NO_DISPONIBLE
-        notice = detail
-        publish()
-    }
-
-    // ------------------------------------------------------------------
-    // canal de audio
-    // ------------------------------------------------------------------
-
-    private fun onSttPartial(text: String) {
-        if (!isActive() || !microphoneEnabled) return
-        if (partialTurnId < 0) {
-            partialTurnId = conversation.open(Speaker.HEARING, now()).id()
-        }
-        conversation.updatePartial(partialTurnId, text)
-        audioState = AudioChannelState.STT_TRANSCRIBIENDO
-        publish()
-    }
-
-    private fun onSttFinal(text: String) {
-        if (!isActive() || !microphoneEnabled) return
-        if (partialTurnId < 0) {
-            partialTurnId = conversation.open(Speaker.HEARING, now()).id()
-        }
-        conversation.finalize(partialTurnId, text)
-        partialTurnId = -1
-        audioState = AudioChannelState.STT_ESCUCHANDO
-        publish()
-    }
-
-    // ------------------------------------------------------------------
-    // utilitarios
-    // ------------------------------------------------------------------
-
-    /** Carga modelo y catálogo de la lengua elegida (unidad verificada); devuelve si hay canal y por qué no. */
-    private fun loadVisionChannel(): Pair<Boolean, String> {
-        if (!hasPermission(Manifest.permission.CAMERA)) return false to "permiso de cámara denegado"
-        return when (val result = loadBundle(signLanguage)) {
-            is ModelBundleResult.Ready -> {
-                bundle = result.bundle
-                phraseAssets = PhraseAssets.load(
-                    context,
-                    result.bundle.manifest,
-                    result.bundle.catalog
-                )
-                try {
-                    classifier = createClassifier(result.bundle)
-                    acceptancePolicy = SignAcceptancePolicy(
-                        confidenceThreshold,
-                        result.bundle.manifest.outputsProbabilities,
-                        result.bundle.manifest.numClasses
-                    )
-                    true to ""
-                } catch (e: Exception) {
-                    false to "modelo incompatible: ${e.message}"
-                }
-            }
-            is ModelBundleResult.Missing -> false to "falta ${result.asset}"
-            is ModelBundleResult.Invalid -> false to result.cause
-        }
-    }
-
-    /** Suelta el modelo cargado; el intérprete se cierra después de la inferencia en curso. */
-    private fun releaseVisionChannel() {
-        classifier?.let { closing -> classifierExecutor.execute { closing.close() } }
-        classifier = null
-        classifying = false
-        acceptancePolicy = null
-        bundle = null
-        phraseAssets = PhraseAssets.Disabled(PHRASES_WITHOUT_MODEL)
-    }
-
-    /** La sesión ya pasó por la preparación y todavía no se cerró. */
-    private fun sessionPrepared(): Boolean = stateMachine.current() !in setOf(
-        SessionState.INICIO,
-        SessionState.CERRANDO,
-        SessionState.CERRADA
-    )
-
-    /** Cuadros de la ventana en curso (pre-roll incluido); para tests. */
-    internal fun bufferedVisionFrames(): Int =
-        executor.submit<Int> { frameBuffer.size + preRollBuffer.size }.get()
-
-    private fun targetActiveState(): SessionState =
-        if (capabilities.vision && capabilities.stt && capabilities.tts) {
-            SessionState.ACTIVA
-        } else {
-            SessionState.ACTIVA_LIMITADA
-        }
-
-    private fun isActive(): Boolean = stateMachine.current() == SessionState.ACTIVA ||
-        stateMachine.current() == SessionState.ACTIVA_LIMITADA
-
-    private fun activeVisionAvailable(): Boolean = when (recognitionMode) {
-        RecognitionMode.SINGLE_SIGN -> capabilities.vision
-        RecognitionMode.PHRASE_EXPERIMENTAL -> capabilities.phraseVision
-    }
-
-    private fun hasTurn(id: Long): Boolean = runCatching { conversation.get(id) }.isSuccess
-
-    /** Ajusta la tasa sin tocar la ventana fija de 40 cuadros del modelo. */
-    private fun updateSamplingProfile() {
-        samplingProfile = when (recognitionMode) {
-            RecognitionMode.SINGLE_SIGN -> when {
-                segmenter.isCapturing() || segmenter.isStartCandidate() -> SamplingProfile.ACTIVE
-                segmenter.isArmed() -> SamplingProfile.ARMED
-                else -> SamplingProfile.IDLE
-            }
-            RecognitionMode.PHRASE_EXPERIMENTAL -> if (phraseCaptureState ==
-                PhraseCaptureState.CAPTURING
-            ) {
-                SamplingProfile.ACTIVE
-            } else {
-                SamplingProfile.IDLE
-            }
-        }
-    }
-
-    private fun now(): Long = android.os.SystemClock.elapsedRealtime()
-
-    private fun hasPermission(permission: String): Boolean =
-        ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
-
-    private fun submit(gen: Int, block: () -> Unit) = enqueue { if (gen == generation) block() }
-
-    /** Encola en el executor serial; si ya se cerró, no hace nada. */
-    private fun enqueue(block: () -> Unit) {
-        if (executor.isShutdown) return
-        try {
-            executor.execute { block() }
-        } catch (_: java.util.concurrent.RejectedExecutionException) {
-            // Callback de un sensor que terminó durante onCleared.
-        }
-    }
+    /** Cuadros de la ventana en curso (pre-roll incluido). */
+    internal fun bufferedVisionFrames(): Int = loop.query { signs.bufferedFrames }
 
     private fun publish() {
-        _uiState.value = UiState(
-            session = stateMachine.current(),
-            visual = visualState,
-            audio = audioState,
-            framing = framing,
-            signingDistance = signingDistance,
-            turns = conversation.ordered().toList(),
-            capabilities = capabilities,
-            confidenceThreshold = confidenceThreshold,
-            signLanguage = signLanguage,
-            lastRecognition = lastRecognition,
-            visionMetrics = visionMetrics,
-            samplingProfile = samplingProfile,
-            recognitionMode = recognitionMode,
-            phraseCapture = phraseCaptureState,
-            phraseCandidate = phraseCandidate,
-            sentenceCandidate = pendingSentences.firstOrNull(),
-            notice = notice,
-            microphoneEnabled = microphoneEnabled,
-            cameraEnabled = cameraEnabled
+        _uiState.value = SessionUiState(
+            session = data.stateMachine.current(),
+            visual = data.visualState,
+            audio = data.audioState,
+            framing = data.framing,
+            signingDistance = data.signingDistance,
+            turns = data.conversation.ordered().toList(),
+            capabilities = data.capabilities,
+            confidenceThreshold = data.thresholds.current,
+            signLanguage = data.signLanguage,
+            lastRecognition = data.lastRecognition,
+            visionMetrics = data.visionMetrics,
+            samplingProfile = data.samplingProfile,
+            recognitionMode = data.recognitionMode,
+            phraseCapture = phrase.state,
+            phraseCandidate = phrase.candidate,
+            sentenceCandidate = delivery.candidate,
+            notice = data.notice,
+            microphoneEnabled = data.microphoneEnabled,
+            cameraEnabled = data.cameraEnabled
         )
     }
 
     companion object {
-        /** Umbral inicial de laboratorio (D03); no aprobado de producción. */
-        const val DEFAULT_THRESHOLD = 0.90f
-
-        /** Sin señas nuevas durante este tiempo, la oración se da por terminada. */
-        const val SENTENCE_PAUSE_MS = 4_000L
-
-        /** Tras una seña no reconocida se espera más, para dar tiempo a repetirla. */
-        const val SENTENCE_PAUSE_AFTER_FAILURE_MS = 6_000L
-        private const val PHRASES_WITHOUT_MODEL = "modelo LSA no cargado"
-
-        /** Texto que la voz dice para una oración: la frase, o nada si tiene huecos. */
-        internal fun sentenceVoice(result: PhraseResult): String? =
-            result.text().takeIf { PhraseBuilder.GAP !in result.glosses() }
-
-        /**
-         * Seña que entra a la oración por un segmento: el modelo gana si aceptó;
-         * si no, un pronombre o una zona señalados; si tampoco, ninguna (hueco).
-         */
-        internal fun segmentSign(accepted: RecognizedSign?, pointing: Pointing): RecognizedSign? =
-            accepted ?: POINTED_SIGNS[pointing.type()]
-                ?.let { index -> SyntheticSigns.entry(index) }
-                ?.let { entry -> RecognizedSign(entry.index(), entry.gloss(), 1f) }
-
-        /** Nariz y comisuras de la boca (pose 0, 9 y 10) como 9 floats; null sin pose. */
-        internal fun headLandmarks(pose: FloatArray?): FloatArray? {
-            if (pose == null || pose.size < POSE_COORDS) return null
-            val head = FloatArray(HEAD_COORDS)
-            HEAD_POSE_LANDMARKS.forEachIndexed { i, landmark ->
-                System.arraycopy(pose, landmark * AXES, head, i * AXES, AXES)
-            }
-            return head
-        }
-
-        private const val NOSE = 0
-        private const val MOUTH_LEFT = 9
-        private const val MOUTH_RIGHT = 10
-        private const val AXES = 3
-        private val HEAD_POSE_LANDMARKS = intArrayOf(NOSE, MOUTH_LEFT, MOUTH_RIGHT)
-        private val HEAD_COORDS = HEAD_POSE_LANDMARKS.size * AXES
-        private const val POSE_COORDS = 33 * AXES
-
-        /**
-         * Una oración se confirma antes de publicarse si contiene interpretación:
-         * siempre en LSE (primera persona por defecto) y en cualquier lengua si
-         * tiene una seña señalada (pronombre o zona). Una oración de LSA sin
-         * señalamiento no.
-         */
-        internal fun needsConfirmation(
-            language: SignLanguage,
-            signs: List<RecognizedSign>
-        ): Boolean {
-            val pointed = signs.any { SyntheticSigns.isSynthetic(it.classIndex()) }
-            return language == SignLanguage.LSE || pointed
-        }
-
-        private val POINTED_SIGNS = mapOf(
-            Pointing.Type.YO to SyntheticSigns.YO,
-            Pointing.Type.USTED to SyntheticSigns.USTED,
-            Pointing.Type.EL_ELLA to SyntheticSigns.EL_ELLA,
-            Pointing.Type.CABEZA to SyntheticSigns.CABEZA,
-            Pointing.Type.GARGANTA to SyntheticSigns.GARGANTA,
-            Pointing.Type.ABDOMEN to SyntheticSigns.ABDOMEN
-        )
-        const val MIN_THRESHOLD = 0.50f
-        const val MAX_THRESHOLD = 0.99f
+        const val MIN_THRESHOLD = ConfidenceThresholds.MIN
+        const val MAX_THRESHOLD = ConfidenceThresholds.MAX
 
         /** Vigencia de la pausa; pasada, la sesión se invalida (D07). */
         const val PAUSE_TTL_MS = 2L * 60 * 1000
-        private const val MIN_PHRASE_FRAMES = 3
-        private const val MIN_PHRASE_VALID_RATIO = 0.10f
-        private const val PRE_ROLL_FRAMES = 8
+        private const val TICK_MS = 200L
     }
 }
