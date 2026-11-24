@@ -1,7 +1,7 @@
 pluginManagement {
     repositories {
         google()
-        if (System.getenv("CI") != null) {
+        if (System.getenv("HELPI_ESPEJO_MAVEN") == "true") {
             maven("https://maven-central.storage-download.googleapis.com/maven2")
         }
         mavenCentral()
@@ -14,8 +14,9 @@ dependencyResolutionManagement {
     repositories {
         google()
         // En CI, Central puede responder HTTP 429 y Gradle corta sin probar otro repositorio:
-        // el espejo de Google (el mismo de scripts/ci/robolectric.sh) va primero.
-        if (System.getenv("CI") != null) {
+        // el espejo de Google (el mismo de scripts/ci/robolectric.sh) va primero. Lo activa solo
+        // ci.yml: en el grafo de dependencias cambiaría el origen registrado de cada paquete.
+        if (System.getenv("HELPI_ESPEJO_MAVEN") == "true") {
             maven("https://maven-central.storage-download.googleapis.com/maven2")
         }
         mavenCentral()
