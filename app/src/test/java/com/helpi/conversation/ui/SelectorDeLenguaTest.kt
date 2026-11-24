@@ -17,8 +17,9 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.dp
 import com.helpi.conversation.lsa.SignLanguage
-import com.helpi.conversation.session.SessionCoordinator
+import com.helpi.conversation.session.SessionCapabilities
 import com.helpi.conversation.session.SessionState
+import com.helpi.conversation.session.SessionUiState
 import com.helpi.conversation.ui.theme.HelpiTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -33,14 +34,14 @@ import org.robolectric.annotation.Config
 class SelectorDeLenguaTest {
     @get:Rule val compose = createComposeRule()
 
-    private val state = mutableStateOf(SessionCoordinator.UiState())
+    private val state = mutableStateOf(SessionUiState())
     private val elegidas = mutableListOf<SignLanguage>()
 
     private fun render(active: Boolean = false) {
         if (active) {
             state.value = state.value.copy(
                 session = SessionState.ACTIVA,
-                capabilities = SessionCoordinator.Capabilities(vision = true)
+                capabilities = SessionCapabilities(vision = true)
             )
         }
         compose.setContent {

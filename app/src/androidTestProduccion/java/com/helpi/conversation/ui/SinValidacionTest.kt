@@ -9,7 +9,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helpi.conversation.VariantBindings
-import com.helpi.conversation.session.SessionCoordinator
+import com.helpi.conversation.session.SessionUiState
 import com.helpi.conversation.ui.theme.HelpiTheme
 import org.junit.Rule
 import org.junit.Test
@@ -26,7 +26,7 @@ class SinValidacionTest {
             HelpiTheme {
                 VariantBindings.applicationContent(Modifier.fillMaxSize()) {
                     ConversationContent(
-                        state = SessionCoordinator.UiState(),
+                        state = SessionUiState(),
                         actions = ConversationActions()
                     )
                 }

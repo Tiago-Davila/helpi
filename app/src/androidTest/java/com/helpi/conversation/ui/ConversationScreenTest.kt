@@ -16,8 +16,11 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import com.helpi.conversation.chat.Conversation
 import com.helpi.conversation.chat.Speaker
-import com.helpi.conversation.session.SessionCoordinator
+import com.helpi.conversation.session.RecognitionFeedback
+import com.helpi.conversation.session.RecognitionPrediction
+import com.helpi.conversation.session.SessionCapabilities
 import com.helpi.conversation.session.SessionState
+import com.helpi.conversation.session.SessionUiState
 import com.helpi.conversation.session.VisualChannelState
 import com.helpi.conversation.ui.theme.HelpiTheme
 import com.helpi.conversation.vision.FramingEvaluator
@@ -33,7 +36,7 @@ private const val VISIBILIDAD_MS = 5_000L
 class ConversationScreenTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
     private val chat = Conversation()
-    private val state = mutableStateOf(SessionCoordinator.UiState())
+    private val state = mutableStateOf(SessionUiState())
     private val participantes = mutableStateOf(Participantes())
     private fun render(active: Boolean = false) {
         compose.activityRule.scenario.onActivity {
@@ -127,13 +130,13 @@ class ConversationScreenTest {
 
     private fun cerrar() {
         chat.clear()
-        state.value = SessionCoordinator.UiState(session = SessionState.CERRADA)
+        state.value = SessionUiState(session = SessionState.CERRADA)
         participantes.value = Participantes()
     }
 
-    private fun activeState() = SessionCoordinator.UiState(
+    private fun activeState() = SessionUiState(
         session = SessionState.ACTIVA,
-        capabilities = SessionCoordinator.Capabilities(vision = true, stt = true, tts = true),
+        capabilities = SessionCapabilities(vision = true, stt = true, tts = true),
         turns = chat.ordered()
     )
 
@@ -238,14 +241,14 @@ class ConversationScreenTest {
         compose.runOnIdle {
             state.value = state.value.copy(
                 signingDistance = SigningDistanceGuide.State.OPTIMAL,
-                lastRecognition = SessionCoordinator.RecognitionFeedback(
+                lastRecognition = RecognitionFeedback(
                     confidence = 0.74f,
                     threshold = 0.90f,
                     accepted = false,
                     predictions = listOf(
-                        SessionCoordinator.RecognitionPrediction("Gracias", 0.74f),
-                        SessionCoordinator.RecognitionPrediction("Ayuda", 0.18f),
-                        SessionCoordinator.RecognitionPrediction("Aceptar", 0.06f)
+                        RecognitionPrediction("Gracias", 0.74f),
+                        RecognitionPrediction("Ayuda", 0.18f),
+                        RecognitionPrediction("Aceptar", 0.06f)
                     )
                 )
             )

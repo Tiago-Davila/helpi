@@ -107,7 +107,7 @@ cuadros del segmento, después de la inferencia y sin tocar el vector de 168.
   literal (`glosa:YO`).
 - Señala la mano que tenga el índice extendido, izquierda o derecha; con las
   dos, no se clasifica. El índice debe sostenerse quieto (`PointingConfig`).
-- **Orden de decisión** por segmento (`SessionCoordinator.segmentSign`): si el
+- **Orden de decisión** por segmento (`SentenceRules.segmentSign`): si el
   modelo acepta la seña, gana el modelo; si no, entra la seña señalada; si
   tampoco, queda el hueco `¿?`. Un señalamiento ambiguo es `¿?`.
 - Una zona sin su referencia (cara para cabeza y garganta, caderas para

@@ -75,12 +75,10 @@ class SessionCoordinatorLanguageTest {
         coordinator.shutdown()
     }
 
-    private fun awaitState(
-        predicate: (SessionCoordinator.UiState) -> Boolean
-    ): SessionCoordinator.UiState =
+    private fun awaitState(predicate: (SessionUiState) -> Boolean): SessionUiState =
         runBlocking { withTimeout(5000) { coordinator.uiState.first(predicate) } }
 
-    private fun startWithVision(): SessionCoordinator.UiState {
+    private fun startWithVision(): SessionUiState {
         coordinator.prepare(autoStart = true)
         return awaitState { it.session == SessionState.ACTIVA_LIMITADA }
     }

@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import com.helpi.conversation.R
 import com.helpi.conversation.lsa.SignLanguage
 import com.helpi.conversation.session.SessionCoordinator
+import com.helpi.conversation.session.SessionUiState
 import com.helpi.conversation.ui.components.EvaEstado
 import com.helpi.conversation.ui.components.EvaOrb
 import com.helpi.conversation.ui.theme.AnchoMaximoContenido
@@ -70,7 +71,7 @@ internal fun porcentaje(value: Float) = "${(value * 100).roundToInt()} %"
 @Suppress("LongMethod")
 @Composable
 internal fun PantallaCuenta(
-    state: SessionCoordinator.UiState,
+    state: SessionUiState,
     participantes: Participantes,
     actions: ConversationActions,
     modifier: Modifier = Modifier,
@@ -270,7 +271,7 @@ private fun Seccion(titulo: String, contenido: @Composable () -> Unit) {
  */
 @Composable
 internal fun ControlDeUmbral(
-    state: SessionCoordinator.UiState,
+    state: SessionUiState,
     onThreshold: (Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -316,7 +317,7 @@ internal fun ControlDeUmbral(
 
 /** Canales que no arrancaron. Se explica qué hacer, no solo que falló. */
 @Composable
-internal fun AvisosDeCapacidades(state: SessionCoordinator.UiState) {
+internal fun AvisosDeCapacidades(state: SessionUiState) {
     if (!state.capabilities.stt) {
         Text(
             "Permití el acceso al micrófono en los ajustes del teléfono y volvé a iniciar la " +
