@@ -463,6 +463,44 @@ class SessionCoordinatorTest {
         assertTrue(conversationDelivery)
     }
 
+    @Test
+    fun protocolSilencesTheChatAndLeavingItPublishesAgain() {
+        startSentenceSession()
+        coordinator.setDeliveryMode(SessionCoordinator.DeliveryMode.OBSERVER_ONLY)
+        coordinator.recognizeForSentence(RecognizedSign(8, "Mujer", 0.95f), 1_000L, 1_500L)
+        assertTrue("el protocolo no escribe en el chat", barrier(0.91f).turns.isEmpty())
+
+        coordinator.setDeliveryMode(SessionCoordinator.DeliveryMode.CONVERSATION)
+        coordinator.recognizeForSentence(RecognizedSign(8, "Mujer", 0.95f), 2_000L, 2_500L)
+        val turn = awaitState { it.turns.size == 1 }.turns.single()
+        assertEquals("MUJER", turn.text())
+    }
+
+    @Test
+    fun enteringTheProtocolClosesTheOpenSentence() {
+        startSentenceSession()
+        coordinator.recognizeForSentence(RecognizedSign(8, "Mujer", 0.95f), 1_000L, 1_500L)
+        coordinator.setDeliveryMode(SessionCoordinator.DeliveryMode.OBSERVER_ONLY)
+
+        val turn = awaitState { it.turns.singleOrNull()?.state() == TurnState.FINAL }
+            .turns.single()
+        assertEquals("MUJER", turn.glosses())
+    }
+
+    @Test
+    fun closingTheSessionDoesNotLoseTheDeliveryModeChange() {
+        startSentenceSession()
+        coordinator.setDeliveryMode(SessionCoordinator.DeliveryMode.OBSERVER_ONLY)
+        coordinator.closeSession()
+        // Se pide antes de que el cierre corra: pertenece a la generación anterior.
+        coordinator.setDeliveryMode(SessionCoordinator.DeliveryMode.CONVERSATION)
+        awaitState { it.session == SessionState.CERRADA }
+
+        startSentenceSession()
+        coordinator.recognizeForSentence(RecognizedSign(8, "Mujer", 0.95f), 1_000L, 1_500L)
+        assertEquals("MUJER", awaitState { it.turns.size == 1 }.turns.single().text())
+    }
+
     private class FakeRecognitionObserver : RecognitionObserver {
         data class DecisionEvent(
             val decision: SignDecision,

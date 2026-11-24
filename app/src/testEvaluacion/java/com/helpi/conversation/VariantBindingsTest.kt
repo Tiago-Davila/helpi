@@ -7,8 +7,8 @@ import org.junit.Test
 
 class VariantBindingsTest {
     @Test
-    fun evaluationOnlyObservesRecognitionAndNeverPublishesToTheConversation() {
-        assertEquals(SessionCoordinator.DeliveryMode.OBSERVER_ONLY, VariantBindings.deliveryMode)
+    fun evaluationChatPublishesWhileTheObserverKeepsRecording() {
+        assertEquals(SessionCoordinator.DeliveryMode.CONVERSATION, VariantBindings.deliveryMode)
         assertSame(VariantBindings.registroObserver, VariantBindings.recognitionObserver)
     }
 }

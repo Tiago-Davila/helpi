@@ -75,7 +75,7 @@ import kotlinx.coroutines.flow.asStateFlow
 class SessionCoordinator(
     private val context: Context,
     private val recognitionObserver: RecognitionObserver = RecognitionObserver.NO_OP,
-    private val deliveryMode: DeliveryMode = DeliveryMode.CONVERSATION,
+    initialDeliveryMode: DeliveryMode = DeliveryMode.CONVERSATION,
     private val languageStore: SignLanguageStore = SignLanguageStore(context),
     private val loadBundle: (SignLanguage) -> ModelBundleResult = { ModelBundle.load(context, it) },
     private val createClassifier: (ModelBundle) -> VisualClassifier = ::SignClassifier
@@ -181,6 +181,9 @@ class SessionCoordinator(
     private var speech: VoskSpeechSource? = null
     private var speechOutput: OfflineSpeechOutput? = null
     private var classifying = false
+
+    /** A quién llega lo reconocido: a la conversación o solo al observador (protocolo). */
+    private var deliveryMode = initialDeliveryMode
     private var sequenceTranslator: SequenceTranslator? = null
     private var sequenceBundle: SequenceModelBundle? = null
     private val sequenceAcceptancePolicy = SequenceAcceptancePolicy()
@@ -894,6 +897,28 @@ class SessionCoordinator(
         conversationDelivery()
     }
 
+    /**
+     * Cambia el destino de lo reconocido. El protocolo de evaluación usa
+     * [DeliveryMode.OBSERVER_ONLY] mientras está en pantalla; la conversación
+     * vuelve a publicar al salir. La oración abierta se cierra antes y el
+     * segmento en curso se descarta: ninguno cruza de un destino al otro.
+     *
+     * No depende de la generación: el cierre de una sesión no puede hacer que
+     * el cambio se pierda y la conversación quede muda.
+     */
+    fun setDeliveryMode(mode: DeliveryMode) = enqueue {
+        if (mode == deliveryMode) return@enqueue
+        closeSentence()
+        deliveryMode = mode
+        visionRevision++
+        segmenter = SignSegmenter(SegmenterConfig.defaults())
+        frameBuffer.clear()
+        preRollBuffer.clear()
+        observationFactory.reset()
+        lastRecognition = null
+        publish()
+    }
+
     /** Cambia de motor sin mezclar buffers ni contratos de entrada. */
     fun setRecognitionMode(mode: RecognitionMode) = submit(generation) {
         if (mode == recognitionMode) return@submit
@@ -1500,10 +1525,13 @@ class SessionCoordinator(
     private fun hasPermission(permission: String): Boolean =
         ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
 
-    private fun submit(gen: Int, block: () -> Unit) {
+    private fun submit(gen: Int, block: () -> Unit) = enqueue { if (gen == generation) block() }
+
+    /** Encola en el executor serial; si ya se cerró, no hace nada. */
+    private fun enqueue(block: () -> Unit) {
         if (executor.isShutdown) return
         try {
-            executor.execute { if (gen == generation) block() }
+            executor.execute { block() }
         } catch (_: java.util.concurrent.RejectedExecutionException) {
             // Callback de un sensor que terminó durante onCleared.
         }

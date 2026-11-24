@@ -83,7 +83,9 @@ dato y volver. La implementación de producción es un objeto vacío.
 
 Para el protocolo, `SessionCoordinator` acepta un modo de entrega `OBSERVER_ONLY`. En ese modo
 las señas aceptadas no se publican en la conversación ni se vocalizan: la pantalla del protocolo
-maneja la ventana de deshacer. Este modo existe en el código de producción, pero no activa
+maneja la ventana de deshacer. El modo se activa al entrar a la pantalla del protocolo y se
+desactiva al salir: fuera de ella, el chat del build de evaluación publica igual que en
+producción. Este modo existe en el código de producción, pero no activa
 ninguna recolección; sin `:evaluacion` no hay nadie que lo use.
 
 **Alternativas descartadas**: duplicar la cadena de cámara y clasificador en `:evaluacion`

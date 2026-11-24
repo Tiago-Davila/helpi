@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -51,7 +52,9 @@ import com.helpi.evaluacion.ui.protocolo.ProtocoloRoute
 object VariantBindings {
     internal val registroObserver = RegistroObserver()
     val recognitionObserver: RecognitionObserver = registroObserver
-    val deliveryMode = SessionCoordinator.DeliveryMode.OBSERVER_ONLY
+
+    /** El chat publica igual que en producción; solo el protocolo pasa a `OBSERVER_ONLY`. */
+    val deliveryMode = SessionCoordinator.DeliveryMode.CONVERSATION
 
     @Composable
     fun applicationContent(modifier: Modifier, content: @Composable () -> Unit) {
@@ -117,23 +120,26 @@ object VariantBindings {
                 )
 
                 // El protocolo usa la cámara: va en horizontal, con el giro previo.
-                EvaluacionGraph.PROTOCOL_ROUTE -> TransicionDeOrientacion(
-                    enSala = true,
-                    sala = {
-                        ProtocoloRoute(
-                            sessionId = EvaluacionGraph.sesionActualId,
-                            camara = protocoloCamaraState(state),
-                            observer = registroObserver,
-                            cameraPreview = cameraPreview,
-                            onStartRecognition = onStartRecognition,
-                            onExit = {
-                                sessionCoordinator.pause()
-                                EvaluacionGraph.volver()
-                            }
-                        )
-                    },
-                    inicio = {}
-                )
+                EvaluacionGraph.PROTOCOL_ROUTE -> {
+                    EntregaSoloAlObservador(sessionCoordinator)
+                    TransicionDeOrientacion(
+                        enSala = true,
+                        sala = {
+                            ProtocoloRoute(
+                                sessionId = EvaluacionGraph.sesionActualId,
+                                camara = protocoloCamaraState(state),
+                                observer = registroObserver,
+                                cameraPreview = cameraPreview,
+                                onStartRecognition = onStartRecognition,
+                                onExit = {
+                                    sessionCoordinator.pause()
+                                    EvaluacionGraph.volver()
+                                }
+                            )
+                        },
+                        inicio = {}
+                    )
+                }
 
                 EvaluacionGraph.SETTINGS_ROUTE -> AjustesEvaluacionRoute(
                     onVolver = EvaluacionGraph::volver,
@@ -204,6 +210,15 @@ object VariantBindings {
 
     fun createSessionCoordinator(context: android.content.Context) =
         SessionCoordinator(context, recognitionObserver, deliveryMode)
+}
+
+/** Mientras está en pantalla, lo reconocido va al registro y no a la conversación. */
+@Composable
+internal fun EntregaSoloAlObservador(coordinator: SessionCoordinator) {
+    DisposableEffect(coordinator) {
+        coordinator.setDeliveryMode(SessionCoordinator.DeliveryMode.OBSERVER_ONLY)
+        onDispose { coordinator.setDeliveryMode(SessionCoordinator.DeliveryMode.CONVERSATION) }
+    }
 }
 
 /**
