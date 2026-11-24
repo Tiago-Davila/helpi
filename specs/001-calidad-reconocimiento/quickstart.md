@@ -14,7 +14,7 @@ implementación. Los nombres de tareas Gradle y de tests son los que define el p
 |---|---|
 | Dispositivo de referencia | Teléfono físico Android ≥ 10 con almacenamiento cifrado (research R-03), el mismo para todas las mediciones de sobrecosto. Se registra modelo y versión en el reporte |
 | Propiedades locales | `helpi.evaluacion.urlReceptor` y `helpi.evaluacion.claveEnvio` en `local.properties` (nunca en el repositorio). Sin ellas el build funciona, pero solo exporta a archivo |
-| Assets de evaluación | Video del aviso en LSA (`avisoVersion` vigente) y paquete de videos de referencia de LSA64 de `helpi-ml`, con hashes que coincidan con sus manifiestos |
+| Assets de evaluación | Paquete de videos de referencia de LSA64 de `helpi-ml`, con hashes que coincidan con sus manifiestos |
 | Receptor | Un entorno de `helpi-firebase` que pase sus propias pruebas de contrato ([contrato](contracts/envio-sesion-evaluacion.md#sincronización-con-helpi-firebase)) |
 | Participante | Código asignado por el equipo (`P-NNN`); persona informada de que el consentimiento es por dispositivo |
 

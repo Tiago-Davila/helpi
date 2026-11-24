@@ -330,7 +330,7 @@ y el receptor está obligado a poder suprimirlo por sesión o por participante.
 
 | Riesgo | Mitigación |
 |---|---|
-| El video en LSA del aviso no está grabado: sin él no se puede hacer una sesión con participantes sordos (SC-006) | Dependencia explícita (R-09). El consentimiento exige el asset con su hash; se planifica antes de la primera sesión |
+| El video en LSA del aviso no está grabado: sin él SC-006 no se puede dar por cumplido | Desde el aviso versión 2 el consentimiento no lo exige (R-09); grabarlo sigue pendiente |
 | El receptor de `helpi-firebase` todavía no existe | La exportación a archivo usa el mismo formato y no depende del receptor. El envío se prueba con `MockWebServer` hasta que exista |
 | Transferencia de datos sensibles (glosas) a infraestructura en la nube, posiblemente fuera de Argentina (Ley N.º 25.326) | Fuera del alcance técnico. Se suma a la revisión legal que ya pide la spec, **antes del primer envío real**. Hasta entonces, se usa solo la exportación a archivo |
 | Si se activa R8 en release, la capa 2 de la verificación deja de leer nombres reales | La capa 1 (grafo) sigue siendo la garantía; la capa 2 pasaría a usar `mapping.txt` (R-01) |

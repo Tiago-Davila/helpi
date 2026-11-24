@@ -35,8 +35,8 @@ filas; la revocación completa la fila vigente.
 | Campo | Tipo | Regla |
 |---|---|---|
 | `id` | Long PK autoinc | |
-| `avisoVersion` | String | Versión común del texto y del video en LSA (FR-012, FR-014) |
-| `avisoVideoSha256` | String(64) | Hash del video mostrado; debe coincidir con el asset de esa versión |
+| `avisoVersion` | String | Versión del aviso aceptado (FR-012, FR-014); desde la 2, solo texto |
+| `avisoVideoSha256` | String(64) | Hash del video mostrado; desde la versión 2, el SHA-256 de cero bytes (sin video) |
 | `otorgadoEn` | Long | Momento de la acción explícita de aceptar |
 | `revocadoEn` | Long? | Null mientras está vigente |
 

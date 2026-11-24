@@ -7,6 +7,7 @@ import android.os.SystemClock
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.helpi.evaluacion.consentimiento.AVISO_VERSION_ACTUAL
 import com.helpi.evaluacion.datos.HelpiEvaluacionDatabase
 import com.helpi.evaluacion.datos.PrediccionTopDato
 import com.helpi.evaluacion.datos.entidades.CausaInterrupcion
@@ -134,7 +135,7 @@ class SesionInterrumpidaTest {
     ) {
         val consentimientoId = database.consentimientoDao().insertar(
             ConsentimientoEntity(
-                avisoVersion = "1",
+                avisoVersion = AVISO_VERSION_ACTUAL,
                 avisoVideoSha256 = HASH,
                 otorgadoEn = 20L,
                 revocadoEn = null

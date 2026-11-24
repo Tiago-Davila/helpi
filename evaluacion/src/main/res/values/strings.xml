@@ -8,11 +8,6 @@
     <string name="aviso_quien_accede">El equipo de evaluación puede acceder a las sesiones que se le envíen.</string>
     <string name="aviso_a_quienes_cubre">Este consentimiento cubre a todas las personas que participen en este teléfono.</string>
     <string name="aviso_revocar_y_borrar">Puedes revocar el consentimiento en Ajustes de evaluación. Revocar detiene el registro y borra los envíos que todavía no salieron del teléfono, pero no borra las sesiones guardadas. Borrar los datos es una acción aparte. Para pedir que el equipo elimine una sesión ya enviada, contacta al equipo de evaluación.</string>
-    <string name="aviso_video_titulo">Aviso completo en LSA</string>
-    <string name="aviso_video_no_reproducido">El video no se reproduce hasta que lo pidas.</string>
-    <string name="aviso_video_faltante">Falta el video del aviso en LSA o no está disponible. No se puede aceptar ni iniciar una validación hasta instalar el asset oficial.</string>
-    <string name="aviso_reproducir_video">Reproducir video en LSA</string>
-    <string name="aviso_video_atribucion">LSA64 · LIDI, UNLP · CC BY-NC-SA 4.0</string>
     <string name="aviso_aceptar">Acepto que se registre</string>
     <string name="aviso_continuar">Continuar a condiciones de la prueba</string>
     <string name="aviso_aceptacion_fallo">No se pudo guardar el consentimiento. Inténtalo de nuevo.</string>
