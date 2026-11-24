@@ -2,13 +2,11 @@ package com.helpi.evaluacion.consentimiento
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
-import java.io.File
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -20,19 +18,12 @@ class ConsentimientoScreenTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun aceptarNoExigeReproducirElVideoDePrueba() {
-        val instrumentacion = InstrumentationRegistry.getInstrumentation()
-        val archivo = File(instrumentacion.targetContext.cacheDir, "aviso-ui-test.mp4")
-        instrumentacion.context.assets.open("evaluacion/aviso/aviso-v1-test.mp4").use { entrada ->
-            archivo.outputStream().use(entrada::copyTo)
-        }
-        val video = AvisoVideoAsset(archivo, requireNotNull(AvisoVideoAssetLoader.hash(archivo)))
+    fun elBotonDeAceptarEstaALaVistaYHabilitadoSinDesplazarElTexto() {
         var aceptado = false
 
         composeRule.setContent {
             MaterialTheme {
                 ConsentimientoScreen(
-                    video = video,
                     consentimientoVigente = false,
                     onAceptar = { aceptado = true },
                     onVolver = {}
@@ -40,9 +31,10 @@ class ConsentimientoScreenTest {
             }
         }
 
-        composeRule.onNodeWithTag("consentPlayVideoButton").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithTag("consentAcceptButton").performScrollTo().performClick()
+        composeRule.onNodeWithTag("consentAcceptButton")
+            .assertIsDisplayed()
+            .assertIsEnabled()
+            .performClick()
         composeRule.runOnIdle { assertTrue(aceptado) }
-        archivo.delete()
     }
 }

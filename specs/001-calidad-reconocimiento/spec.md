@@ -378,10 +378,11 @@ verificar que solo quedan las del otro.
   a todas las personas que participen en ese dispositivo, para que el equipo lo explique a
   cada participante antes de su sesión.
 - **FR-012**: El aviso MUST ser comprensible para una persona sorda sin instrucciones
-  externas: lenguaje llano, apoyo visual y sin depender de audio. MUST incluir un **video en
-  LSA** del aviso completo, mostrado junto al texto llano. El video se versiona con el aviso:
-  un cambio material (FR-014) exige un video nuevo. Mirar el video no reemplaza la acción
-  explícita de consentir.
+  externas: lenguaje llano, apoyo visual y sin depender de audio. El **video en LSA** del
+  aviso se quitó por decisión del equipo (2026-11-23, aviso versión 2): el video nunca se
+  grabó y su ausencia impedía crear sesiones. Queda como pendiente, no como requisito
+  descartado: mientras falte, el aviso es solo texto y no alcanza para una persona sorda que
+  no lea español con comodidad (SC-006).
 - **FR-013**: El consentimiento MUST poder revocarse en cualquier momento desde la app. La
   revocación detiene todo registro futuro (incluida la sesión en curso) y MUST NOT borrar lo
   ya registrado, que se conserva hasta su retención (NFR-011).

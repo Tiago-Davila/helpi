@@ -315,10 +315,10 @@ corresponde a la spec 002.
   - que el consentimiento cubre a todas las personas que participen en ese dispositivo;
   - cómo revocar y cómo pedir el borrado.
 
-  La aceptación es un botón explícito ("Acepto que se registre") que se habilita sin exigir
-  ver el video: ver el video no equivale a consentir (FR-012).
-- El texto y el video tienen una versión común, `avisoVersion`. El video se versiona con el
-  aviso: un cambio material sube la versión y vuelve a pedir el consentimiento (FR-014).
+  La aceptación es un botón explícito ("Acepto que se registre"), siempre a la vista y
+  habilitado desde el principio (FR-012).
+- El aviso tiene una versión, `avisoVersion`: un cambio material la sube y vuelve a pedir el
+  consentimiento (FR-014). La versión 2 es solo texto, sin video en LSA.
 - **Revocar** (FR-013), desde Ajustes de evaluación:
   - el intento en curso se descarta y la sesión pasa a `INTERRUMPIDA`, causa `REVOCACION`;
   - los envíos `PENDIENTE` se cancelan y se borran de la cola, porque todavía no salieron
@@ -337,10 +337,9 @@ corresponde a la spec 002.
   El plazo legal para esa respuesta se confirma en la revisión bajo la Ley N.º 25.326 que pide
   la spec (Dependencias y riesgos).
 
-**Dependencia**: grabar el video en LSA requiere una persona intérprete o señante y se repite
-con cada versión material del aviso. Sin el video, el build de evaluación no puede usarse con
-participantes sordos (SC-006). La pantalla de consentimiento exige que el asset exista y que su
-hash coincida con `avisoVersion`.
+**Pendiente**: grabar el video en LSA requiere una persona intérprete o señante y se repite con
+cada versión material del aviso. Desde la versión 2 la pantalla de consentimiento no lo exige;
+SC-006 (participantes sordos sin ayuda externa) no se puede dar por cumplido sin él.
 
 ---
 
