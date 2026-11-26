@@ -1282,7 +1282,7 @@ private fun HojaDeAjustes(
                 TextButton(onClick = onDismiss) { Text("Listo") }
             }
             SelectorDeLengua(state.signLanguage, actions.signLanguage)
-            SelectorDeModo(state, actions.recognitionMode)
+            if (MOSTRAR_MODO_FRASE) SelectorDeModo(state, actions.recognitionMode)
             ControlDeUmbral(state, actions.threshold)
             DiagnosticoVisual(state)
             AvisosDeCapacidades(state)
@@ -1362,6 +1362,12 @@ private fun DiagnosticoVisual(state: SessionUiState) {
         }
     }
 }
+
+/**
+ * El modo frase experimental queda oculto: la persona solo usa seña individual. El código del
+ * modo se conserva; para volver a ofrecerlo alcanza con poner esto en true.
+ */
+internal const val MOSTRAR_MODO_FRASE = false
 
 /** Ancho desde el cual las opciones de modo caben una al lado de la otra. */
 private val ANCHO_MINIMO_CHIPS_EN_FILA = 320.dp

@@ -18,18 +18,40 @@ public final class SignAcceptancePolicy {
     private final float threshold;
     private final boolean outputsProbabilities;
     private final int expectedClasses;
+    private final float[] classThresholds;
 
     /** Configura el umbral, el formato de salida del modelo y el tamaño del catálogo. */
     public SignAcceptancePolicy(float threshold, boolean outputsProbabilities, int expectedClasses) {
+        this(threshold, outputsProbabilities, expectedClasses, null);
+    }
+
+    /**
+     * Igual, con un umbral propio por clase (null = el general para todas). Lo usan las
+     * señas con pocos datos de entrenamiento, que se aceptan con menos confianza.
+     */
+    public SignAcceptancePolicy(float threshold, boolean outputsProbabilities, int expectedClasses,
+            float[] classThresholds) {
         if (threshold <= 0f || threshold >= 1f) {
             throw new IllegalArgumentException("umbral fuera de (0,1): " + threshold);
         }
         if (expectedClasses <= 0) {
             throw new IllegalArgumentException("cantidad de clases inválida: " + expectedClasses);
         }
+        if (classThresholds != null) {
+            if (classThresholds.length != expectedClasses) {
+                throw new IllegalArgumentException("umbrales por clase: " + classThresholds.length
+                        + " para " + expectedClasses + " clases");
+            }
+            for (float t : classThresholds) {
+                if (t <= 0f || t >= 1f) {
+                    throw new IllegalArgumentException("umbral por clase fuera de (0,1): " + t);
+                }
+            }
+        }
         this.threshold = threshold;
         this.outputsProbabilities = outputsProbabilities;
         this.expectedClasses = expectedClasses;
+        this.classThresholds = classThresholds == null ? null : classThresholds.clone();
     }
 
     /** Evalúa las puntuaciones sin contexto previo. */
@@ -71,13 +93,14 @@ public final class SignAcceptancePolicy {
             return invalidDecision();
         }
         float rawConfidence = raw[best.classIndex];
-        if (confidence < threshold) {
+        float limit = classThresholds == null ? threshold : classThresholds[best.classIndex];
+        if (confidence < limit) {
             // vocabulario cerrado: fuera de las 64 se resuelve como
             // no-reconocida, nunca se fuerza a la clase más cercana
             return new SignDecision(false, best.classIndex, confidence, rawConfidence,
                     AcceptanceReason.BELOW_THRESHOLD, predictions);
         }
-        if (rawConfidence < threshold - RAW_FLOOR_MARGIN) {
+        if (rawConfidence < limit - RAW_FLOOR_MARGIN) {
             return new SignDecision(false, best.classIndex, confidence, rawConfidence,
                     AcceptanceReason.BELOW_RAW_FLOOR, predictions);
         }

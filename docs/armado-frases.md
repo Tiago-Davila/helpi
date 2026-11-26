@@ -63,6 +63,20 @@ lengua sin léxico o plantillas muestra glosas sueltas; las demás no se afectan
   la frase se siguen mostrando las letras sueltas (`A N A`). Si una letra queda
   bajo el umbral no se deletrea nada: `A ¿? A`.
 
+## Umbral reducido para letras y tiempo
+
+El modelo tiene pocos ejemplos de las letras y de `Hoy`, `Ayer` y `Mañana`, y
+les da poca confianza aunque las reconozca. Por eso esas categorías (`letra` y
+`tiempo`) se aceptan con un umbral de **20 %** (`ReducedThreshold`), o con el
+general si es menor. El resto de las señas usa el umbral general, que por
+defecto es 50 %.
+
+- Se aplica en la compuerta de aceptación (`SignAcceptancePolicy`, umbral por
+  clase) y en el armado (`PhraseBuilder`), con la categoría que da el léxico.
+- Sin léxico validado, todas las clases usan el umbral general.
+- Sigue valiendo el piso de probabilidad cruda: umbral menos 0,15.
+- Es un parche mientras se consiguen más datos de esas señas en `helpi-ml`.
+
 ## LSE: primera persona por defecto (funcionalidad 007)
 
 El vocabulario de LSE (SWL-LSE, 299 clases) es médico: quien seña casi siempre

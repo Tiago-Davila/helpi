@@ -83,9 +83,21 @@ public final class PhraseBuilder {
     private List<String> glosses(List<RecognizedSign> sentence) {
         List<String> glosses = new ArrayList<>(sentence.size());
         for (RecognizedSign sign : sentence) {
-            glosses.add(sign.confidence() < threshold ? GAP : notation(sign.gloss()));
+            glosses.add(sign.confidence() < thresholdFor(sign) ? GAP : notation(sign.gloss()));
         }
         return glosses;
+    }
+
+    // Letras y tiempo usan el umbral reducido; sin léxico que confirme la categoría, el general.
+    private float thresholdFor(RecognizedSign sign) {
+        if (lexicon == null) {
+            return threshold;
+        }
+        LexicalEntry entry = lexicon.entry(sign.classIndex());
+        if (entry == null || !entry.gloss().equals(sign.gloss())) {
+            return threshold;
+        }
+        return ReducedThreshold.forCategory(entry.category(), threshold);
     }
 
     // null si alguna seña no permite usar plantillas: hueco o índice que no coincide.
@@ -93,7 +105,8 @@ public final class PhraseBuilder {
         List<LexicalEntry> entries = new ArrayList<>(sentence.size());
         for (RecognizedSign sign : sentence) {
             LexicalEntry entry = lexicon.entry(sign.classIndex());
-            if (sign.confidence() < threshold || entry == null || !entry.gloss().equals(sign.gloss())) {
+            if (entry == null || !entry.gloss().equals(sign.gloss())
+                    || sign.confidence() < ReducedThreshold.forCategory(entry.category(), threshold)) {
                 return null;
             }
             entries.add(entry);

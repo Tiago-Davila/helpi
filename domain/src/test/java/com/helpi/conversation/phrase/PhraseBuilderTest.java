@@ -16,7 +16,9 @@ public class PhraseBuilderTest {
 
     private static final float THRESHOLD = 0.7f;
     private static final float HIGH = 0.95f;
-    private static final float LOW = 0.4f;
+    private static final float LOW = 0.1f;
+    /** Bajo el umbral general pero sobre el reducido de letras y tiempo. */
+    private static final float MEDIUM = 0.3f;
 
     private static final Lexicon LEXICON = Lexicon.parse(LsaAssets.read("lexico_senas.json"));
     private static final TemplateSet TEMPLATES = TemplateSet.parse(LsaAssets.read("plantillas_frases.json"));
@@ -129,6 +131,29 @@ public class PhraseBuilderTest {
             assertEquals(row[0], row[3], String.join(" ", result.appliedTemplates()));
             assertEquals(row[0], !row[3].isEmpty(), result.templateApplied());
         }
+    }
+
+    @Test
+    public void letrasYTiempoSeAceptanConElUmbralReducido() {
+        List<RecognizedSign> signs = Arrays.asList(
+                new RecognizedSign(indexOf("Hoy"), "Hoy", MEDIUM),
+                new RecognizedSign(indexOf("Comprar"), "Comprar", HIGH),
+                new RecognizedSign(indexOf("Leche"), "Leche", HIGH));
+        assertEquals("Hoy compro la leche.", BUILDER.build(signs).text());
+
+        List<RecognizedSign> spelled = Arrays.asList(
+                new RecognizedSign(indexOf("A"), "A", MEDIUM),
+                new RecognizedSign(indexOf("N"), "N", MEDIUM),
+                new RecognizedSign(indexOf("A"), "A", MEDIUM));
+        assertEquals("Ana.", BUILDER.build(spelled).text());
+    }
+
+    @Test
+    public void lasDemasSenasSiguenConElUmbralGeneral() {
+        List<RecognizedSign> signs = Arrays.asList(
+                new RecognizedSign(indexOf("Hoy"), "Hoy", HIGH),
+                new RecognizedSign(indexOf("Comprar"), "Comprar", MEDIUM));
+        assertEquals("HOY ¿?", BUILDER.build(signs).text());
     }
 
     @Test

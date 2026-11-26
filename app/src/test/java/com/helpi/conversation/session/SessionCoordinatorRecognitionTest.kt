@@ -189,7 +189,7 @@ class SessionCoordinatorRecognitionTest {
         val visible = state.turns.filter { it.state() != TurnState.REJECTED }
         assertEquals(Speaker.SYSTEM, visible.single().speaker())
         assertTrue(visible.single().text().startsWith("No reconocí la seña."))
-        assertTrue(visible.single().text().endsWith("umbral 90 %."))
+        assertTrue(visible.single().text().endsWith("umbral 50 %."))
         assertFalse(state.lastRecognition!!.accepted)
         assertNull(state.lastRecognition!!.gloss)
         assertEquals(listOf("inicio", "rechazada"), recorder.events)
