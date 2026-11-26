@@ -1,11 +1,11 @@
 {
-  "version": "1",
+  "version": "2",
   "lexicoVersion": "3",
   "transiciones": {
-    "inicio":  {"tiempo": 1.6, "persona": 1.6},
-    "tiempo":  {"tiempo": 0.3, "persona": 1.6, "verbo": 1.6, "cualidad": 0.8},
-    "persona": {"tiempo": 0.6, "persona": 0.8, "verbo": 1.6, "cualidad": 1.3},
-    "verbo":   {"tiempo": 0.6, "persona": 1.3, "verbo": 1.3, "objeto": 1.6, "lugar": 1.3, "cualidad": 0.8},
+    "inicio":  {"tiempo": 2.0, "persona": 1.3, "verbo": 1.2},
+    "tiempo":  {"tiempo": 0.3, "persona": 1.3, "verbo": 2.0, "cualidad": 0.8},
+    "persona": {"tiempo": 0.6, "persona": 0.8, "verbo": 1.8, "cualidad": 1.3},
+    "verbo":   {"tiempo": 0.5, "persona": 1.2, "verbo": 1.1, "objeto": 2.0, "lugar": 1.4, "cualidad": 0.8},
     "objeto":  {"tiempo": 0.6, "verbo": 1.3, "cualidad": 1.3},
     "lugar":   {"tiempo": 0.6},
     "cualidad":{"tiempo": 0.6},

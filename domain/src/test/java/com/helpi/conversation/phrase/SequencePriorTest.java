@@ -19,11 +19,21 @@ public class SequencePriorTest {
     }
 
     @Test
-    public void alInicioTiempoYPersonaSuben() {
+    public void alInicioElTiempoEsLoMasEsperado() {
         SequencePrior p = deployed();
-        assertTrue(p.weight(null, SignCategory.TIEMPO) > 1f);
         assertTrue(p.weight(null, SignCategory.PERSONA) > 1f);
-        assertEquals(1f, p.weight(null, SignCategory.VERBO), 0f);
+        assertTrue(p.weight(null, SignCategory.TIEMPO) > p.weight(null, SignCategory.PERSONA));
+        assertTrue(p.weight(null, SignCategory.TIEMPO) > p.weight(null, SignCategory.VERBO));
+        assertEquals(1f, p.weight(null, SignCategory.OBJETO), 0f);
+    }
+
+    @Test
+    public void ordenTiempoVerboObjeto() {
+        SequencePrior p = deployed();
+        assertTrue(p.weight(SignCategory.TIEMPO, SignCategory.VERBO)
+                > p.weight(SignCategory.TIEMPO, SignCategory.PERSONA));
+        assertTrue(p.weight(SignCategory.VERBO, SignCategory.OBJETO)
+                > p.weight(SignCategory.VERBO, SignCategory.LUGAR));
     }
 
     @Test
