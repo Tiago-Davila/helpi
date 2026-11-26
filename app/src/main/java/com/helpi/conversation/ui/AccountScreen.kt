@@ -334,7 +334,7 @@ internal fun AvisosDeCapacidades(state: SessionUiState) {
             color = HelpiColors.Warning
         )
     }
-    if (!state.capabilities.phraseVision) {
+    if (MOSTRAR_MODO_FRASE && !state.capabilities.phraseVision) {
         Text(
             "El modo frase experimental todavía no está disponible: " +
                 state.capabilities.phraseVisionDetail.ifBlank { "falta su paquete de modelo." },
