@@ -142,4 +142,20 @@ public class SignAcceptancePolicyTest {
         assertEquals(0.95f, d.rawConfidence, 1e-6f);
         assertEquals(d.confidence, d.rawConfidence, 1e-6f);
     }
+
+    @Test
+    public void umbralPorClaseAceptaLaClaseReducida() {
+        SignAcceptancePolicy p = new SignAcceptancePolicy(0.5f, true, 3, new float[] {0.5f, 0.2f, 0.5f});
+        SignDecision d = p.evaluate(new float[] {0.35f, 0.40f, 0.25f});
+        assertTrue(d.accepted);
+        assertEquals(1, d.classIndex);
+    }
+
+    @Test
+    public void umbralPorClaseNoAfectaALasDemas() {
+        SignAcceptancePolicy p = new SignAcceptancePolicy(0.5f, true, 3, new float[] {0.5f, 0.2f, 0.5f});
+        SignDecision d = p.evaluate(new float[] {0.40f, 0.35f, 0.25f});
+        assertFalse(d.accepted);
+        assertEquals(AcceptanceReason.BELOW_THRESHOLD, d.reason);
+    }
 }

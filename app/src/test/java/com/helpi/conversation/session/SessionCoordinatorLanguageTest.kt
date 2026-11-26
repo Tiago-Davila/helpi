@@ -94,7 +94,7 @@ class SessionCoordinatorLanguageTest {
     fun lsaIsTheInitialLanguageWithItsThreshold() {
         val state = startWithVision()
         assertEquals(SignLanguage.LSA, state.signLanguage)
-        assertEquals(0.90f, state.confidenceThreshold)
+        assertEquals(0.50f, state.confidenceThreshold)
         assertTrue(state.capabilities.vision)
         assertEquals("lsa", created.single().language)
     }

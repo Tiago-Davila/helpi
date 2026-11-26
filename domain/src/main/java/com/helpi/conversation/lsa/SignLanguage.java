@@ -2,8 +2,8 @@ package com.helpi.conversation.lsa;
 
 /** Lengua de señas del canal visual. Cada una tiene su propio modelo y catálogo. */
 public enum SignLanguage {
-    /** LSA: umbral conservador de Eva desde LSA64. */
-    LSA("lsa", 0.90f),
+    /** LSA: el 50 % con el que se usa en la práctica (antes 0,90, el conservador de LSA64). */
+    LSA("lsa", 0.50f),
     /**
      * LSE: eva-lse300-v1 recomienda 0,47 (90 % de exactitud en lo aceptado en
      * validación); se usa el mínimo que admite la app.

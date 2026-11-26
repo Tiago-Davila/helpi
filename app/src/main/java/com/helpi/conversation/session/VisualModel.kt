@@ -93,9 +93,18 @@ internal class VisualModel(
 
     fun shutdown() = inferenceExecutor.shutdown()
 
-    private fun policyFor(loaded: ModelBundle) = SignAcceptancePolicy(
-        data.thresholds.current,
-        loaded.manifest.outputsProbabilities,
-        loaded.manifest.numClasses
-    )
+    // Letras y tiempo se aceptan con el umbral reducido; si el léxico no cubre justo las
+    // clases del modelo, todas usan el general.
+    private fun policyFor(loaded: ModelBundle): SignAcceptancePolicy {
+        val general = data.thresholds.current
+        val numClasses = loaded.manifest.numClasses
+        val perClass = delivery.phraseAssets.classThresholds(general)
+            ?.takeIf { it.size == numClasses }
+        return SignAcceptancePolicy(
+            general,
+            loaded.manifest.outputsProbabilities,
+            numClasses,
+            perClass
+        )
+    }
 }

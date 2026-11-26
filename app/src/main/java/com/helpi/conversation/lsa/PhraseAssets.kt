@@ -5,6 +5,7 @@ import com.helpi.conversation.phrase.Lexicon
 import com.helpi.conversation.phrase.PhraseBuilder
 import com.helpi.conversation.phrase.PhraseCompatibility
 import com.helpi.conversation.phrase.RecognizedSign
+import com.helpi.conversation.phrase.ReducedThreshold
 import com.helpi.conversation.phrase.SequencePrior
 import com.helpi.conversation.phrase.TemplateSet
 import java.io.IOException
@@ -27,6 +28,9 @@ sealed class PhraseAssets {
     /** Pesos del contexto previo para la próxima seña, o null si no hay contexto que aplicar. */
     abstract fun contextWeights(sentence: List<RecognizedSign>): FloatArray?
 
+    /** Umbral de cada clase (letras y tiempo, reducido), o null si no se conoce la categoría. */
+    abstract fun classThresholds(general: Float): FloatArray?
+
     class Ready internal constructor(
         private val lexicon: Lexicon,
         private val templates: TemplateSet,
@@ -43,6 +47,10 @@ sealed class PhraseAssets {
             }
             return prior?.takeIf { entries.size == sentence.size }?.weights(lexicon, entries)
         }
+
+        /** Las categorías salen del léxico ya verificado contra el catálogo. */
+        override fun classThresholds(general: Float): FloatArray =
+            ReducedThreshold.perClass(lexicon, general)
     }
 
     class Disabled internal constructor(val reason: String) : PhraseAssets() {
@@ -52,6 +60,9 @@ sealed class PhraseAssets {
 
         /** Sin léxico validado no se sabe la categoría de cada clase: sin contexto. */
         override fun contextWeights(sentence: List<RecognizedSign>): FloatArray? = null
+
+        /** Sin léxico validado todas las clases usan el umbral general. */
+        override fun classThresholds(general: Float): FloatArray? = null
     }
 
     companion object {

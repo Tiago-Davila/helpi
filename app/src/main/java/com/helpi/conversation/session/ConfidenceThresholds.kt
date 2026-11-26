@@ -23,8 +23,8 @@ internal class ConfidenceThresholds(language: SignLanguage) {
     }
 
     companion object {
-        /** Umbral inicial de laboratorio (D03); no aprobado de producción. */
-        const val DEFAULT = 0.90f
+        /** Umbral inicial: el 50 % con el que se usa la app. */
+        const val DEFAULT = 0.50f
         const val MIN = 0.50f
         const val MAX = 0.99f
     }
